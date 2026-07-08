@@ -15,9 +15,12 @@ export type Patient = {
   id: string;
   profile_id?: string | null;
   clinician_id?: string | null;
+  display_name?: string | null;
   full_name?: string | null;
   date_of_birth?: string | null;
   diagnosis?: string | null;
+  primary_complaint?: string | null;
+  current_focus?: string | null;
   status?: string | null;
   created_at?: string | null;
 };

@@ -13,7 +13,7 @@ import type {
 } from "@/lib/types";
 
 export const samplePatient: Patient = {
-  id: "demo-patient",
+  id: "sample-patient",
   full_name: "Avery Chen",
   diagnosis: "Rotator cuff tendinopathy",
   status: "Active",

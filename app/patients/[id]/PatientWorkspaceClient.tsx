@@ -7,24 +7,69 @@ import { GoalProgress } from "@/components/GoalProgress";
 import { MetricCard } from "@/components/MetricCard";
 import { ProgressBars } from "@/components/ProgressBars";
 import { RequireAuth } from "@/components/RequireAuth";
-import { loadPatientWorkspace } from "@/lib/data";
+import { emptyWorkspace, loadPatientWorkspace } from "@/lib/data";
 import { formatDate } from "@/lib/format";
-import { sampleWorkspace } from "@/lib/sample-data";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { PatientWorkspace } from "@/lib/types";
 
 export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
-  const [workspace, setWorkspace] = useState<PatientWorkspace>(sampleWorkspace);
+  const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
-    if (!isSupabaseConfigured() || patientId === "demo-patient") {
+    if (!isSupabaseConfigured()) {
+      setStatus("Connect Supabase to load patient workspaces.");
+      setWorkspace(emptyWorkspace());
       return;
     }
 
     const supabase = createSupabaseBrowserClient();
-    loadPatientWorkspace(supabase, patientId).then(setWorkspace).catch(() => setWorkspace(sampleWorkspace));
+    loadPatientWorkspace(supabase, patientId)
+      .then((loadedWorkspace) => {
+        setWorkspace(loadedWorkspace);
+        setStatus(loadedWorkspace.patient ? "" : "Patient not found for the current clinician.");
+      })
+      .catch(() => {
+        setWorkspace(emptyWorkspace());
+        setStatus("Patient workspace could not be loaded.");
+      });
   }, [patientId]);
 
+  if (!workspace) {
+    return (
+      <AppShell>
+        <RequireAuth>
+          <div className="empty">Loading patient workspace...</div>
+        </RequireAuth>
+      </AppShell>
+    );
+  }
+
+  if (!workspace.patient) {
+    return (
+      <AppShell>
+        <RequireAuth>
+          <div className="topbar">
+            <div>
+              <p className="eyebrow">Patient workspace</p>
+              <h2>Select a patient first</h2>
+              <p className="muted">{status || "Open a real patient before reviewing the workspace."}</p>
+            </div>
+            <Link className="button" href="/patients/new">Add Patient</Link>
+          </div>
+          <div className="empty">
+            <strong>No patient workspace is open.</strong>
+            <p>Return to the dashboard and choose a patient card, or create a new patient.</p>
+            <Link className="secondary-button" href="/dashboard" style={{ marginTop: 14 }}>
+              Back to Dashboard
+            </Link>
+          </div>
+        </RequireAuth>
+      </AppShell>
+    );
+  }
+
+  const patientName = workspace.patient.display_name ?? workspace.patient.full_name ?? "Patient context";
   const latestCheckin = workspace.checkins[0];
   const latestMetric = workspace.progressMetrics.at(-1);
 
@@ -34,10 +79,10 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
         <div className="topbar">
           <div>
             <p className="eyebrow">Patient workspace</p>
-            <h2>{workspace.patient?.full_name ?? "Patient context"}</h2>
+            <h2>{patientName}</h2>
             <p className="muted">{workspace.episode?.diagnosis ?? workspace.patient?.diagnosis ?? "Episode context"} · {workspace.episode?.stage ?? "Active care"}</p>
           </div>
-          <Link className="button" href={`/program-builder/${workspace.patient?.id ?? patientId}`}>Update program</Link>
+          <Link className="button" href={`/program-builder/${workspace.patient.id}`}>Update program</Link>
         </div>
         <div className="grid three">
           <MetricCard label="Pain today" value={latestCheckin?.pain_score ?? "n/a"} detail={latestCheckin?.notes ?? "No daily check-in note"} />

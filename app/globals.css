@@ -250,6 +250,35 @@ button {
   background: #fff;
 }
 
+.patient-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.patient-card-heading {
+  align-items: flex-start;
+}
+
+.patient-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.patient-form {
+  max-width: 720px;
+}
+
+.form-error {
+  color: #9f2f22;
+  font-weight: 700;
+}
+
 .progress-track {
   overflow: hidden;
   height: 12px;

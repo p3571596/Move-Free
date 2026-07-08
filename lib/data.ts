@@ -41,14 +41,11 @@ export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSn
     return { profile: null, patients: [], recentCheckins: [], openDecisions: [] };
   }
 
-  const profile = await getProfile(client, user);
-  const clinicianId = profile?.id ?? user.id;
-
   const [patientsResult, checkinsResult, decisionsResult] = await Promise.all([
     client
       .from("patients")
       .select("*")
-      .or(`clinician_id.eq.${clinicianId},profile_id.eq.${user.id}`)
+      .eq("clinician_id", user.id)
       .order("created_at", { ascending: false })
       .limit(12),
     client
@@ -64,7 +61,7 @@ export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSn
   ]);
 
   return {
-    profile,
+    profile: await getProfile(client, user),
     patients: patientsResult.data ?? [],
     recentCheckins: checkinsResult.data ?? [],
     openDecisions: decisionsResult.data ?? [],
@@ -78,18 +75,24 @@ export async function loadPatientWorkspace(client: Client, patientId?: string): 
     return emptyWorkspace();
   }
 
-  const profile = await getProfile(client, user);
-  const scopedPatientId = patientId ?? profile?.id ?? user.id;
+  if (!patientId) {
+    return emptyWorkspace();
+  }
 
   const patientResult = await client
     .from("patients")
     .select("*")
-    .or(`id.eq.${scopedPatientId},profile_id.eq.${user.id}`)
+    .eq("id", patientId)
+    .eq("clinician_id", user.id)
     .limit(1)
     .maybeSingle();
 
   const patient = patientResult.data;
-  const resolvedPatientId = patient?.id ?? scopedPatientId;
+  if (!patient) {
+    return emptyWorkspace();
+  }
+
+  const resolvedPatientId = patient.id;
 
   const [
     episodeResult,
@@ -195,7 +198,7 @@ export async function logPainPattern(client: Client, patientId: string, painScor
   }
 }
 
-function emptyWorkspace(): PatientWorkspace {
+export function emptyWorkspace(): PatientWorkspace {
   return {
     patient: null,
     episode: null,

@@ -7,8 +7,8 @@ import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabas
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/patients/demo-patient", label: "Patient Workspace", icon: Stethoscope },
-  { href: "/program-builder/demo-patient", label: "Program Builder", icon: Dumbbell },
+  { href: "/dashboard", label: "Patients", icon: Stethoscope },
+  { href: "/program-builder", label: "Program Builder", icon: Dumbbell },
   { href: "/exercise-studio", label: "Exercise Studio", icon: Activity },
   { href: "/app", label: "Patient App", icon: Home },
   { href: "/feedback", label: "Feedback", icon: MessageSquare },

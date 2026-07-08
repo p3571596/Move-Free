@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { MetricCard } from "@/components/MetricCard";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -22,46 +23,59 @@ export default function DashboardPage() {
     loadClinicianSnapshot(supabase).then(setSnapshot).catch(() => setSnapshot(null));
   }, []);
 
+  const patients = snapshot?.patients ?? [];
+
   return (
     <AppShell>
       <RequireAuth>
         <div className="topbar">
           <div>
-            <p className="eyebrow">Clinician dashboard</p>
-            <h2>Today&apos;s recovery cockpit</h2>
-            <p className="muted">RLS-filtered patient and treatment activity from the authenticated clinician session.</p>
+            <p className="eyebrow">Move Free</p>
+            <h2>Patient dashboard</h2>
+            <p className="muted">Choose a patient workspace before building or updating a program.</p>
           </div>
-          <Link className="button" href="/program-builder/demo-patient">Build program</Link>
+          <Link className="button" href="/patients/new">
+            <Plus size={18} />
+            Add Patient
+          </Link>
         </div>
         <div className="grid three">
-          <MetricCard label="Active patients" value={snapshot?.patients.length ?? 0} detail="Visible through current session policies" />
+          <MetricCard label="Active patients" value={patients.length} detail="Assigned to the current clinician" />
           <MetricCard label="Recent check-ins" value={snapshot?.recentCheckins.length ?? 0} detail="Pain, energy, and confidence signals" />
           <MetricCard label="Clinical decisions" value={snapshot?.openDecisions.length ?? 0} detail="Latest treatment rationale" />
         </div>
         <section className="panel" style={{ marginTop: 18 }}>
           <div className="section-header">
             <div>
-              <p className="eyebrow">Patient panel</p>
-              <h3>RLS-visible patients</h3>
+              <p className="eyebrow">Patient list</p>
+              <h3>Patients</h3>
             </div>
           </div>
-          <ul className="list" style={{ marginTop: 14 }}>
-            {(snapshot?.patients ?? []).map((patient) => (
-              <li className="list-item" key={patient.id}>
-                <Link className="row-between" href={`/patients/${patient.id}`}>
-                  <span className="row-between" style={{ justifyContent: "flex-start" }}>
-                    <span className="avatar">{initials(patient.full_name)}</span>
-                    <span>
-                      <strong>{patient.full_name ?? "Patient"}</strong>
-                      <p className="muted">{patient.diagnosis ?? "Diagnosis pending"}</p>
+          <ul className="patient-card-grid" style={{ marginTop: 14 }}>
+            {patients.map((patient) => {
+              const patientName = patient.display_name ?? patient.full_name ?? "Patient";
+
+              return (
+                <li className="list-item" key={patient.id}>
+                  <div className="row-between patient-card-heading">
+                    <span className="row-between" style={{ justifyContent: "flex-start" }}>
+                      <span className="avatar">{initials(patientName)}</span>
+                      <span>
+                        <strong>{patientName}</strong>
+                        <p className="muted">{patient.diagnosis ?? "Diagnosis pending"}</p>
+                      </span>
                     </span>
-                  </span>
-                  <span className="pill">{patient.status ?? "Active"}</span>
-                </Link>
-              </li>
-            ))}
+                    <span className="pill">{patient.status ?? "Active"}</span>
+                  </div>
+                  <div className="patient-card-actions">
+                    <Link className="secondary-button" href={`/patients/${patient.id}`}>Open Workspace</Link>
+                    <Link className="button" href={`/program-builder/${patient.id}`}>Build Program</Link>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
-          {!snapshot?.patients.length ? <div className="empty" style={{ marginTop: 14 }}>No patients returned for this authenticated user yet.</div> : null}
+          {!patients.length ? <div className="empty" style={{ marginTop: 14 }}>No patients yet. Add a patient to open a workspace or build a program.</div> : null}
         </section>
         <section className="grid two" style={{ marginTop: 18 }}>
           <div className="panel">

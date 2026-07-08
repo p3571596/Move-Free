@@ -2,21 +2,23 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Plus, Save } from "lucide-react";
+import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
-import { loadExerciseLibrary, loadPatientWorkspace } from "@/lib/data";
-import { sampleExercises, sampleWorkspace } from "@/lib/sample-data";
+import { emptyWorkspace, loadExerciseLibrary, loadPatientWorkspace } from "@/lib/data";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { Exercise, HomeProgramExercise, PatientWorkspace } from "@/lib/types";
 
 export function ProgramBuilderClient({ patientId }: { patientId: string }) {
-  const [workspace, setWorkspace] = useState<PatientWorkspace>(sampleWorkspace);
-  const [library, setLibrary] = useState<Exercise[]>(sampleExercises);
-  const [draft, setDraft] = useState<HomeProgramExercise[]>(sampleWorkspace.programExercises);
+  const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
+  const [library, setLibrary] = useState<Exercise[]>([]);
+  const [draft, setDraft] = useState<HomeProgramExercise[]>([]);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    if (!isSupabaseConfigured() || patientId === "demo-patient") {
+    if (!isSupabaseConfigured()) {
+      setStatus("Connect Supabase to load the program builder.");
+      setWorkspace(emptyWorkspace());
       return;
     }
 
@@ -26,8 +28,14 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
         setWorkspace(loadedWorkspace);
         setDraft(loadedWorkspace.programExercises);
         setLibrary(loadedLibrary);
+        setStatus(loadedWorkspace.patient ? "" : "Patient not found for the current clinician.");
       })
-      .catch(() => setStatus("Using demo program until Supabase data is available."));
+      .catch(() => {
+        setWorkspace(emptyWorkspace());
+        setDraft([]);
+        setLibrary([]);
+        setStatus("Program builder could not be loaded.");
+      });
   }, [patientId]);
 
   function addExercise(exercise: Exercise) {
@@ -36,7 +44,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       {
         id: `draft-${exercise.id}-${Date.now()}`,
         exercise_id: exercise.id,
-        home_program_id: workspace.program?.id,
+        home_program_id: workspace?.program?.id,
         sets: 2,
         reps: 10,
         frequency: "3x/week",
@@ -55,6 +63,42 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
     setStatus("Program draft ready. Persisting requires update/insert policies for home_program_exercises.");
   }
 
+  if (!workspace) {
+    return (
+      <AppShell>
+        <RequireAuth>
+          <div className="empty">Loading program builder...</div>
+        </RequireAuth>
+      </AppShell>
+    );
+  }
+
+  if (!workspace.patient) {
+    return (
+      <AppShell>
+        <RequireAuth>
+          <div className="topbar">
+            <div>
+              <p className="eyebrow">Program Builder</p>
+              <h2>Select a patient first</h2>
+              <p className="muted">{status || "Open a real patient before building a program."}</p>
+            </div>
+            <Link className="button" href="/patients/new">Add Patient</Link>
+          </div>
+          <div className="empty">
+            <strong>No patient selected.</strong>
+            <p>Choose Build Program from a dashboard patient card to continue.</p>
+            <Link className="secondary-button" href="/dashboard" style={{ marginTop: 14 }}>
+              Back to Dashboard
+            </Link>
+          </div>
+        </RequireAuth>
+      </AppShell>
+    );
+  }
+
+  const patientName = workspace.patient.display_name ?? workspace.patient.full_name ?? "Patient";
+
   return (
     <AppShell>
       <RequireAuth>
@@ -62,7 +106,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
           <div>
             <p className="eyebrow">Program Builder</p>
             <h2>{workspace.program?.title ?? "Current program"}</h2>
-            <p className="muted">Exercise-level dosage, frequency, and notes mapped to `home_program_exercises`.</p>
+            <p className="muted">Exercise-level dosage, frequency, and notes for {patientName}.</p>
           </div>
         </div>
         <section className="grid two">
@@ -70,7 +114,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
             <div className="section-header">
               <div>
                 <p className="eyebrow">Current Program</p>
-                <h3>{workspace.patient?.full_name ?? "Patient"}</h3>
+                <h3>{patientName}</h3>
               </div>
               <button className="button" type="submit">
                 <Save size={18} />
