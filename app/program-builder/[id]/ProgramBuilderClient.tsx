@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Plus, Save } from "lucide-react";
+import { Dumbbell, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -52,6 +52,31 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
         exercise,
       },
     ]);
+  }
+
+  function addBlankExercise() {
+    const exerciseId = `custom-${Date.now()}`;
+
+    setDraft((items) => [
+      ...items,
+      {
+        id: `draft-${exerciseId}`,
+        exercise_id: null,
+        home_program_id: workspace?.program?.id,
+        sets: 2,
+        reps: 10,
+        frequency: "3x/week",
+        notes: "",
+        exercise: {
+          id: exerciseId,
+          name: "New exercise",
+          category: "Custom",
+          difficulty: "Set level",
+          description: "Add coaching notes below.",
+        },
+      },
+    ]);
+    setStatus("Program draft started. Add exercises, dosage, and notes.");
   }
 
   function updateItem(id: string, patch: Partial<HomeProgramExercise>) {
@@ -108,6 +133,16 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
             <h2>{workspace.program?.title ?? "Current program"}</h2>
             <p className="muted">Exercise-level dosage, frequency, and notes for {patientName}.</p>
           </div>
+          <div className="builder-actions">
+            <button className="secondary-button" type="button" onClick={addBlankExercise}>
+              <Plus size={18} />
+              Add Exercise
+            </button>
+            <button className="button" type="button" onClick={addBlankExercise}>
+              <Dumbbell size={18} />
+              Build Program
+            </button>
+          </div>
         </div>
         <section className="grid two">
           <form className="panel form" onSubmit={submit}>
@@ -144,10 +179,29 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                 </div>
               </div>
             ))}
+            {!draft.length ? (
+              <div className="empty">
+                <strong>No exercises in this program yet.</strong>
+                <p>Start a draft program by adding an exercise.</p>
+                <button className="button" type="button" onClick={addBlankExercise} style={{ marginTop: 14 }}>
+                  <Plus size={18} />
+                  Add Exercise
+                </button>
+              </div>
+            ) : null}
             {status ? <p className="muted">{status}</p> : null}
           </form>
           <section className="panel">
-            <p className="eyebrow">Exercise Library</p>
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Exercise Library</p>
+                <h3>Add exercises</h3>
+              </div>
+              <button className="secondary-button" type="button" onClick={addBlankExercise}>
+                <Plus size={18} />
+                Add Custom
+              </button>
+            </div>
             <ul className="list" style={{ marginTop: 14 }}>
               {library.map((exercise) => (
                 <li className="list-item" key={exercise.id}>
@@ -156,14 +210,25 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                       <strong>{exercise.name ?? "Exercise"}</strong>
                       <p className="muted">{exercise.body_region ?? "Body region"} · {exercise.category ?? "Category"} · {exercise.difficulty ?? "Level"}</p>
                     </span>
-                    <button className="icon-button" type="button" onClick={() => addExercise(exercise)} title="Add exercise">
+                    <button className="secondary-button" type="button" onClick={() => addExercise(exercise)}>
                       <Plus size={18} />
+                      Add Exercise
                     </button>
                   </div>
                   <p>{exercise.description ?? exercise.instructions ?? "No description available."}</p>
                 </li>
               ))}
             </ul>
+            {!library.length ? (
+              <div className="empty" style={{ marginTop: 14 }}>
+                <strong>No library exercises yet.</strong>
+                <p>Add a custom exercise to keep building this program.</p>
+                <button className="button" type="button" onClick={addBlankExercise} style={{ marginTop: 14 }}>
+                  <Plus size={18} />
+                  Add Exercise
+                </button>
+              </div>
+            ) : null}
           </section>
         </section>
       </RequireAuth>
