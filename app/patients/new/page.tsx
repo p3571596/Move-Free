@@ -41,7 +41,6 @@ export default function NewPatientPage() {
           primary_complaint: primaryComplaint.trim() || null,
           current_focus: currentFocus.trim() || null,
           status: status || "active",
-          clinician_id: authData.user.id,
         })
         .select("id")
         .single();
