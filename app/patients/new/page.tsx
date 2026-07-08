@@ -52,7 +52,7 @@ export default function NewPatientPage() {
 
       router.push(`/patients/${data.id}`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Patient could not be created.");
+      setError(getErrorMessage(caught));
       setIsSaving(false);
     }
   }
@@ -103,4 +103,21 @@ export default function NewPatientPage() {
       </RequireAuth>
     </AppShell>
   );
+}
+
+function getErrorMessage(caught: unknown) {
+  if (caught instanceof Error) {
+    return caught.message;
+  }
+
+  if (
+    caught &&
+    typeof caught === "object" &&
+    "message" in caught &&
+    typeof caught.message === "string"
+  ) {
+    return caught.message;
+  }
+
+  return "Patient could not be created.";
 }
