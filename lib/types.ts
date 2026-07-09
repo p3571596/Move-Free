@@ -29,10 +29,13 @@ export type Episode = {
   id: string;
   patient_id?: string | null;
   clinician_id?: string | null;
+  title?: string | null;
   diagnosis?: string | null;
   body_region?: string | null;
   stage?: string | null;
   status?: string | null;
+  clinical_summary?: string | null;
+  start_date?: string | null;
   started_at?: string | null;
   updated_at?: string | null;
 };
@@ -51,13 +54,18 @@ export type Goal = {
 
 export type Exercise = {
   id: string;
+  clinician_id?: string | null;
   name?: string | null;
   body_region?: string | null;
   category?: string | null;
   difficulty?: string | null;
   description?: string | null;
   instructions?: string | null;
+  clinical_purpose?: string | null;
+  patient_instructions?: string | null;
+  default_dosage?: string | null;
   video_url?: string | null;
+  is_active?: boolean | null;
 };
 
 export type HomeProgram = {
@@ -66,8 +74,11 @@ export type HomeProgram = {
   episode_id?: string | null;
   clinician_id?: string | null;
   title?: string | null;
+  name?: string | null;
+  patient_explanation?: string | null;
   status?: string | null;
   start_date?: string | null;
+  assigned_at?: string | null;
   end_date?: string | null;
   notes?: string | null;
 };
@@ -78,8 +89,11 @@ export type HomeProgramExercise = {
   exercise_id?: string | null;
   sets?: number | null;
   reps?: number | null;
+  dosage_sets?: string | null;
+  dosage_reps?: string | null;
   frequency?: string | null;
   notes?: string | null;
+  category?: string | null;
   sort_order?: number | null;
   exercise?: Exercise | null;
 };
@@ -91,16 +105,22 @@ export type DailyCheckin = {
   energy_score?: number | null;
   confidence_score?: number | null;
   notes?: string | null;
+  patient_comment?: string | null;
+  checkin_date?: string | null;
   created_at?: string | null;
 };
 
 export type ProgressMetric = {
   id: string;
   patient_id?: string | null;
+  episode_id?: string | null;
   metric_name?: string | null;
   value?: number | null;
+  metric_value?: number | null;
+  metric_text_value?: string | null;
   unit?: string | null;
   recorded_at?: string | null;
+  measured_at?: string | null;
 };
 
 export type ClinicalDecision = {
@@ -142,9 +162,12 @@ export type Feedback = {
 export type ExerciseAdherenceLog = {
   id: string;
   patient_id?: string | null;
+  home_program_id?: string | null;
   home_program_exercise_id?: string | null;
   completed?: boolean | null;
+  completion_status?: string | null;
   pain_before?: number | null;
+  pain_during?: number | null;
   pain_after?: number | null;
   notes?: string | null;
   created_at?: string | null;

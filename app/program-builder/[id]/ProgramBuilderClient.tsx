@@ -1,11 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Dumbbell, Plus, Save } from "lucide-react";
+import { Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
-import { emptyWorkspace, loadExerciseLibrary, loadPatientWorkspace } from "@/lib/data";
+import { emptyWorkspace, loadExerciseLibrary, loadPatientWorkspace, saveProgramDraft } from "@/lib/data";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { Exercise, HomeProgramExercise, PatientWorkspace } from "@/lib/types";
 
@@ -39,19 +39,25 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
   }, [patientId]);
 
   function addExercise(exercise: Exercise) {
-    setDraft((items) => [
-      ...items,
-      {
-        id: `draft-${exercise.id}-${Date.now()}`,
-        exercise_id: exercise.id,
-        home_program_id: workspace?.program?.id,
-        sets: 2,
-        reps: 10,
-        frequency: "3x/week",
-        notes: "",
-        exercise,
-      },
-    ]);
+    setDraft((items) => {
+      if (items.some((item) => item.exercise_id === exercise.id)) {
+        return items;
+      }
+
+      return [
+        ...items,
+        {
+          id: `draft-${exercise.id}-${Date.now()}`,
+          exercise_id: exercise.id,
+          home_program_id: workspace?.program?.id,
+          sets: 2,
+          reps: 10,
+          frequency: "3x/week",
+          notes: "",
+          exercise,
+        },
+      ];
+    });
   }
 
   function addBlankExercise() {
@@ -83,9 +89,34 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
     setDraft((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   }
 
-  function submit(event: FormEvent) {
+  function updateExerciseName(id: string, name: string) {
+    setDraft((items) =>
+      items.map((item) =>
+        item.id === id
+          ? { ...item, exercise: { ...(item.exercise ?? { id: `custom-${Date.now()}` }), name } }
+          : item,
+      ),
+    );
+  }
+
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    setStatus("Program draft ready. Persisting requires update/insert policies for home_program_exercises.");
+    setStatus("Saving program...");
+
+    if (!isSupabaseConfigured() || !workspace?.patient) {
+      setStatus("Connect Supabase and select a patient before saving.");
+      return;
+    }
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const saved = await saveProgramDraft(supabase, workspace.patient.id, draft);
+      setWorkspace((current) => current ? { ...current, ...saved } : current);
+      setDraft(saved.programExercises);
+      setStatus("Program saved.");
+    } catch (caught) {
+      setStatus(caught instanceof Error ? caught.message : "Program could not be saved.");
+    }
   }
 
   if (!workspace) {
@@ -134,13 +165,9 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
             <p className="muted">Exercise-level dosage, frequency, and notes for {patientName}.</p>
           </div>
           <div className="builder-actions">
-            <button className="secondary-button" type="button" onClick={addBlankExercise}>
+            <button className="button" type="button" onClick={addBlankExercise}>
               <Plus size={18} />
               Add Exercise
-            </button>
-            <button className="button" type="button" onClick={addBlankExercise}>
-              <Dumbbell size={18} />
-              Build Program
             </button>
           </div>
         </div>
@@ -151,14 +178,17 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                 <p className="eyebrow">Current Program</p>
                 <h3>{patientName}</h3>
               </div>
-              <button className="button" type="submit">
+              <button className="button" type="submit" disabled={!draft.length}>
                 <Save size={18} />
-                Save draft
+                Save Program
               </button>
             </div>
             {draft.map((item) => (
               <div className="list-item" key={item.id}>
-                <strong>{item.exercise?.name ?? "Exercise"}</strong>
+                <div className="field">
+                  <label>Exercise</label>
+                  <input value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
+                </div>
                 <div className="grid three">
                   <div className="field">
                     <label>Sets</label>
@@ -183,10 +213,6 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
               <div className="empty">
                 <strong>No exercises in this program yet.</strong>
                 <p>Start a draft program by adding an exercise.</p>
-                <button className="button" type="button" onClick={addBlankExercise} style={{ marginTop: 14 }}>
-                  <Plus size={18} />
-                  Add Exercise
-                </button>
               </div>
             ) : null}
             {status ? <p className="muted">{status}</p> : null}
@@ -197,10 +223,6 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                 <p className="eyebrow">Exercise Library</p>
                 <h3>Add exercises</h3>
               </div>
-              <button className="secondary-button" type="button" onClick={addBlankExercise}>
-                <Plus size={18} />
-                Add Custom
-              </button>
             </div>
             <ul className="list" style={{ marginTop: 14 }}>
               {library.map((exercise) => (
@@ -212,7 +234,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                     </span>
                     <button className="secondary-button" type="button" onClick={() => addExercise(exercise)}>
                       <Plus size={18} />
-                      Add Exercise
+                      Add
                     </button>
                   </div>
                   <p>{exercise.description ?? exercise.instructions ?? "No description available."}</p>
@@ -222,11 +244,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
             {!library.length ? (
               <div className="empty" style={{ marginTop: 14 }}>
                 <strong>No library exercises yet.</strong>
-                <p>Add a custom exercise to keep building this program.</p>
-                <button className="button" type="button" onClick={addBlankExercise} style={{ marginTop: 14 }}>
-                  <Plus size={18} />
-                  Add Exercise
-                </button>
+                <p>Use Add Exercise to create a custom program item.</p>
               </div>
             ) : null}
           </section>
