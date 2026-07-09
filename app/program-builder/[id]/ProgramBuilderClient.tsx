@@ -111,8 +111,10 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
     try {
       const supabase = createSupabaseBrowserClient();
       const saved = await saveProgramDraft(supabase, workspace.patient.id, draft);
+      const loadedLibrary = await loadExerciseLibrary(supabase);
       setWorkspace((current) => current ? { ...current, ...saved } : current);
       setDraft(saved.programExercises);
+      setLibrary(loadedLibrary);
       setStatus("Program saved.");
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : "Program could not be saved.");

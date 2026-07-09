@@ -277,6 +277,11 @@ button {
   justify-content: flex-end;
 }
 
+.exercise-card-list {
+  display: grid;
+  gap: 14px;
+}
+
 .patient-form {
   max-width: 720px;
 }
