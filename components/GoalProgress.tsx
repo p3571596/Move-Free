@@ -7,7 +7,7 @@ export function GoalProgress({ goals }: { goals: Goal[] }) {
   }
 
   const average = Math.round(
-    goals.reduce((sum, goal) => sum + goalPercent(goal.current_value, goal.target_value), 0) / goals.length,
+    goals.reduce((sum, goal) => sum + normalizedGoalPercent(goal), 0) / goals.length,
   );
 
   return (
@@ -21,7 +21,7 @@ export function GoalProgress({ goals }: { goals: Goal[] }) {
       </div>
       <div className="grid" style={{ marginTop: 16 }}>
         {goals.map((goal) => {
-          const percent = goalPercent(goal.current_value, goal.target_value);
+          const percent = normalizedGoalPercent(goal);
           return (
             <div key={goal.id}>
               <div className="row-between">
@@ -36,5 +36,15 @@ export function GoalProgress({ goals }: { goals: Goal[] }) {
         })}
       </div>
     </section>
+  );
+}
+
+function normalizedGoalPercent(goal: Goal) {
+  const current = goal.current_value == null ? null : Number(goal.current_value);
+  const target = goal.target_value == null ? null : Number(goal.target_value);
+
+  return goalPercent(
+    current != null && !Number.isNaN(current) ? current : null,
+    target != null && !Number.isNaN(target) ? target : null,
   );
 }

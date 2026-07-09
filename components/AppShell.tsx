@@ -2,20 +2,41 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Activity, Dumbbell, Home, LayoutDashboard, MessageSquare, Stethoscope, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Activity, LayoutDashboard, MessageSquare, Stethoscope, UserRound } from "lucide-react";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard", label: "Patients", icon: Stethoscope },
-  { href: "/program-builder", label: "Program Builder", icon: Dumbbell },
+  { href: "/dashboard#patients", label: "Patients", icon: Stethoscope },
   { href: "/exercise-studio", label: "Exercise Studio", icon: Activity },
-  { href: "/app", label: "Patient App", icon: Home },
-  { href: "/feedback", label: "Feedback", icon: MessageSquare },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      return;
+    }
+
+    const supabase = createSupabaseBrowserClient();
+    supabase.auth.getUser()
+      .then(({ data }) => {
+        if (!data.user) {
+          return null;
+        }
+
+        return supabase
+          .from("profiles")
+          .select("role")
+          .or(`user_id.eq.${data.user.id},id.eq.${data.user.id}`)
+          .maybeSingle();
+      })
+      .then((result) => setIsAdmin(result?.data?.role === "admin"))
+      .catch(() => setIsAdmin(false));
+  }, []);
 
   async function signOut() {
     if (isSupabaseConfigured()) {
@@ -42,6 +63,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {item.label}
             </Link>
           ))}
+          {isAdmin ? (
+            <Link href="/feedback">
+              <MessageSquare size={18} />
+              Pilot Command Center
+            </Link>
+          ) : null}
           <button type="button" onClick={signOut}>
             <UserRound size={18} />
             Sign out

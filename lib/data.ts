@@ -8,6 +8,7 @@ import type {
   Database,
   Episode,
   Exercise,
+  ExerciseAdherenceLog,
   HomeProgram,
   HomeProgramExercise,
   Patient,
@@ -42,32 +43,88 @@ export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSn
   const user = await getCurrentUser(client);
 
   if (!user) {
-    return { profile: null, patients: [], recentCheckins: [], openDecisions: [] };
+    return {
+      profile: null,
+      patients: [],
+      episodes: [],
+      goals: [],
+      programs: [],
+      adherenceLogs: [],
+      recentCheckins: [],
+      openDecisions: [],
+    };
   }
 
-  const [patientsResult, checkinsResult, decisionsResult] = await Promise.all([
+  const patientsResult = await client
+    .from("patients")
+    .select("*")
+    .eq("clinician_id", user.id)
+    .order("created_at", { ascending: false });
+
+  const patients = patientsResult.data ?? [];
+  const patientIds = patients.map((patient) => patient.id);
+
+  if (!patientIds.length) {
+    return {
+      profile: await getProfile(client, user),
+      patients: [],
+      episodes: [],
+      goals: [],
+      programs: [],
+      adherenceLogs: [],
+      recentCheckins: [],
+      openDecisions: [],
+    };
+  }
+
+  const [episodesResult, checkinsResult, adherenceResult, decisionsResult] = await Promise.all([
     client
-      .from("patients")
+      .from("episodes")
       .select("*")
-      .eq("clinician_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(12),
+      .in("patient_id", patientIds)
+      .order("updated_at", { ascending: false }),
     client
       .from("daily_checkins")
       .select("*")
-      .order("created_at", { ascending: false })
-      .limit(8),
+      .in("patient_id", patientIds)
+      .order("created_at", { ascending: false }),
+    client
+      .from("exercise_adherence_logs")
+      .select("*")
+      .in("patient_id", patientIds)
+      .order("created_at", { ascending: false }),
     client
       .from("clinical_decisions")
       .select("*")
-      .order("created_at", { ascending: false })
-      .limit(6),
+      .in("patient_id", patientIds)
+      .order("created_at", { ascending: false }),
   ]);
+
+  const episodes = episodesResult.data ?? [];
+  const episodeIds = episodes.map((episode) => episode.id);
+  const [goalsResult, programsResult] = episodeIds.length
+    ? await Promise.all([
+      client
+        .from("goals")
+        .select("*")
+        .in("episode_id", episodeIds)
+        .order("updated_at", { ascending: false }),
+      client
+        .from("home_programs")
+        .select("*")
+        .in("episode_id", episodeIds)
+        .order("updated_at", { ascending: false }),
+    ])
+    : [await emptyResult(), await emptyResult()];
 
   return {
     profile: await getProfile(client, user),
-    patients: patientsResult.data ?? [],
-    recentCheckins: checkinsResult.data ?? [],
+    patients,
+    episodes,
+    goals: goalsResult.data ?? [],
+    programs: programsResult.data ?? [],
+    adherenceLogs: (adherenceResult.data ?? []) as ExerciseAdherenceLog[],
+    recentCheckins: normalizeCheckins(checkinsResult.data ?? []),
     openDecisions: decisionsResult.data ?? [],
   };
 }

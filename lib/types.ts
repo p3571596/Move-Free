@@ -16,6 +16,7 @@ export type Patient = {
   profile_id?: string | null;
   clinician_id?: string | null;
   display_name?: string | null;
+  name?: string | null;
   full_name?: string | null;
   date_of_birth?: string | null;
   diagnosis?: string | null;
@@ -45,11 +46,14 @@ export type Goal = {
   patient_id?: string | null;
   episode_id?: string | null;
   title?: string | null;
-  target_value?: number | null;
-  current_value?: number | null;
+  target_value?: number | string | null;
+  current_value?: number | string | null;
+  progress_percent?: number | null;
   unit?: string | null;
   due_date?: string | null;
   status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type Exercise = {
@@ -81,6 +85,7 @@ export type HomeProgram = {
   assigned_at?: string | null;
   end_date?: string | null;
   notes?: string | null;
+  updated_at?: string | null;
 };
 
 export type HomeProgramExercise = {
@@ -128,7 +133,9 @@ export type ClinicalDecision = {
   patient_id?: string | null;
   episode_id?: string | null;
   decision?: string | null;
+  decision_type?: string | null;
   rationale?: string | null;
+  action_items?: string | null;
   created_at?: string | null;
 };
 
@@ -166,6 +173,7 @@ export type ExerciseAdherenceLog = {
   home_program_exercise_id?: string | null;
   completed?: boolean | null;
   completion_status?: string | null;
+  performed_at?: string | null;
   pain_before?: number | null;
   pain_during?: number | null;
   pain_after?: number | null;
@@ -208,6 +216,10 @@ type Table<Row> = {
 export type ClinicianSnapshot = {
   profile: Profile | null;
   patients: Patient[];
+  episodes: Episode[];
+  goals: Goal[];
+  programs: HomeProgram[];
+  adherenceLogs: ExerciseAdherenceLog[];
   recentCheckins: DailyCheckin[];
   openDecisions: ClinicalDecision[];
 };
