@@ -72,6 +72,13 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
   const patientName = workspace.patient.display_name ?? workspace.patient.full_name ?? "Patient context";
   const latestCheckin = workspace.checkins[0];
   const latestMetric = workspace.progressMetrics.at(-1);
+  const episodeLabel = [
+    workspace.episode?.title,
+    workspace.episode?.body_region,
+    workspace.episode?.status,
+  ].filter(Boolean).join(" · ") || workspace.patient.primary_complaint || "Active care";
+  const programTitle = workspace.program?.name ?? workspace.program?.title ?? "Current program";
+  const assignedDate = workspace.program?.assigned_at ?? workspace.program?.start_date;
 
   return (
     <AppShell>
@@ -80,18 +87,25 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
           <div>
             <p className="eyebrow">Patient workspace</p>
             <h2>{patientName}</h2>
-            <p className="muted">{workspace.episode?.diagnosis ?? workspace.patient?.diagnosis ?? "Episode context"} · {workspace.episode?.stage ?? "Active care"}</p>
+            <p className="muted">{episodeLabel}</p>
           </div>
-          <Link className="button" href={`/program-builder/${workspace.patient.id}`}>Update program</Link>
+          <Link className="button" href={`/program-builder/${workspace.patient.id}`} aria-label={`Update program for ${patientName}`}>Update Program</Link>
         </div>
         <div className="grid three">
-          <MetricCard label="Pain today" value={latestCheckin?.pain_score ?? "n/a"} detail={latestCheckin?.notes ?? "No daily check-in note"} />
-          <MetricCard label="Progress signal" value={latestMetric?.value ?? "n/a"} detail={`${latestMetric?.metric_name ?? "No metric"} ${latestMetric?.unit ?? ""}`} />
-          <MetricCard label="Program items" value={workspace.programExercises.length} detail={workspace.program?.title ?? "No active program"} />
+          <Link className="workspace-link-card" href={`/patients/${workspace.patient.id}/logs`} aria-label={`Open logs for ${patientName}`}>
+            <MetricCard label="Pain today" value={latestCheckin?.pain_score ?? "n/a"} detail={latestCheckin?.notes ?? "No daily check-in note"} />
+          </Link>
+          <Link className="workspace-link-card" href={`/patients/${workspace.patient.id}/progress`} aria-label={`Open progress for ${patientName}`}>
+            <MetricCard label="Progress signal" value={latestMetric?.value ?? "n/a"} detail={`${latestMetric?.metric_name ?? "No metric"} ${latestMetric?.unit ?? ""}`} />
+          </Link>
+          <Link className="workspace-link-card" href={`/program-builder/${workspace.patient.id}`} aria-label={`Open current program for ${patientName}`}>
+            <MetricCard label="Program items" value={workspace.programExercises.length} detail={workspace.program ? programTitle : "No program assigned yet"} />
+          </Link>
         </div>
         <section className="grid two" style={{ marginTop: 18 }}>
-          <div className="panel">
-            <p className="eyebrow">Since Last Visit</p>
+          <Link className="panel workspace-link-panel" href={`/patients/${workspace.patient.id}/logs`} aria-label={`Open patient logs for ${patientName}`}>
+            <p className="eyebrow">Patient Logs</p>
+            <h3>Since Last Visit</h3>
             <ul className="list" style={{ marginTop: 12 }}>
               {workspace.checkins.map((checkin) => (
                 <li className="list-item" key={checkin.id}>
@@ -100,11 +114,12 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
                 </li>
               ))}
             </ul>
-          </div>
+            {!workspace.checkins.length ? <p className="muted">No patient logs recorded yet.</p> : null}
+          </Link>
           <div className="panel">
             <p className="eyebrow">Clinical Summary</p>
-            <h3>{workspace.visitNote?.summary ?? "No visit summary recorded"}</h3>
-            <p className="muted">{workspace.visitNote?.plan ?? "Add a visit note to summarize the plan."}</p>
+            <h3>{workspace.episode?.clinical_summary ?? workspace.visitNote?.summary ?? "No visit summary recorded"}</h3>
+            <p className="muted">{workspace.visitNote?.plan ?? workspace.patient.current_focus ?? "Add a visit note to summarize the plan."}</p>
             <div style={{ marginTop: 16 }}>
               <p className="eyebrow">Barriers</p>
               <ul className="list" style={{ marginTop: 10 }}>
@@ -119,31 +134,54 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
           </div>
         </section>
         <section className="grid two" style={{ marginTop: 18 }}>
-          <div className="panel">
+          <Link className="panel workspace-link-panel" href={`/patients/${workspace.patient.id}/decision`} aria-label={`Open decision support for ${patientName}`}>
             <p className="eyebrow">Today&apos;s Decision</p>
-            <h3>{workspace.decision?.decision ?? "Review patient response before changing the plan"}</h3>
-            <p className="muted">{workspace.decision?.rationale ?? "No decision rationale recorded."}</p>
-          </div>
-          <GoalProgress goals={workspace.goals} />
+            <h3>{workspace.decision?.decision_type ?? workspace.decision?.decision ?? "Review patient response before changing the plan"}</h3>
+            <p className="muted">{workspace.decision?.rationale ?? workspace.decision?.action_items ?? "No decision rationale recorded."}</p>
+          </Link>
+          <Link className="workspace-link-panel" href={`/patients/${workspace.patient.id}/progress`} aria-label={`Open goal progress for ${patientName}`}>
+            <GoalProgress goals={workspace.goals} />
+          </Link>
         </section>
         <section className="grid two" style={{ marginTop: 18 }}>
-          <div className="panel">
+          <Link className="panel workspace-link-panel" href={`/patients/${workspace.patient.id}/progress`} aria-label={`Open progress trend for ${patientName}`}>
             <p className="eyebrow">Progress trend</p>
             <ProgressBars metrics={workspace.progressMetrics} />
-          </div>
-          <div className="panel">
-            <p className="eyebrow">Current Program</p>
-            <h3>{workspace.program?.title ?? "No active program"}</h3>
-            <ul className="list" style={{ marginTop: 12 }}>
-              {workspace.programExercises.map((item) => (
-                <li className="list-item" key={item.id}>
-                  <strong>{item.exercise?.name ?? "Exercise"}</strong>
-                  <p className="muted">{item.sets ?? 0} sets · {item.reps ?? 0} reps · {item.frequency ?? "Frequency not set"}</p>
-                  <p>{item.notes ?? "No notes"}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
+          </Link>
+          {workspace.program ? (
+            <Link className="panel workspace-link-panel" href={`/program-builder/${workspace.patient.id}`} aria-label={`Open current program for ${patientName}`}>
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow">Current Program</p>
+                  <h3>{programTitle}</h3>
+                </div>
+                <span className="pill">{workspace.program.status ?? "draft"}</span>
+              </div>
+              <p className="muted" style={{ marginTop: 8 }}>Assigned {formatDate(assignedDate)}</p>
+              <ul className="list" style={{ marginTop: 12 }}>
+                {workspace.programExercises.map((item) => (
+                  <li className="list-item" key={item.id}>
+                    <strong>{item.exercise?.name ?? "Exercise"}</strong>
+                    <p className="muted">{item.exercise?.category ?? item.category ?? "Category not set"}</p>
+                    <p className="muted">
+                      {item.dosage_sets ?? item.sets ?? 0} sets · {item.dosage_reps ?? item.reps ?? 0} reps · {item.frequency ?? "Frequency not set"}
+                    </p>
+                    <p>{item.notes ?? "No notes"}</p>
+                  </li>
+                ))}
+              </ul>
+              {!workspace.programExercises.length ? <p className="muted" style={{ marginTop: 12 }}>No exercises are linked to this program yet.</p> : null}
+            </Link>
+          ) : (
+            <div className="panel">
+              <p className="eyebrow">Current Program</p>
+              <h3>No program assigned yet.</h3>
+              <p className="muted">Create a home program for this patient.</p>
+              <Link className="button" href={`/program-builder/${workspace.patient.id}`} style={{ marginTop: 14 }} aria-label={`Build program for ${patientName}`}>
+                Build Program
+              </Link>
+            </div>
+          )}
         </section>
       </RequireAuth>
     </AppShell>

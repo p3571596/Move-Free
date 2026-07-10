@@ -271,6 +271,43 @@ button {
   background: #fff;
 }
 
+.workspace-link-card,
+.workspace-link-panel {
+  display: block;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.workspace-link-card .card,
+.workspace-link-panel.panel,
+.workspace-link-panel .panel {
+  height: 100%;
+}
+
+.workspace-link-card:hover .card,
+.workspace-link-card:focus-visible .card,
+.workspace-link-panel:hover,
+.workspace-link-panel:focus-visible,
+.workspace-link-panel:hover .panel,
+.workspace-link-panel:focus-visible .panel {
+  border-color: rgba(31, 122, 90, 0.45);
+  background: #fff;
+  box-shadow: 0 20px 54px rgba(23, 32, 27, 0.12);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.workspace-link-card:focus-visible,
+.workspace-link-panel:focus-visible {
+  outline: none;
+}
+
+.workspace-link-card:focus-visible .card,
+.workspace-link-panel:focus-visible,
+.workspace-link-panel:focus-visible .panel {
+  box-shadow: 0 0 0 3px rgba(31, 122, 90, 0.2), 0 20px 54px rgba(23, 32, 27, 0.12);
+}
+
 .patient-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -396,6 +433,44 @@ button {
 
 .exercise-card-list {
   display: grid;
+  gap: 14px;
+}
+
+.exercise-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
+  gap: 14px;
+  align-items: end;
+}
+
+.input-with-icon {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: white;
+}
+
+.input-with-icon input {
+  border: 0;
+  padding-left: 0;
+}
+
+.input-with-icon input:focus {
+  outline: none;
+}
+
+.exercise-library-card {
+  display: grid;
+  gap: 16px;
+}
+
+.exercise-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -553,6 +628,11 @@ button {
   }
 
   .patient-signal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .exercise-toolbar,
+  .exercise-detail-grid {
     grid-template-columns: 1fr;
   }
 

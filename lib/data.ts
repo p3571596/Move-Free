@@ -155,15 +155,27 @@ export async function loadPatientWorkspace(client: Client, patientId?: string): 
 
   const resolvedPatientId = patient.id;
 
-  const episodeResult = await client
+  const activeEpisodeResult = await client
     .from("episodes")
     .select("*")
     .eq("patient_id", resolvedPatientId)
+    .eq("status", "active")
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const episodeId = episodeResult.data?.id;
+  const latestEpisodeResult = activeEpisodeResult.data
+    ? activeEpisodeResult
+    : await client
+      .from("episodes")
+      .select("*")
+      .eq("patient_id", resolvedPatientId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+  const episode = latestEpisodeResult.data as Episode | null;
+  const episodeId = episode?.id;
 
   const [
     goalsResult,
@@ -172,7 +184,7 @@ export async function loadPatientWorkspace(client: Client, patientId?: string): 
     decisionsResult,
     notesResult,
     barriersResult,
-    programResult,
+    programsResult,
   ] = await Promise.all([
     episodeId ? client.from("goals").select("*").eq("episode_id", episodeId).limit(8) : emptyResult(),
     client.from("daily_checkins").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(7),
@@ -185,18 +197,18 @@ export async function loadPatientWorkspace(client: Client, patientId?: string): 
       .select("*")
       .eq("episode_id", episodeId)
       .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle() : emptySingleResult(),
+      .limit(20) : emptyResult(),
   ]);
 
-  const program = normalizeProgram(programResult.data, patient.id);
+  const selectedProgram = selectVisibleProgram((programsResult.data ?? []) as HomeProgram[]);
+  const program = normalizeProgram(selectedProgram, patient.id);
   const programExercises = program
     ? await loadProgramExercises(client, program.id)
     : [];
 
   return {
     patient,
-    episode: episodeResult.data,
+    episode,
     goals: goalsResult.data ?? [],
     checkins: normalizeCheckins(checkinsResult.data ?? []),
     progressMetrics: normalizeProgressMetrics(metricsResult.data ?? []),
@@ -219,7 +231,18 @@ export async function loadProgramExercises(client: Client, programId: string) {
 }
 
 export async function loadExerciseLibrary(client: Client) {
-  const { data } = await client.from("exercises").select("*").order("name", { ascending: true }).limit(100);
+  const user = await getCurrentUser(client);
+
+  if (!user) {
+    return [];
+  }
+
+  const { data } = await client
+    .from("exercises")
+    .select("*")
+    .eq("clinician_id", user.id)
+    .order("name", { ascending: true })
+    .limit(100);
 
   return (data ?? []).map(normalizeExercise) as Exercise[];
 }
@@ -253,7 +276,7 @@ export async function saveProgramDraft(client: Client, patientId: string, items:
 
   const episode = await ensureActiveEpisode(client, patientId);
   const program = await ensureHomeProgram(client, episode);
-  const exercises = await Promise.all(items.map((item) => ensureExercise(client, item.exercise)));
+  const exercises = await Promise.all(items.map((item) => ensureExercise(client, exerciseFromProgramItem(item), user.id)));
   const savedItems: HomeProgramExercise[] = [];
 
   const { error: deleteError } = await client
@@ -290,6 +313,34 @@ export async function saveProgramDraft(client: Client, patientId: string, items:
   }
 
   return { program: normalizeProgram(program, patientId), programExercises: savedItems };
+}
+
+export async function createExercise(client: Client, exercise: Partial<Exercise>) {
+  const user = await getCurrentUser(client);
+
+  if (!user) {
+    throw new Error("Sign in before creating an exercise.");
+  }
+
+  const { data, error } = await client
+    .from("exercises")
+    .insert({
+      clinician_id: user.id,
+      name: exercise.name?.trim() || "New exercise",
+      category: normalizeExerciseCategory(exercise.category),
+      clinical_purpose: exercise.clinical_purpose ?? exercise.description ?? null,
+      patient_instructions: exercise.patient_instructions ?? exercise.instructions ?? null,
+      default_dosage: exercise.default_dosage ?? null,
+      is_active: exercise.is_active ?? true,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeExercise(data) as Exercise;
 }
 
 export async function saveFeedback(client: Client, message: string, sentiment: string, page: string) {
@@ -415,7 +466,7 @@ async function ensureHomeProgram(client: Client, episode: Episode) {
   return data as HomeProgram;
 }
 
-async function ensureExercise(client: Client, exercise?: Exercise | null) {
+async function ensureExercise(client: Client, exercise?: Exercise | null, clinicianId?: string) {
   if (exercise?.id && !exercise.id.startsWith("custom-")) {
     return exercise;
   }
@@ -423,6 +474,7 @@ async function ensureExercise(client: Client, exercise?: Exercise | null) {
   const { data, error } = await client
     .from("exercises")
     .insert({
+      clinician_id: clinicianId,
       name: exercise?.name?.trim() || "New exercise",
       category: normalizeExerciseCategory(exercise?.category),
       clinical_purpose: exercise?.description ?? exercise?.clinical_purpose ?? null,
@@ -438,6 +490,10 @@ async function ensureExercise(client: Client, exercise?: Exercise | null) {
   }
 
   return normalizeExercise(data) as Exercise;
+}
+
+function selectVisibleProgram(programs: HomeProgram[]) {
+  return programs.find((program) => program.status === "active") ?? programs[0] ?? null;
 }
 
 function normalizeProgram(program?: Partial<HomeProgram> | null, patientId?: string): HomeProgram | null {
@@ -483,6 +539,27 @@ function normalizeExerciseCategory(value?: string | null) {
   const allowed = ["mobility", "strength", "balance", "conditioning", "motor_control", "education", "other"];
 
   return category && allowed.includes(category) ? category : "other";
+}
+
+function exerciseFromProgramItem(item: HomeProgramExercise) {
+  return {
+    ...(item.exercise ?? {}),
+    category: item.exercise?.category ?? item.category,
+    default_dosage: item.exercise?.default_dosage ?? formatDefaultDosage(item),
+  } as Exercise;
+}
+
+function formatDefaultDosage(item: HomeProgramExercise) {
+  const sets = item.sets ?? item.dosage_sets;
+  const reps = item.reps ?? item.dosage_reps;
+  const frequency = item.frequency;
+  const dosage = [
+    sets ? `${sets} sets` : null,
+    reps ? `${reps} reps` : null,
+    frequency,
+  ].filter(Boolean).join(" · ");
+
+  return dosage || null;
 }
 
 function normalizeCheckins(checkins: DailyCheckin[]) {
