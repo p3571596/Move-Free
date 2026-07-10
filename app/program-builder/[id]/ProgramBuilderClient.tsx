@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Plus, Save } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
 import { emptyWorkspace, loadExerciseLibrary, loadPatientWorkspace, saveProgramDraft } from "@/lib/data";
@@ -10,6 +11,7 @@ import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabas
 import type { Exercise, HomeProgramExercise, PatientWorkspace } from "@/lib/types";
 
 export function ProgramBuilderClient({ patientId }: { patientId: string }) {
+  const router = useRouter();
   const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
   const [library, setLibrary] = useState<Exercise[]>([]);
   const [draft, setDraft] = useState<HomeProgramExercise[]>([]);
@@ -116,6 +118,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       setDraft(saved.programExercises);
       setLibrary(loadedLibrary);
       setStatus("Program saved.");
+      router.push(`/patients/${workspace.patient.id}`);
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : "Program could not be saved.");
     }
