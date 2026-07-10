@@ -288,11 +288,31 @@ button {
   padding: 16px;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.patient-dashboard-card:hover,
+.patient-dashboard-card:focus-visible {
+  border-color: rgba(31, 122, 90, 0.45);
+  background: #fff;
+  box-shadow: 0 20px 54px rgba(23, 32, 27, 0.12);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.patient-dashboard-card:focus-visible {
+  box-shadow: 0 0 0 3px rgba(31, 122, 90, 0.2), 0 20px 54px rgba(23, 32, 27, 0.12);
 }
 
 .needs-review-card {
   border-color: rgba(198, 90, 70, 0.42);
   box-shadow: 0 18px 50px rgba(198, 90, 70, 0.1);
+}
+
+.needs-review-card:hover,
+.needs-review-card:focus-visible {
+  border-color: rgba(198, 90, 70, 0.64);
 }
 
 .patient-card-heading {

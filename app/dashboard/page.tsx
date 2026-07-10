@@ -112,45 +112,32 @@ export default function DashboardPage() {
 function PatientCard({ summary, tone }: { summary: PatientSummary; tone?: "review" }) {
   const patientName = summary.patient.display_name ?? summary.patient.name ?? summary.patient.full_name ?? "Patient";
   const diagnosis = summary.patient.diagnosis ?? summary.patient.primary_complaint ?? "Clinical focus pending";
-  const focus = summary.patient.current_focus ?? "Current focus not set";
 
   return (
-    <li className={`patient-dashboard-card ${tone === "review" ? "needs-review-card" : ""}`}>
-      <div className="row-between patient-card-heading">
-        <span className="row-between" style={{ justifyContent: "flex-start" }}>
-          <span className="avatar">{initials(patientName)}</span>
-          <span>
-            <strong>{patientName}</strong>
-            <p className="muted">{diagnosis}</p>
+    <li>
+      <Link
+        className={`patient-dashboard-card ${tone === "review" ? "needs-review-card" : ""}`}
+        href={`/patients/${summary.patient.id}`}
+        aria-label={`Open workspace for ${patientName}`}
+      >
+        <div className="row-between patient-card-heading">
+          <span className="row-between" style={{ justifyContent: "flex-start" }}>
+            <span className="avatar">{initials(patientName)}</span>
+            <span>
+              <strong>{patientName}</strong>
+              <p className="muted">{diagnosis}</p>
+            </span>
           </span>
-        </span>
-        <span className="pill">{summary.patient.status ?? "active"}</span>
-      </div>
-
-      <div className="patient-focus-block">
-        <p className="eyebrow">Current focus</p>
-        <p>{focus}</p>
-      </div>
-
-      <div className="patient-signal-grid">
-        <Signal label="Goal" value={formatGoal(summary.latestGoal)} />
-        <Signal label="Last activity" value={summary.lastActivity ? formatDate(summary.lastActivity) : "No activity yet"} />
-        <Signal label="Program" value={summary.program ? (summary.program.name ?? summary.program.title ?? "Assigned") : "No program"} />
-        <Signal label="Adherence" value={formatAdherence(summary)} />
-      </div>
-
-      {summary.reviewReasons.length ? (
-        <div className="review-reasons">
-          {summary.reviewReasons.map((reason) => (
-            <span className="subtle-badge" key={reason}>{reason}</span>
-          ))}
+          <span className="pill">{summary.patient.status ?? "active"}</span>
         </div>
-      ) : null}
 
-      <div className="patient-card-actions">
-        <Link className="button" href={`/patients/${summary.patient.id}`}>Open Workspace</Link>
-        <Link className="secondary-button" href={`/program-builder/${summary.patient.id}`}>Build Program</Link>
-      </div>
+        <div className="patient-signal-grid">
+          <Signal label="Goal progress" value={formatGoal(summary.latestGoal)} />
+          <Signal label="Last activity" value={summary.lastActivity ? formatDate(summary.lastActivity) : "No activity yet"} />
+        </div>
+
+        {summary.needsReview ? <span className="subtle-badge">Needs review</span> : null}
+      </Link>
     </li>
   );
 }
@@ -255,14 +242,6 @@ function formatGoal(goal: Goal | null) {
 
   const progress = goalProgress(goal);
   return `${goal.title ?? "Goal"} · ${progress}%`;
-}
-
-function formatAdherence(summary: PatientSummary) {
-  if (!summary.program) {
-    return "Needs program";
-  }
-
-  return summary.adherencePercent == null ? "No logs yet" : `${summary.adherencePercent}%`;
 }
 
 function goalProgress(goal: Goal | null) {
