@@ -13,6 +13,7 @@ export default function ExerciseStudioPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [tag, setTag] = useState("all");
   const [status, setStatus] = useState("Loading exercises...");
 
   useEffect(() => {
@@ -38,21 +39,27 @@ export default function ExerciseStudioPage() {
     () => Array.from(new Set(exercises.map((exercise) => exercise.category).filter((item): item is string => Boolean(item)))).sort(),
     [exercises],
   );
+  const tags = useMemo(
+    () => Array.from(new Set(exercises.flatMap((exercise) => exercise.tags ?? []))).sort(),
+    [exercises],
+  );
   const visibleExercises = useMemo(() => {
     const query = search.trim().toLowerCase();
     return exercises.filter((exercise) => {
       const matchesCategory = category === "all" || exercise.category === category;
+      const matchesTag = tag === "all" || exercise.tags?.includes(tag);
       const searchableText = [
         exercise.name,
         exercise.category,
         exercise.clinical_purpose,
         exercise.patient_instructions,
         exercise.default_dosage,
+        ...(exercise.tags ?? []),
       ].filter(Boolean).join(" ").toLowerCase();
 
-      return matchesCategory && (!query || searchableText.includes(query));
+      return matchesCategory && matchesTag && (!query || searchableText.includes(query));
     });
-  }, [category, exercises, search]);
+  }, [category, exercises, search, tag]);
 
   return (
     <AppShell>
@@ -84,6 +91,13 @@ export default function ExerciseStudioPage() {
                 {categories.map((item) => (
                   <option key={item} value={item}>{labelize(item)}</option>
                 ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Tag</span>
+              <select value={tag} onChange={(event) => setTag(event.target.value)}>
+                <option value="all">All tags</option>
+                {tags.map((item) => <option key={item} value={item}>{labelize(item)}</option>)}
               </select>
             </label>
           </div>
@@ -125,6 +139,10 @@ export default function ExerciseStudioPage() {
                   <p>{exercise.default_dosage ?? "Not set"}</p>
                 </div>
               </div>
+              <div className="tag-list">
+                {(exercise.tags ?? []).map((item) => <span className="tag-chip" key={item}>{item}</span>)}
+              </div>
+              <Link className="secondary-button" href={`/exercise-studio/${exercise.id}/edit`}>Edit Exercise</Link>
             </article>
           ))}
         </section>

@@ -62,6 +62,8 @@ export type Exercise = {
   name?: string | null;
   body_region?: string | null;
   category?: string | null;
+  tags?: string[] | null;
+  normalized_name?: string | null;
   difficulty?: string | null;
   description?: string | null;
   instructions?: string | null;

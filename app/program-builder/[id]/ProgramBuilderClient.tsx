@@ -5,6 +5,7 @@ import { Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { TagInput } from "@/components/TagInput";
 import { RequireAuth } from "@/components/RequireAuth";
 import { emptyWorkspace, loadExerciseLibrary, loadPatientWorkspace, saveProgramDraft } from "@/lib/data";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
@@ -81,6 +82,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
           category: "Custom",
           difficulty: "Set level",
           description: "Add coaching notes below.",
+          tags: [],
         },
       },
     ]);
@@ -99,6 +101,12 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
           : item,
       ),
     );
+  }
+
+  function updateExerciseTags(id: string, tags: string[]) {
+    setDraft((items) => items.map((item) => item.id === id
+      ? { ...item, exercise: { ...(item.exercise ?? { id: `custom-${Date.now()}` }), tags } }
+      : item));
   }
 
   async function submit(event: FormEvent) {
@@ -208,6 +216,18 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                     <input value={item.frequency ?? ""} onChange={(event) => updateItem(item.id, { frequency: event.target.value })} />
                   </div>
                 </div>
+                {item.exercise?.id.startsWith("custom-") ? (
+                  <TagInput
+                    label="Exercise tags"
+                    inputId={`exercise-tags-${item.id}`}
+                    value={item.exercise?.tags ?? []}
+                    onChange={(tags) => updateExerciseTags(item.id, tags)}
+                  />
+                ) : (item.exercise?.tags ?? []).length ? (
+                  <div className="tag-list" aria-label="Exercise tags">
+                    {item.exercise?.tags?.map((tag) => <span className="tag-chip" key={tag}>{tag}</span>)}
+                  </div>
+                ) : null}
                 <div className="field">
                   <label>Notes</label>
                   <textarea value={item.notes ?? ""} onChange={(event) => updateItem(item.id, { notes: event.target.value })} />
@@ -236,6 +256,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                     <span>
                       <strong>{exercise.name ?? "Exercise"}</strong>
                       <p className="muted">{exercise.body_region ?? "Body region"} · {exercise.category ?? "Category"} · {exercise.difficulty ?? "Level"}</p>
+                      {(exercise.tags ?? []).length ? <p className="muted">{exercise.tags?.join(" · ")}</p> : null}
                     </span>
                     <button className="secondary-button" type="button" onClick={() => addExercise(exercise)}>
                       <Plus size={18} />

@@ -322,11 +322,19 @@ export async function createExercise(client: Client, exercise: Partial<Exercise>
     throw new Error("Sign in before creating an exercise.");
   }
 
+  const normalizedName = normalizeExerciseName(exercise.name);
+  const existing = await findExerciseByNormalizedName(client, user.id, normalizedName);
+
+  if (existing) {
+    return { exercise: normalizeExercise(existing) as Exercise, wasDuplicate: true };
+  }
+
   const { data, error } = await client
     .from("exercises")
     .insert({
       clinician_id: user.id,
       name: exercise.name?.trim() || "New exercise",
+      tags: normalizeTags(exercise.tags),
       category: normalizeExerciseCategory(exercise.category),
       clinical_purpose: exercise.clinical_purpose ?? exercise.description ?? null,
       patient_instructions: exercise.patient_instructions ?? exercise.instructions ?? null,
@@ -336,11 +344,52 @@ export async function createExercise(client: Client, exercise: Partial<Exercise>
     .select("*")
     .single();
 
+  if (error?.code === "23505") {
+    const duplicate = await findExerciseByNormalizedName(client, user.id, normalizedName);
+    if (duplicate) {
+      return { exercise: normalizeExercise(duplicate) as Exercise, wasDuplicate: true };
+    }
+  }
+
   if (error) {
     throw error;
   }
 
-  return normalizeExercise(data) as Exercise;
+  return { exercise: normalizeExercise(data) as Exercise, wasDuplicate: false };
+}
+
+export async function updateExercise(client: Client, exerciseId: string, exercise: Partial<Exercise>) {
+  const user = await getCurrentUser(client);
+  if (!user) throw new Error("Sign in before editing an exercise.");
+
+  const normalizedName = normalizeExerciseName(exercise.name);
+  const existing = await findExerciseByNormalizedName(client, user.id, normalizedName, exerciseId);
+  if (existing) {
+    return { exercise: normalizeExercise(existing) as Exercise, wasDuplicate: true };
+  }
+
+  const { data, error } = await client
+    .from("exercises")
+    .update({
+      name: exercise.name?.trim() || "New exercise",
+      tags: normalizeTags(exercise.tags),
+      category: normalizeExerciseCategory(exercise.category),
+      clinical_purpose: exercise.clinical_purpose ?? exercise.description ?? null,
+      patient_instructions: exercise.patient_instructions ?? exercise.instructions ?? null,
+      default_dosage: exercise.default_dosage ?? null,
+      is_active: exercise.is_active ?? true,
+    })
+    .eq("id", exerciseId)
+    .eq("clinician_id", user.id)
+    .select("*")
+    .single();
+
+  if (error?.code === "23505") {
+    const duplicate = await findExerciseByNormalizedName(client, user.id, normalizedName, exerciseId);
+    if (duplicate) return { exercise: normalizeExercise(duplicate) as Exercise, wasDuplicate: true };
+  }
+  if (error) throw error;
+  return { exercise: normalizeExercise(data) as Exercise, wasDuplicate: false };
 }
 
 export async function saveFeedback(client: Client, message: string, sentiment: string, page: string) {
@@ -471,11 +520,16 @@ async function ensureExercise(client: Client, exercise?: Exercise | null, clinic
     return exercise;
   }
 
+  const normalizedName = normalizeExerciseName(exercise?.name);
+  const existing = clinicianId ? await findExerciseByNormalizedName(client, clinicianId, normalizedName) : null;
+  if (existing) return normalizeExercise(existing) as Exercise;
+
   const { data, error } = await client
     .from("exercises")
     .insert({
       clinician_id: clinicianId,
       name: exercise?.name?.trim() || "New exercise",
+      tags: normalizeTags(exercise?.tags),
       category: normalizeExerciseCategory(exercise?.category),
       clinical_purpose: exercise?.description ?? exercise?.clinical_purpose ?? null,
       patient_instructions: exercise?.instructions ?? exercise?.patient_instructions ?? null,
@@ -485,11 +539,37 @@ async function ensureExercise(client: Client, exercise?: Exercise | null, clinic
     .select("*")
     .single();
 
+  if (error?.code === "23505" && clinicianId) {
+    const duplicate = await findExerciseByNormalizedName(client, clinicianId, normalizedName);
+    if (duplicate) return normalizeExercise(duplicate) as Exercise;
+  }
   if (error) {
     throw error;
   }
 
   return normalizeExercise(data) as Exercise;
+}
+
+async function findExerciseByNormalizedName(client: Client, clinicianId: string, normalizedName: string, excludeId?: string) {
+  let query = client
+    .from("exercises")
+    .select("*")
+    .eq("clinician_id", clinicianId)
+    .eq("normalized_name", normalizedName)
+    .eq("is_active", true);
+
+  if (excludeId) query = query.neq("id", excludeId);
+  const { data, error } = await query.limit(1).maybeSingle();
+  if (error) throw error;
+  return data as Exercise | null;
+}
+
+function normalizeExerciseName(name?: string | null) {
+  return (name?.trim() || "New exercise").toLowerCase().replace(/\s+/g, " ");
+}
+
+function normalizeTags(tags?: string[] | null) {
+  return Array.from(new Set((tags ?? []).map((tag) => tag.trim().replace(/\s+/g, " ").toLowerCase()).filter(Boolean)));
 }
 
 function selectVisibleProgram(programs: HomeProgram[]) {

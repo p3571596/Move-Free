@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Save } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { TagInput } from "@/components/TagInput";
 import { RequireAuth } from "@/components/RequireAuth";
 import { createExercise } from "@/lib/data";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
@@ -12,6 +13,7 @@ import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabas
 export default function NewExercisePage() {
   const router = useRouter();
   const [status, setStatus] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -26,15 +28,21 @@ export default function NewExercisePage() {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      await createExercise(supabase, {
+      const result = await createExercise(supabase, {
         name: String(form.get("name") ?? ""),
         category: String(form.get("category") ?? "other"),
         clinical_purpose: String(form.get("clinical_purpose") ?? ""),
         patient_instructions: String(form.get("patient_instructions") ?? ""),
         default_dosage: String(form.get("default_dosage") ?? ""),
+        tags,
         is_active: true,
       });
-      router.push("/exercise-studio");
+      if (result.wasDuplicate) {
+        setStatus(`“${result.exercise.name}” already exists. Opening the existing exercise instead.`);
+        setTimeout(() => router.push(`/exercise-studio/${result.exercise.id}/edit`), 900);
+      } else {
+        router.push("/exercise-studio");
+      }
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : "Exercise could not be created.");
     }
@@ -56,6 +64,7 @@ export default function NewExercisePage() {
             <label htmlFor="name">Exercise name</label>
             <input id="name" name="name" required placeholder="Sit to stand" />
           </div>
+          <TagInput value={tags} onChange={setTags} />
           <div className="field">
             <label htmlFor="category">Category</label>
             <select id="category" name="category" defaultValue="strength">
