@@ -18,8 +18,9 @@ For Vercel, add the three values above under Project Settings → Environment Va
 
 In Supabase Auth → URL Configuration:
 
-- Set **Site URL** to `https://move-free-phmhhcynk5-2739s-projects.vercel.app`.
-- Add `https://move-free-phmhhcynk5-2739s-projects.vercel.app/invite` under **Redirect URLs**.
+- Set **Site URL** to `https://move-free.vercel.app`.
+- Add `https://move-free.vercel.app/invite` under **Redirect URLs**.
+- During preview testing, optionally allow `https://*-phmhhcynk5-2739s-projects.vercel.app/invite` as well.
 
 Supabase ignores an invitation `redirectTo` value that is not allow-listed and falls back to Site URL, so both settings must point to the application rather than `https://vercel.com`.
 
