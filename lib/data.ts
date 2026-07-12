@@ -15,6 +15,7 @@ import type {
   PatientWorkspace,
   Profile,
   ProgressMetric,
+  Role,
 } from "@/lib/types";
 
 type Client = SupabaseClient<Database>;
@@ -37,6 +38,21 @@ export async function getProfile(client: Client, user: User) {
     .maybeSingle();
 
   return data as Profile | null;
+}
+
+export async function getEffectiveRole(client: Client, user: User): Promise<Role> {
+  const profile = await getProfile(client, user);
+  if (profile?.role) return profile.role;
+
+  const { data, error } = await client
+    .from("patients")
+    .select("id")
+    .eq("patient_profile_id", user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? "patient" : "clinician";
 }
 
 export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSnapshot> {
@@ -424,7 +440,7 @@ export async function logExerciseCompletion(
   completionStatus: string,
   difficulty: string,
   painDuring: number | null,
-  painAfter: number,
+  painAfter: number | null,
   notes: string,
 ) {
   const { error } = await client.from("exercise_adherence_logs").insert({

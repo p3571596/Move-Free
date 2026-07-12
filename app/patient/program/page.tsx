@@ -42,7 +42,7 @@ export default function TodayProgramPage() {
     if (isSupabaseConfigured()) {
       const supabase = createSupabaseBrowserClient();
       try {
-        await logExerciseCompletion(supabase, workspace.patient.id, workspace.program!.id, item.id, completionStatus, difficulty, painDuringRaw ? Number(painDuringRaw) : null, painAfterRaw ? Number(painAfterRaw) : 0, notes);
+        await logExerciseCompletion(supabase, workspace.patient.id, workspace.program!.id, item.id, completionStatus, difficulty, painDuringRaw ? Number(painDuringRaw) : null, painAfterRaw ? Number(painAfterRaw) : null, notes);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Could not save completion.");
         return;
@@ -93,7 +93,7 @@ export default function TodayProgramPage() {
                     </div>
                     <div className="field">
                       <label>Difficulty</label>
-                      <select name="difficulty"><option value="easy">Easy</option><option value="appropriate">Appropriate</option><option value="hard">Hard</option></select>
+                      <select name="difficulty"><option value="too_easy">Too easy</option><option value="appropriate">Appropriate</option><option value="too_hard">Too hard</option><option value="painful">Painful</option></select>
                     </div>
                   </div>
                   <div className="grid two"><div className="field"><label>Pain during (optional)</label><input name="painDuring" type="number" min={0} max={10}/></div><div className="field"><label>Pain after (optional)</label><input name="painAfter" type="number" min={0} max={10}/></div></div>

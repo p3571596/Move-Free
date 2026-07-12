@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
-import { getCurrentUser, getProfile } from "@/lib/data";
+import { getCurrentUser, getEffectiveRole } from "@/lib/data";
 import type { Role } from "@/lib/types";
 
 export function RoleGate({ allowed, children }: { allowed: Role[]; children: React.ReactNode }) {
@@ -15,8 +15,7 @@ export function RoleGate({ allowed, children }: { allowed: Role[]; children: Rea
     const client = createSupabaseBrowserClient();
     getCurrentUser(client).then(async (user) => {
       if (!user) return router.replace("/login");
-      const profile = await getProfile(client, user);
-      const role = profile?.role ?? "clinician";
+      const role = await getEffectiveRole(client, user);
       if (allowed.includes(role)) return setState("allowed");
       router.replace(role === "patient" ? "/patient" : "/dashboard");
     }).catch(() => setState("missing-link"));
