@@ -20,7 +20,7 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  new.normalized_name := public.normalize_exercise_name(new.name);
+  new.normalized_name := lower(regexp_replace(btrim(new.name), '\s+', ' ', 'g'));
   new.tags := coalesce(
     array(
       select distinct lower(regexp_replace(btrim(tag), '\s+', ' ', 'g'))
