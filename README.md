@@ -4,14 +4,18 @@ Move Free is a clinician-led home exercise and recovery companion built with Nex
 
 ## Setup
 
-Copy `.env.local.example` to `.env.local` and add the project publishable Supabase values:
+Copy `.env.local.example` to `.env.local` and add the Supabase and application values:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SECRET_KEY=
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-The application intentionally does not commit Supabase keys or secrets. All data access is performed through the authenticated Supabase client so existing Row Level Security policies remain the source of truth.
+`SUPABASE_SECRET_KEY` is used only by the server-side patient email invitation route. Never prefix it with `NEXT_PUBLIC_` or expose it in browser code. All routine application data access continues through the authenticated Supabase client, so Row Level Security remains the source of truth.
+
+For Vercel, add all four values under Project Settings → Environment Variables and set `NEXT_PUBLIC_SITE_URL` to the production URL. In Supabase Auth → URL Configuration, add the production `/invite` URL to the redirect allow list so invitation links return to Move Free correctly.
 
 ## Commands
 

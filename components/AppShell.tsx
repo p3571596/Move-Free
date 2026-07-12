@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Activity, LayoutDashboard, MessageSquare, Stethoscope, UserRound } from "lucide-react";
+import { Activity, Home, LayoutDashboard, MessageSquare, Stethoscope, UserRound } from "lucide-react";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
 const navItems = [
@@ -75,7 +75,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </nav>
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        <Link className="clinician-home-button" href="/dashboard" aria-label="Return to clinician dashboard">
+          <Home size={16} />
+          Dashboard
+        </Link>
+        {children}
+      </main>
     </div>
   );
 }

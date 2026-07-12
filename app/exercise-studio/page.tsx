@@ -117,7 +117,12 @@ export default function ExerciseStudioPage() {
         ) : null}
         <section className="exercise-card-list" style={{ marginTop: 18 }}>
           {visibleExercises.map((exercise) => (
-            <article className="card exercise-library-card" key={exercise.id}>
+            <Link
+              className="card exercise-library-card exercise-card-link"
+              href={`/exercise-studio/${exercise.id}/edit`}
+              key={exercise.id}
+              aria-label={`Open ${exercise.name ?? "exercise"}`}
+            >
               <div className="section-header">
                 <div>
                   <p className="eyebrow">{labelize(exercise.category ?? "Uncategorized")}</p>
@@ -138,12 +143,16 @@ export default function ExerciseStudioPage() {
                   <p className="eyebrow">Default Dosage</p>
                   <p>{exercise.default_dosage ?? "Not set"}</p>
                 </div>
+                <div>
+                  <p className="eyebrow">Body Region</p>
+                  <p>{exercise.body_region ? labelize(exercise.body_region) : "Not set"}</p>
+                </div>
               </div>
               <div className="tag-list">
                 {(exercise.tags ?? []).map((item) => <span className="tag-chip" key={item}>{item}</span>)}
               </div>
-              <Link className="secondary-button" href={`/exercise-studio/${exercise.id}/edit`}>Edit Exercise</Link>
-            </article>
+              <span className="exercise-card-hint">Open exercise</span>
+            </Link>
           ))}
         </section>
       </RequireAuth>

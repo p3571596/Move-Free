@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Plus, Save } from "lucide-react";
+import { ArrowLeft, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -177,12 +177,10 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
             <h2>{workspace.program?.title ?? "Current program"}</h2>
             <p className="muted">Exercise-level dosage, frequency, and notes for {patientName}.</p>
           </div>
-          <div className="builder-actions">
-            <button className="button" type="button" onClick={addBlankExercise}>
-              <Plus size={18} />
-              Add Exercise
-            </button>
-          </div>
+          <Link className="secondary-button" href={`/patients/${workspace.patient.id}`}>
+            <ArrowLeft size={18} />
+            Back to Patient
+          </Link>
         </div>
         <section className="grid two">
           <form className="panel form" onSubmit={submit}>
@@ -196,6 +194,10 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                 Save Program
               </button>
             </div>
+            <button className="secondary-button add-exercise-inline" type="button" onClick={addBlankExercise}>
+              <Plus size={18} />
+              Add a personalized exercise
+            </button>
             {draft.map((item) => (
               <div className="list-item" key={item.id}>
                 <div className="field">

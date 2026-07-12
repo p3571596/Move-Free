@@ -170,6 +170,17 @@ button {
   padding: 28px;
 }
 
+.clinician-home-button {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  margin-bottom: 18px;
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .topbar,
 .section-header,
 .row-between {
@@ -487,6 +498,83 @@ button {
   gap: 16px;
 }
 
+.exercise-card-link {
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.exercise-card-link:hover,
+.exercise-card-link:focus-visible {
+  border-color: rgba(31, 122, 90, 0.5);
+  box-shadow: 0 20px 54px rgba(23, 32, 27, 0.13);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.exercise-card-link:focus-visible {
+  box-shadow: 0 0 0 3px rgba(31, 122, 90, 0.2), 0 20px 54px rgba(23, 32, 27, 0.13);
+}
+
+.exercise-card-hint {
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.add-exercise-inline {
+  justify-self: start;
+  margin: 2px 0 4px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(12, 23, 18, 0.56);
+  backdrop-filter: blur(6px);
+}
+
+.invite-dialog {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 520px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  background: var(--panel);
+  box-shadow: 0 28px 80px rgba(10, 24, 17, 0.24);
+}
+
+.invite-dialog h3 { margin: 0; }
+
+.invite-channel-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.channel-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--foreground);
+  background: white;
+  font-weight: 800;
+}
+
+.channel-option.active {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
 .exercise-detail-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -678,6 +766,10 @@ button {
 
   .main {
     padding: 18px;
+  }
+
+  .clinician-home-button {
+    display: inline-flex;
   }
 
   .mobile-top {
