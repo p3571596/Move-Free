@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
-import { getEffectiveRole } from "@/lib/data";
+import { claimPatientInvite, getEffectiveRole } from "@/lib/data";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,6 +37,22 @@ export default function LoginPage() {
     setMessage(mode === "signup" ? "Account created. Check email if confirmation is enabled." : "Signed in.");
     const user = result.data.user;
     if (!user) return;
+    if (!result.data.session) {
+      setMessage("Account created. Confirm your email, then return here to log in and finish joining your program.");
+      return;
+    }
+
+    const pendingInvite = localStorage.getItem("moveFreePatientInvite");
+    if (pendingInvite) {
+      try {
+        await claimPatientInvite(supabase, pendingInvite);
+        localStorage.removeItem("moveFreePatientInvite");
+      } catch (cause) {
+        setMessage(cause instanceof Error ? cause.message : "Could not accept the patient invitation.");
+        return;
+      }
+    }
+
     const role = await getEffectiveRole(supabase, user);
     router.replace(role === "patient" ? "/patient" : "/dashboard");
   }

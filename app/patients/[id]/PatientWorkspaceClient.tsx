@@ -8,6 +8,7 @@ import { GoalProgress } from "@/components/GoalProgress";
 import { MetricCard } from "@/components/MetricCard";
 import { ProgressBars } from "@/components/ProgressBars";
 import { RequireAuth } from "@/components/RequireAuth";
+import { PatientInviteButton } from "@/components/PatientInviteButton";
 import { emptyWorkspace, loadPatientWorkspace } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
@@ -97,6 +98,7 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
             <p className="muted">{episodeLabel}</p>
           </div>
           <div className="builder-actions">
+            <PatientInviteButton patientId={workspace.patient.id} isLinked={Boolean(workspace.patient.patient_profile_id)} />
             <Link className="secondary-button" href={`/patients/${workspace.patient.id}/edit`} aria-label={`Edit profile for ${patientName}`}>Edit Profile</Link>
             <Link className="button" href={`/program-builder/${workspace.patient.id}`} aria-label={`Update program for ${patientName}`}>Update Program</Link>
           </div>

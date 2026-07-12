@@ -61,6 +61,8 @@ button {
 .patient-nav nav a:hover, .patient-nav nav button:hover { background: var(--accent-soft); }
 .patient-main { padding: 28px; }
 .form-error { color: var(--coral); font-weight: 700; }
+.invite-control { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.invite-control small { flex-basis: 100%; text-align: right; }
 
 @media (max-width: 720px) {
   .patient-nav { align-items: flex-start; padding: 12px 16px; }

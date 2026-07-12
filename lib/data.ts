@@ -55,6 +55,18 @@ export async function getEffectiveRole(client: Client, user: User): Promise<Role
   return data ? "patient" : "clinician";
 }
 
+export async function createPatientInvite(client: Client, patientId: string) {
+  const { data, error } = await client.rpc("create_patient_invite", { p_patient_id: patientId });
+  if (error) throw error;
+  return data;
+}
+
+export async function claimPatientInvite(client: Client, token: string) {
+  const { data, error } = await client.rpc("claim_patient_invite", { p_token: token });
+  if (error) throw error;
+  return data;
+}
+
 export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSnapshot> {
   const user = await getCurrentUser(client);
 

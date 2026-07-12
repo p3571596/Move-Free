@@ -15,6 +15,8 @@ export type Patient = {
   id: string;
   profile_id?: string | null;
   patient_profile_id?: string | null;
+  patient_invite_token_hash?: string | null;
+  patient_invite_expires_at?: string | null;
   clinician_id?: string | null;
   display_name?: string | null;
   name?: string | null;
@@ -210,7 +212,10 @@ export type Database = {
       feedback: Table<Feedback>;
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      create_patient_invite: { Args: { p_patient_id: string }; Returns: string };
+      claim_patient_invite: { Args: { p_token: string }; Returns: string };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
