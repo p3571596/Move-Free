@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { GoalProgress } from "@/components/GoalProgress";
 import { MetricCard } from "@/components/MetricCard";
@@ -13,6 +14,7 @@ import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabas
 import type { PatientWorkspace } from "@/lib/types";
 
 export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
+  const searchParams = useSearchParams();
   const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
   const [status, setStatus] = useState("");
 
@@ -83,6 +85,11 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
   return (
     <AppShell>
       <RequireAuth>
+        {searchParams.get("programSaved") === "1" ? (
+          <div className="success-banner" role="status">
+            Program saved. {searchParams.get("librarySaved") ?? "All"} exercise{searchParams.get("librarySaved") === "1" ? "" : "s"} saved in Exercise Studio.
+          </div>
+        ) : null}
         <div className="topbar">
           <div>
             <p className="eyebrow">Patient workspace</p>

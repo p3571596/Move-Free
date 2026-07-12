@@ -312,7 +312,11 @@ export async function saveProgramDraft(client: Client, patientId: string, items:
     savedItems.push(normalizeProgramExercise(data));
   }
 
-  return { program: normalizeProgram(program, patientId), programExercises: savedItems };
+  return {
+    program: normalizeProgram(program, patientId),
+    programExercises: savedItems,
+    libraryExerciseCount: new Set(exercises.map((exercise) => exercise.id)).size,
+  };
 }
 
 export async function createExercise(client: Client, exercise: Partial<Exercise>) {
@@ -326,7 +330,8 @@ export async function createExercise(client: Client, exercise: Partial<Exercise>
   const existing = await findExerciseByNormalizedName(client, user.id, normalizedName);
 
   if (existing) {
-    return { exercise: normalizeExercise(existing) as Exercise, wasDuplicate: true };
+    const merged = await mergeExerciseTags(client, existing, exercise.tags);
+    return { exercise: merged, wasDuplicate: true };
   }
 
   const { data, error } = await client
@@ -347,7 +352,8 @@ export async function createExercise(client: Client, exercise: Partial<Exercise>
   if (error?.code === "23505") {
     const duplicate = await findExerciseByNormalizedName(client, user.id, normalizedName);
     if (duplicate) {
-      return { exercise: normalizeExercise(duplicate) as Exercise, wasDuplicate: true };
+      const merged = await mergeExerciseTags(client, duplicate, exercise.tags);
+      return { exercise: merged, wasDuplicate: true };
     }
   }
 
@@ -516,13 +522,18 @@ async function ensureHomeProgram(client: Client, episode: Episode) {
 }
 
 async function ensureExercise(client: Client, exercise?: Exercise | null, clinicianId?: string) {
-  if (exercise?.id && !exercise.id.startsWith("custom-")) {
+  if (
+    exercise?.id &&
+    !exercise.id.startsWith("custom-") &&
+    clinicianId &&
+    exercise.clinician_id === clinicianId
+  ) {
     return exercise;
   }
 
   const normalizedName = normalizeExerciseName(exercise?.name);
   const existing = clinicianId ? await findExerciseByNormalizedName(client, clinicianId, normalizedName) : null;
-  if (existing) return normalizeExercise(existing) as Exercise;
+  if (existing) return mergeExerciseTags(client, existing, exercise?.tags);
 
   const { data, error } = await client
     .from("exercises")
@@ -541,12 +552,33 @@ async function ensureExercise(client: Client, exercise?: Exercise | null, clinic
 
   if (error?.code === "23505" && clinicianId) {
     const duplicate = await findExerciseByNormalizedName(client, clinicianId, normalizedName);
-    if (duplicate) return normalizeExercise(duplicate) as Exercise;
+    if (duplicate) return mergeExerciseTags(client, duplicate, exercise?.tags);
   }
   if (error) {
     throw error;
   }
 
+  return normalizeExercise(data) as Exercise;
+}
+
+async function mergeExerciseTags(client: Client, exercise: Exercise, incomingTags?: string[] | null) {
+  const mergedTags = normalizeTags([...(exercise.tags ?? []), ...(incomingTags ?? [])]);
+  if (mergedTags.length === (exercise.tags ?? []).length && mergedTags.every((tag) => exercise.tags?.includes(tag))) {
+    return normalizeExercise(exercise) as Exercise;
+  }
+  if (!exercise.clinician_id) {
+    throw new Error("Exercise ownership could not be verified before saving tags.");
+  }
+
+  const { data, error } = await client
+    .from("exercises")
+    .update({ tags: mergedTags })
+    .eq("id", exercise.id)
+    .eq("clinician_id", exercise.clinician_id)
+    .select("*")
+    .single();
+
+  if (error) throw error;
   return normalizeExercise(data) as Exercise;
 }
 

@@ -126,7 +126,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       setDraft(saved.programExercises);
       setLibrary(loadedLibrary);
       setStatus("Program saved.");
-      router.push(`/patients/${workspace.patient.id}`);
+      router.push(`/patients/${workspace.patient.id}?programSaved=1&librarySaved=${saved.libraryExerciseCount}`);
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : "Program could not be saved.");
     }

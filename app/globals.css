@@ -526,6 +526,16 @@ button {
   font-weight: 700;
 }
 
+.success-banner {
+  margin-bottom: 18px;
+  border: 1px solid #acd5c2;
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+
 .progress-track {
   overflow: hidden;
   height: 12px;
