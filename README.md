@@ -10,12 +10,18 @@ Copy `.env.local.example` to `.env.local` and add the Supabase and application v
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SECRET_KEY=
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
 `SUPABASE_SECRET_KEY` is used only by the server-side patient email invitation route. Never prefix it with `NEXT_PUBLIC_` or expose it in browser code. All routine application data access continues through the authenticated Supabase client, so Row Level Security remains the source of truth.
 
-For Vercel, add all four values under Project Settings → Environment Variables and set `NEXT_PUBLIC_SITE_URL` to the production URL. In Supabase Auth → URL Configuration, add the production `/invite` URL to the redirect allow list so invitation links return to Move Free correctly.
+For Vercel, add the three values above under Project Settings → Environment Variables. Invitation links derive their destination from the live Move Free request URL rather than a manually entered site URL.
+
+In Supabase Auth → URL Configuration:
+
+- Set **Site URL** to `https://move-free-phmhhcynk5-2739s-projects.vercel.app`.
+- Add `https://move-free-phmhhcynk5-2739s-projects.vercel.app/invite` under **Redirect URLs**.
+
+Supabase ignores an invitation `redirectTo` value that is not allow-listed and falls back to Site URL, so both settings must point to the application rather than `https://vercel.com`.
 
 ## Commands
 

@@ -19,9 +19,18 @@ function getConfig() {
 }
 
 function getSiteUrl(request: NextRequest) {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configured) return configured.replace(/\/$/, "");
-  return request.nextUrl.origin;
+  // Build invitation links from the app handling this authenticated request.
+  // This prevents an incorrect dashboard environment value from sending a
+  // patient to vercel.com (or another unrelated fallback site).
+  const requestOrigin = request.nextUrl.origin;
+  if (requestOrigin.startsWith("http://") || requestOrigin.startsWith("https://")) {
+    return requestOrigin.replace(/\/$/, "");
+  }
+
+  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (productionHost) return `https://${productionHost.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
+
+  throw new Error("Move Free could not determine the application URL for this invitation.");
 }
 
 export async function POST(request: NextRequest) {
