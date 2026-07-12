@@ -129,7 +129,7 @@ export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSn
   };
 }
 
-export async function loadPatientWorkspace(client: Client, patientId?: string): Promise<PatientWorkspace> {
+export async function loadPatientWorkspace(client: Client, patientId?: string, access: "clinician" | "patient" = "clinician"): Promise<PatientWorkspace> {
   const user = await getCurrentUser(client);
 
   if (!user) {
@@ -140,13 +140,17 @@ export async function loadPatientWorkspace(client: Client, patientId?: string): 
     return emptyWorkspace();
   }
 
-  const patientResult = await client
+  let patientQuery = client
     .from("patients")
     .select("*")
     .eq("id", patientId)
-    .eq("clinician_id", user.id)
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  patientQuery = access === "patient"
+    ? patientQuery.eq("patient_profile_id", user.id)
+    : patientQuery.eq("clinician_id", user.id);
+
+  const patientResult = await patientQuery.maybeSingle();
 
   const patient = patientResult.data;
   if (!patient) {
@@ -257,14 +261,13 @@ export async function loadCurrentPatientAppWorkspace(client: Client): Promise<Pa
   const { data } = await client
     .from("patients")
     .select("*")
-    .or(`clinician_id.eq.${user.id},patient_profile_id.eq.${user.id}`)
-    .order("created_at", { ascending: false })
+    .eq("patient_profile_id", user.id)
     .limit(1)
     .maybeSingle();
 
   const patient = data as Patient | null;
 
-  return patient ? loadPatientWorkspace(client, patient.id) : emptyWorkspace();
+  return patient ? loadPatientWorkspace(client, patient.id, "patient") : emptyWorkspace();
 }
 
 export async function saveProgramDraft(client: Client, patientId: string, items: HomeProgramExercise[]) {
@@ -416,16 +419,22 @@ export async function saveFeedback(client: Client, message: string, sentiment: s
 export async function logExerciseCompletion(
   client: Client,
   patientId: string,
+  homeProgramId: string,
   homeProgramExerciseId: string,
-  painBefore: number,
+  completionStatus: string,
+  difficulty: string,
+  painDuring: number | null,
   painAfter: number,
   notes: string,
 ) {
   const { error } = await client.from("exercise_adherence_logs").insert({
     patient_id: patientId,
+    home_program_id: homeProgramId,
     home_program_exercise_id: homeProgramExerciseId,
-    completion_status: "completed",
-    pain_during: painBefore,
+    performed_at: new Date().toISOString(),
+    completion_status: completionStatus,
+    difficulty,
+    pain_during: painDuring,
     pain_after: painAfter,
     notes,
   });
@@ -435,11 +444,33 @@ export async function logExerciseCompletion(
   }
 }
 
-export async function logPainPattern(client: Client, patientId: string, painScore: number, notes: string) {
+export async function logPainPattern(
+  client: Client,
+  input: {
+    patientId: string;
+    episodeId: string;
+    painScore: number;
+    painLocation: string;
+    symptomBehavior: string;
+    activityContext: string;
+    aggravatingFactors: string;
+    easingFactors: string;
+    confidenceScore: number | null;
+    patientComment: string;
+  },
+) {
   const { error } = await client.from("daily_checkins").insert({
-    patient_id: patientId,
-    pain_score: painScore,
-    patient_comment: notes,
+    patient_id: input.patientId,
+    episode_id: input.episodeId,
+    checkin_date: new Date().toISOString().slice(0, 10),
+    pain_score: input.painScore,
+    pain_location: input.painLocation,
+    symptom_behavior: input.symptomBehavior,
+    activity_context: input.activityContext,
+    aggravating_factors: input.aggravatingFactors,
+    easing_factors: input.easingFactors,
+    confidence_score: input.confidenceScore,
+    patient_comment: input.patientComment,
   });
 
   if (error) {

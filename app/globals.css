@@ -53,6 +53,23 @@ button {
   min-height: 100vh;
 }
 
+.patient-shell { min-height: 100vh; }
+.patient-nav { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 24px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.9); }
+.patient-nav .brand { margin: 0; }
+.patient-nav nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.patient-nav nav a, .patient-nav nav button { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--foreground); font-weight: 700; }
+.patient-nav nav a:hover, .patient-nav nav button:hover { background: var(--accent-soft); }
+.patient-main { padding: 28px; }
+.form-error { color: var(--coral); font-weight: 700; }
+
+@media (max-width: 720px) {
+  .patient-nav { align-items: flex-start; padding: 12px 16px; }
+  .patient-nav nav { justify-content: flex-end; }
+  .patient-nav nav a { font-size: 0; padding: 0 10px; }
+  .patient-nav nav button { font-size: 0; padding: 0 10px; }
+  .patient-main { padding: 18px 14px; }
+}
+
 .sidebar {
   position: sticky;
   top: 0;

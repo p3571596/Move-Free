@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
+import { getProfile } from "@/lib/data";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,7 +35,10 @@ export default function LoginPage() {
     }
 
     setMessage(mode === "signup" ? "Account created. Check email if confirmation is enabled." : "Signed in.");
-    router.push("/dashboard");
+    const user = result.data.user;
+    if (!user) return;
+    const profile = await getProfile(supabase, user);
+    router.replace(profile?.role === "patient" ? "/patient" : "/dashboard");
   }
 
   return (

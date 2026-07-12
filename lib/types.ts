@@ -14,6 +14,7 @@ export type Profile = {
 export type Patient = {
   id: string;
   profile_id?: string | null;
+  patient_profile_id?: string | null;
   clinician_id?: string | null;
   display_name?: string | null;
   name?: string | null;
@@ -109,6 +110,12 @@ export type DailyCheckin = {
   id: string;
   patient_id?: string | null;
   pain_score?: number | null;
+  episode_id?: string | null;
+  pain_location?: string | null;
+  symptom_behavior?: string | null;
+  activity_context?: string | null;
+  aggravating_factors?: string | null;
+  easing_factors?: string | null;
   energy_score?: number | null;
   confidence_score?: number | null;
   notes?: string | null;
@@ -175,6 +182,7 @@ export type ExerciseAdherenceLog = {
   home_program_exercise_id?: string | null;
   completed?: boolean | null;
   completion_status?: string | null;
+  difficulty?: string | null;
   performed_at?: string | null;
   pain_before?: number | null;
   pain_during?: number | null;
