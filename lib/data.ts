@@ -9,6 +9,7 @@ import type {
   Episode,
   Exercise,
   ExerciseAdherenceLog,
+  Goal,
   HomeProgram,
   HomeProgramExercise,
   Patient,
@@ -180,6 +181,10 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
 
   const patientResult = await patientQuery.maybeSingle();
 
+  if (patientResult.error) {
+    throw patientResult.error;
+  }
+
   const patient = patientResult.data;
   if (!patient) {
     return emptyWorkspace();
@@ -196,6 +201,10 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     .limit(1)
     .maybeSingle();
 
+  if (activeEpisodeResult.error) {
+    throw activeEpisodeResult.error;
+  }
+
   const latestEpisodeResult = activeEpisodeResult.data
     ? activeEpisodeResult
     : await client
@@ -205,6 +214,10 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+  if (latestEpisodeResult.error) {
+    throw latestEpisodeResult.error;
+  }
 
   const episode = latestEpisodeResult.data as Episode | null;
   const episodeId = episode?.id;
@@ -217,6 +230,7 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     notesResult,
     barriersResult,
     programsResult,
+    adherenceResult,
   ] = await Promise.all([
     episodeId ? client.from("goals").select("*").eq("episode_id", episodeId).limit(8) : emptyResult(),
     client.from("daily_checkins").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(7),
@@ -230,6 +244,23 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
       .eq("episode_id", episodeId)
       .order("updated_at", { ascending: false })
       .limit(20) : emptyResult(),
+    client
+      .from("exercise_adherence_logs")
+      .select("*")
+      .eq("patient_id", resolvedPatientId)
+      .order("performed_at", { ascending: false })
+      .limit(100),
+  ]);
+
+  throwFirstQueryError([
+    goalsResult,
+    checkinsResult,
+    metricsResult,
+    decisionsResult,
+    notesResult,
+    barriersResult,
+    programsResult,
+    adherenceResult,
   ]);
 
   const selectedProgram = selectVisibleProgram((programsResult.data ?? []) as HomeProgram[]);
@@ -241,7 +272,7 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
   return {
     patient,
     episode,
-    goals: goalsResult.data ?? [],
+    goals: withPatientGoalFallback(goalsResult.data ?? [], patient),
     checkins: normalizeCheckins(checkinsResult.data ?? []),
     progressMetrics: normalizeProgressMetrics(metricsResult.data ?? []),
     decision: (decisionsResult.data?.[0] as ClinicalDecision | undefined) ?? null,
@@ -249,15 +280,20 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     barriers: barriersResult.data ?? [],
     program,
     programExercises,
+    adherenceLogs: (adherenceResult.data ?? []) as ExerciseAdherenceLog[],
   };
 }
 
 export async function loadProgramExercises(client: Client, programId: string) {
-  const { data } = await client
+  const { data, error } = await client
     .from("home_program_exercises")
     .select("*, exercise:exercises(*)")
     .eq("home_program_id", programId)
     .order("sort_order", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
 
   return (data ?? []).map(normalizeProgramExercise) as HomeProgramExercise[];
 }
@@ -286,12 +322,16 @@ export async function loadCurrentPatientAppWorkspace(client: Client): Promise<Pa
     return emptyWorkspace();
   }
 
-  const { data } = await client
+  const { data, error } = await client
     .from("patients")
     .select("*")
     .eq("patient_profile_id", user.id)
     .limit(1)
     .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
 
   const patient = data as Patient | null;
 
@@ -749,11 +789,11 @@ function normalizeProgressMetrics(metrics: Array<Record<string, unknown>>) {
 }
 
 function emptyResult() {
-  return Promise.resolve({ data: [] });
+  return Promise.resolve({ data: [], error: null });
 }
 
 function emptySingleResult() {
-  return Promise.resolve({ data: null });
+  return Promise.resolve({ data: null, error: null });
 }
 
 export function emptyWorkspace(): PatientWorkspace {
@@ -768,5 +808,30 @@ export function emptyWorkspace(): PatientWorkspace {
     barriers: [],
     program: null,
     programExercises: [],
+    adherenceLogs: [],
   };
+}
+
+function withPatientGoalFallback(goals: Goal[], patient: Patient): Goal[] {
+  if (goals.length || !patient.goal) {
+    return goals;
+  }
+
+  return [{
+    id: `patient-goal-${patient.id}`,
+    patient_id: patient.id,
+    title: patient.goal,
+    baseline_value: patient.baseline_value,
+    current_value: patient.current_value,
+    target_value: patient.target_value,
+    progress_percent: patient.progress_percent ?? 0,
+    status: "active",
+  }];
+}
+
+function throwFirstQueryError(results: Array<{ error?: unknown }>) {
+  const failed = results.find((result) => result.error);
+  if (failed?.error) {
+    throw failed.error;
+  }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { HeartPulse } from "lucide-react";
 import { PatientShell } from "@/components/PatientShell";
 import { RoleGate } from "@/components/RoleGate";
@@ -89,8 +90,8 @@ export default function PainPatternPage() {
                 <label htmlFor="painLocation">Where did you feel it?</label>
                 <input id="painLocation" name="painLocation" placeholder="For example: low back" />
               </div>
-              <div className="field"><label htmlFor="symptomBehavior">When did it happen?</label><select id="symptomBehavior" name="symptomBehavior"><option>Morning</option><option>Afternoon</option><option>Evening</option><option>During the night</option><option>Intermittent</option></select></div>
-              <div className="field"><label htmlFor="activityContext">What were you doing?</label><input id="activityContext" name="activityContext" placeholder="Sitting, walking, driving, exercising..." required /></div>
+              <div className="field"><label htmlFor="symptomBehavior">When did it happen?</label><select id="symptomBehavior" name="symptomBehavior"><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option><option value="night">During the night</option><option value="intermittent">On and off during the day</option></select></div>
+              <div className="field"><label htmlFor="activityContext">What were you doing?</label><select id="activityContext" name="activityContext" required><option value="">Choose an activity</option><option value="sitting">Sitting</option><option value="walking">Walking</option><option value="working">Working</option><option value="driving">Driving</option><option value="exercise">Exercising</option><option value="sleeping">Sleeping</option><option value="lifting">Lifting</option><option value="other">Something else</option></select></div>
               <div className="field"><label htmlFor="aggravatingFactors">What made it worse?</label><input id="aggravatingFactors" name="aggravatingFactors" /></div>
               <div className="field"><label htmlFor="easingFactors">What helped?</label><input id="easingFactors" name="easingFactors" /></div>
               <div className="field"><label htmlFor="confidenceScore">Confidence in your progress (0–10, optional)</label><input id="confidenceScore" name="confidenceScore" type="number" min={0} max={10}/></div>
@@ -99,7 +100,7 @@ export default function PainPatternPage() {
                 <HeartPulse size={18} />
                 Save pain log
               </button>
-              {message ? <p className="muted">{message}</p> : null}
+              {message ? <div className="success-banner" role="status"><strong>{message}</strong><Link href="/patient">Return home</Link></div> : null}
               {error ? <p className="form-error" role="alert">{error}</p> : null}
             </form>
           ) : null}

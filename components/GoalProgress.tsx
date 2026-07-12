@@ -40,6 +40,10 @@ export function GoalProgress({ goals }: { goals: Goal[] }) {
 }
 
 function normalizedGoalPercent(goal: Goal) {
+  if (typeof goal.progress_percent === "number") {
+    return Math.min(100, Math.max(0, goal.progress_percent));
+  }
+
   const current = goal.current_value == null ? null : Number(goal.current_value);
   const target = goal.target_value == null ? null : Number(goal.target_value);
 

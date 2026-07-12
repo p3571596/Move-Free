@@ -24,6 +24,9 @@ export default function PatientProgressPage() {
     loadCurrentPatientAppWorkspace(supabase).then(setWorkspace).catch((cause) => setLoadError(cause instanceof Error ? cause.message : "Could not load progress."));
   }, []);
 
+  const completed = workspace?.adherenceLogs.filter((log) => log.completion_status === "completed").length ?? 0;
+  const total = workspace?.adherenceLogs.length ?? 0;
+
   return (
     <PatientShell>
       <RequireAuth><RoleGate allowed={["patient"]}>
@@ -47,7 +50,12 @@ export default function PatientProgressPage() {
               <GoalProgress goals={workspace.goals} />
               <section className="panel" style={{ marginTop: 18 }}>
                 <p className="eyebrow">Trend</p>
-                <ProgressBars metrics={workspace.progressMetrics} />
+                {workspace.progressMetrics.length ? <ProgressBars metrics={workspace.progressMetrics} /> : <p className="muted">Your therapist has not recorded progress measurements yet.</p>}
+              </section>
+              <section className="panel" style={{ marginTop: 18 }}>
+                <p className="eyebrow">Exercise completion</p>
+                <h3>{completed} completed</h3>
+                <p className="muted">Across {total} exercise logs submitted so far.</p>
               </section>
             </>
           ) : null}

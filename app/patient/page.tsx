@@ -28,6 +28,8 @@ export default function PatientAppHomePage() {
   }, []);
 
   const patientName = workspace?.patient?.display_name ?? workspace?.patient?.full_name;
+  const primaryGoal = workspace?.goals[0];
+  const goalProgress = primaryGoal?.progress_percent ?? workspace?.patient?.progress_percent ?? 0;
 
   return (
     <PatientShell>
@@ -37,7 +39,7 @@ export default function PatientAppHomePage() {
             <div>
               <p className="eyebrow">Patient app</p>
               <h2>{patientName ? `Welcome, ${patientName}` : "No patient selected"}</h2>
-              <p className="muted">{workspace?.program?.title ?? "No active program yet"}</p>
+              <p className="muted">{workspace?.program?.title ?? "Your movement journey"}</p>
             </div>
           </div>
           {!workspace && !loadError ? <div className="empty">Loading patient app...</div> : null}
@@ -50,6 +52,17 @@ export default function PatientAppHomePage() {
           ) : null}
           {workspace?.patient ? (
             <>
+              <section className="patient-goal-hero">
+                <div>
+                  <p className="eyebrow">Current goal</p>
+                  <h1>{primaryGoal?.title ?? workspace.patient.goal ?? "Your clinician is preparing your goal"}</h1>
+                  <p className="muted">{workspace.patient.current_focus ?? workspace.episode?.clinical_summary ?? "Keep moving toward what matters to you."}</p>
+                </div>
+                <div className="patient-goal-score" aria-label={`${goalProgress}% goal progress`}>
+                  <strong>{goalProgress}%</strong>
+                  <span>progress</span>
+                </div>
+              </section>
               <section className="grid">
                 <Link className="card row-between" href="/patient/program">
                   <span>
@@ -73,6 +86,12 @@ export default function PatientAppHomePage() {
                   <TrendingUp color="var(--blue)" />
                 </Link>
               </section>
+              {workspace.program?.patient_explanation || workspace.episode?.clinical_summary ? (
+                <section className="panel patient-reminder">
+                  <p className="eyebrow">From your therapist</p>
+                  <p>{workspace.program?.patient_explanation ?? workspace.episode?.clinical_summary}</p>
+                </section>
+              ) : null}
               <div style={{ marginTop: 18 }}>
                 <GoalProgress goals={workspace.goals} />
               </div>
@@ -96,5 +115,6 @@ function emptyPatientAppWorkspace(): PatientWorkspace {
     barriers: [],
     program: null,
     programExercises: [],
+    adherenceLogs: [],
   };
 }

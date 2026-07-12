@@ -25,6 +25,12 @@ export type Patient = {
   diagnosis?: string | null;
   primary_complaint?: string | null;
   current_focus?: string | null;
+  goal?: string | null;
+  primary_outcome?: string | null;
+  baseline_value?: string | null;
+  current_value?: string | null;
+  target_value?: string | null;
+  progress_percent?: number | null;
   status?: string | null;
   created_at?: string | null;
 };
@@ -49,6 +55,7 @@ export type Goal = {
   patient_id?: string | null;
   episode_id?: string | null;
   title?: string | null;
+  baseline_value?: number | string | null;
   target_value?: number | string | null;
   current_value?: number | string | null;
   progress_percent?: number | null;
@@ -250,4 +257,5 @@ export type PatientWorkspace = {
   barriers: Barrier[];
   program: HomeProgram | null;
   programExercises: HomeProgramExercise[];
+  adherenceLogs: ExerciseAdherenceLog[];
 };

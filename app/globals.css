@@ -60,6 +60,27 @@ button {
 .patient-nav nav a, .patient-nav nav button { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--foreground); font-weight: 700; }
 .patient-nav nav a:hover, .patient-nav nav button:hover { background: var(--accent-soft); }
 .patient-main { padding: 28px; }
+.patient-goal-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 22px; margin-bottom: 18px; border: 1px solid rgba(31, 122, 90, .22); border-radius: 12px; padding: 24px; background: linear-gradient(135deg, rgba(220,239,231,.9), rgba(255,255,255,.96)); box-shadow: var(--shadow); }
+.patient-goal-hero h1 { max-width: 720px; margin: 6px 0 10px; font-size: clamp(26px, 5vw, 42px); line-height: 1.08; }
+.patient-goal-score { display: grid; place-items: center; min-width: 116px; min-height: 116px; border-radius: 999px; color: white; background: var(--accent); text-align: center; }
+.patient-goal-score strong { font-size: 30px; line-height: 1; }
+.patient-goal-score span { margin-top: -18px; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.patient-reminder { margin-top: 18px; border-left: 4px solid var(--accent); }
+.patient-reminder p:last-child { margin-top: 8px; line-height: 1.6; }
+.program-session { display: grid; gap: 20px; }
+.patient-program-group { display: grid; gap: 12px; }
+.patient-program-group h3 { margin: 0; }
+.patient-exercise-card { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 16px; color: var(--foreground); background: #fff; text-align: left; transition: border-color 160ms ease, background 160ms ease, transform 160ms ease; }
+.patient-exercise-card:hover, .patient-exercise-card:focus-visible { border-color: rgba(31, 122, 90, .55); outline: none; transform: translateY(-1px); }
+.patient-exercise-card.is-complete { border-color: var(--accent); background: var(--accent-soft); }
+.exercise-check { display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid var(--line); border-radius: 999px; color: white; background: white; font-weight: 900; }
+.is-complete .exercise-check { border-color: var(--accent); background: var(--accent); }
+.exercise-copy { display: grid; gap: 5px; }
+.exercise-copy > span { color: var(--accent-strong); font-weight: 800; }
+.exercise-copy small { color: var(--muted); line-height: 1.45; }
+.session-finish-card { display: grid; gap: 16px; margin-top: 4px; }
+.success-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid rgba(31, 122, 90, .26); border-radius: 8px; padding: 12px 14px; color: var(--accent-strong); background: var(--accent-soft); }
+.success-banner a { display: inline-flex; align-items: center; gap: 7px; font-weight: 800; }
 .form-error { color: var(--coral); font-weight: 700; }
 .invite-control { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .invite-control small { flex-basis: 100%; text-align: right; }
@@ -70,6 +91,9 @@ button {
   .patient-nav nav a { font-size: 0; padding: 0 10px; }
   .patient-nav nav button { font-size: 0; padding: 0 10px; }
   .patient-main { padding: 18px 14px; }
+  .patient-goal-hero { grid-template-columns: 1fr; padding: 20px; }
+  .patient-goal-score { min-width: 92px; min-height: 92px; justify-self: start; }
+  .patient-goal-score strong { font-size: 25px; }
 }
 
 .sidebar {

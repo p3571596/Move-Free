@@ -123,6 +123,7 @@ export const sampleBarriers: Barrier[] = [
 ];
 
 export const sampleWorkspace: PatientWorkspace = {
+  adherenceLogs: [],
   patient: samplePatient,
   episode: {
     id: "episode-1",
