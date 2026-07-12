@@ -89,7 +89,10 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
             <h2>{patientName}</h2>
             <p className="muted">{episodeLabel}</p>
           </div>
-          <Link className="button" href={`/program-builder/${workspace.patient.id}`} aria-label={`Update program for ${patientName}`}>Update Program</Link>
+          <div className="builder-actions">
+            <Link className="secondary-button" href={`/patients/${workspace.patient.id}/edit`} aria-label={`Edit profile for ${patientName}`}>Edit Profile</Link>
+            <Link className="button" href={`/program-builder/${workspace.patient.id}`} aria-label={`Update program for ${patientName}`}>Update Program</Link>
+          </div>
         </div>
         <div className="grid three">
           <Link className="workspace-link-card" href={`/patients/${workspace.patient.id}/logs`} aria-label={`Open logs for ${patientName}`}>
