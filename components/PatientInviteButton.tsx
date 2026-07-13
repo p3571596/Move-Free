@@ -40,9 +40,10 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
         setStatus(`${result.mode === "resend" ? "Patient sign-in link" : "Invitation"} sent to ${destination.trim()}.`);
         setOpen(false);
       } else {
+        const publicAppUrl = "https://move-free.vercel.app";
         const url = isLinked
-          ? `${window.location.origin}/login`
-          : `${window.location.origin}/invite?token=${encodeURIComponent(await createPatientInvite(supabase, patientId))}&mode=signin`;
+          ? `${publicAppUrl}/login`
+          : `${publicAppUrl}/invite?token=${encodeURIComponent(await createPatientInvite(supabase, patientId))}&mode=signin`;
         setInviteUrl(url);
         await navigator.clipboard.writeText(url);
         setStatus(`SMS delivery is not configured yet. ${isLinked ? "Patient sign-in" : "Secure invitation"} link copied for ${destination.trim()}.`);
