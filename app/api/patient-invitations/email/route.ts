@@ -61,17 +61,40 @@ export async function POST(request: NextRequest) {
       .eq("clinician_id", userData.user.id)
       .maybeSingle();
     if (patientError || !patient) return NextResponse.json({ error: "Patient not found or access denied." }, { status: 403 });
-    if (patient.patient_profile_id) return NextResponse.json({ error: "This patient already has a linked account." }, { status: 409 });
+
+    const adminClient = createClient(url, secretKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    const siteUrl = getSiteUrl(request);
+
+    if (patient.patient_profile_id) {
+      const { data: linkedUser, error: linkedUserError } = await adminClient.auth.admin.getUserById(patient.patient_profile_id);
+      if (linkedUserError || !linkedUser.user?.email) {
+        return NextResponse.json({ error: "The linked patient account could not be found." }, { status: 409 });
+      }
+      if (linkedUser.user.email.toLowerCase() !== email) {
+        return NextResponse.json({ error: "Use the email already linked to this patient account." }, { status: 400 });
+      }
+
+      const signInClient = createClient(url, publishableKey, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      });
+      const { error: signInError } = await signInClient.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${siteUrl}/patient`, shouldCreateUser: false },
+      });
+      if (signInError) {
+        return NextResponse.json({ error: signInError.message }, { status: 400 });
+      }
+
+      return NextResponse.json({ sent: true, mode: "resend" });
+    }
 
     const { data: token, error: tokenError } = await authenticatedClient.rpc("create_patient_invite", { p_patient_id: patientId });
     if (tokenError || !token) {
       return NextResponse.json({ error: tokenError?.message ?? "Secure invitation could not be created." }, { status: 400 });
     }
 
-    const adminClient = createClient(url, secretKey, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    });
-    const siteUrl = getSiteUrl(request);
     const inviteRedirect = `${siteUrl}/invite?token=${encodeURIComponent(String(token))}&mode=invite`;
     const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: inviteRedirect,
