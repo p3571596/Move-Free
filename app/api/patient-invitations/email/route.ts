@@ -19,18 +19,18 @@ function getConfig() {
 }
 
 function getSiteUrl(request: NextRequest) {
-  // Build invitation links from the app handling this authenticated request.
-  // This prevents an incorrect dashboard environment value from sending a
-  // patient to vercel.com (or another unrelated fallback site).
+  // Patient emails must use the public production alias. Requests can arrive
+  // through a Vercel team alias that is protected by Vercel Authentication;
+  // using that request origin would send patients to a Vercel login screen.
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configuredUrl) return configuredUrl.replace(/\/$/, "");
+
   const requestOrigin = request.nextUrl.origin;
-  if (requestOrigin.startsWith("http://") || requestOrigin.startsWith("https://")) {
+  if (requestOrigin.startsWith("http://localhost") || requestOrigin.startsWith("http://127.0.0.1")) {
     return requestOrigin.replace(/\/$/, "");
   }
 
-  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  if (productionHost) return `https://${productionHost.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
-
-  throw new Error("Move Free could not determine the application URL for this invitation.");
+  return "https://move-free.vercel.app";
 }
 
 export async function POST(request: NextRequest) {
