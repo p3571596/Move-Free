@@ -6,6 +6,16 @@ type InviteRequest = {
   email?: string;
 };
 
+function authEmailError(message: string, status?: number) {
+  const rateLimited = status === 429 || /rate limit/i.test(message);
+  return NextResponse.json(
+    { error: rateLimited
+      ? "Supabase has temporarily reached its email limit. Wait before resending, or copy the patient login link and send it directly."
+      : message },
+    { status: rateLimited ? 429 : 400 },
+  );
+}
+
 function getConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -87,7 +97,7 @@ export async function POST(request: NextRequest) {
         options: { emailRedirectTo: `${siteUrl}/invite?mode=access`, shouldCreateUser: false },
       });
       if (signInError) {
-        return NextResponse.json({ error: signInError.message }, { status: 400 });
+        return authEmailError(signInError.message, signInError.status);
       }
 
       return NextResponse.json({ sent: true, mode: "resend" });
@@ -115,7 +125,7 @@ export async function POST(request: NextRequest) {
       options: { emailRedirectTo: signInRedirect, shouldCreateUser: false },
     });
     if (signInError) {
-      return NextResponse.json({ error: inviteError.message }, { status: 400 });
+      return authEmailError(signInError.message || inviteError.message, signInError.status);
     }
 
     return NextResponse.json({ sent: true, mode: "signin" });
