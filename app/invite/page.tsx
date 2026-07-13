@@ -10,24 +10,34 @@ export default function InvitePage() {
   const router = useRouter();
   const [status, setStatus] = useState("Preparing your secure invitation...");
   const [token, setToken] = useState("");
-  const [mode, setMode] = useState<"invite" | "signin">("invite");
+  const [mode, setMode] = useState<"invite" | "signin" | "access">("invite");
   const [signedIn, setSignedIn] = useState(false);
   const [password, setPassword] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const invitationToken = params.get("token");
-    const invitationMode = params.get("mode") === "signin" ? "signin" : "invite";
-    if (!invitationToken) { setStatus("This invitation link is incomplete."); return; }
-    setToken(invitationToken);
+    const modeParam = params.get("mode");
+    const invitationMode = modeParam === "access" ? "access" : modeParam === "signin" ? "signin" : "invite";
+    if (!invitationToken && invitationMode !== "access") { setStatus("This invitation link is incomplete."); return; }
+    if (invitationMode === "access") {
+      setMode("access");
+      const client = createSupabaseBrowserClient();
+      client.auth.getUser().then(({ data }) => {
+        if (data.user) router.replace("/patient");
+        else setStatus("This access link has expired. Ask your clinician to send a new one.");
+      });
+      return;
+    }
+    setToken(invitationToken!);
     setMode(invitationMode);
-    localStorage.setItem("moveFreePatientInvite", invitationToken);
+    localStorage.setItem("moveFreePatientInvite", invitationToken!);
     const client = createSupabaseBrowserClient();
     client.auth.getUser().then(async ({ data }) => {
       if (!data.user) { setStatus("Sign in or create your patient account to continue."); return; }
       setSignedIn(true);
       if (invitationMode === "signin") {
-        try { await claimPatientInvite(client, invitationToken); localStorage.removeItem("moveFreePatientInvite"); router.replace("/patient"); }
+        try { await claimPatientInvite(client, invitationToken!); localStorage.removeItem("moveFreePatientInvite"); router.replace("/patient"); }
         catch (cause) { setStatus(cause instanceof Error ? cause.message : "Could not accept invitation."); }
       } else {
         setStatus("Create a password to finish setting up your patient account.");
