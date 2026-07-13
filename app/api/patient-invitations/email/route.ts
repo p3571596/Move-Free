@@ -22,13 +22,13 @@ function getSiteUrl(request: NextRequest) {
   // Build invitation links from the app handling this authenticated request.
   // This prevents an incorrect dashboard environment value from sending a
   // patient to vercel.com (or another unrelated fallback site).
-  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  if (productionHost) return `https://${productionHost.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
-
   const requestOrigin = request.nextUrl.origin;
   if (requestOrigin.startsWith("http://") || requestOrigin.startsWith("https://")) {
     return requestOrigin.replace(/\/$/, "");
   }
+
+  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (productionHost) return `https://${productionHost.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
 
   throw new Error("Move Free could not determine the application URL for this invitation.");
 }
@@ -81,7 +81,10 @@ export async function POST(request: NextRequest) {
       });
       const { error: signInError } = await signInClient.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: `${siteUrl}/patient`, shouldCreateUser: false },
+        // Reuse the invitation callback that is already allow-listed in
+        // Supabase. The callback verifies the authenticated patient and then
+        // forwards them to /patient.
+        options: { emailRedirectTo: `${siteUrl}/invite?mode=access`, shouldCreateUser: false },
       });
       if (signInError) {
         return NextResponse.json({ error: signInError.message }, { status: 400 });
