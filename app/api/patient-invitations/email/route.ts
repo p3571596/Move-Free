@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { getAppRoute } from "@/lib/app-url";
 
 type InviteRequest = {
   patientId?: string;
@@ -26,21 +27,6 @@ function getConfig() {
   }
 
   return { url, publishableKey, secretKey };
-}
-
-function getSiteUrl(request: NextRequest) {
-  // Patient emails must use the public production alias. Requests can arrive
-  // through a Vercel team alias that is protected by Vercel Authentication;
-  // using that request origin would send patients to a Vercel login screen.
-  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configuredUrl) return configuredUrl.replace(/\/$/, "");
-
-  const requestOrigin = request.nextUrl.origin;
-  if (requestOrigin.startsWith("http://localhost") || requestOrigin.startsWith("http://127.0.0.1")) {
-    return requestOrigin.replace(/\/$/, "");
-  }
-
-  return "https://move-free.vercel.app";
 }
 
 export async function POST(request: NextRequest) {
@@ -75,8 +61,6 @@ export async function POST(request: NextRequest) {
     const adminClient = createClient(url, secretKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
-    const siteUrl = getSiteUrl(request);
-
     if (patient.patient_profile_id) {
       const { data: linkedUser, error: linkedUserError } = await adminClient.auth.admin.getUserById(patient.patient_profile_id);
       if (linkedUserError || !linkedUser.user?.email) {
@@ -94,7 +78,7 @@ export async function POST(request: NextRequest) {
         // Reuse the invitation callback that is already allow-listed in
         // Supabase. The callback verifies the authenticated patient and then
         // forwards them to /patient.
-        options: { emailRedirectTo: `${siteUrl}/invite?mode=access`, shouldCreateUser: false },
+        options: { emailRedirectTo: getAppRoute("/invite?mode=access"), shouldCreateUser: false },
       });
       if (signInError) {
         return authEmailError(signInError.message, signInError.status);
@@ -108,7 +92,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: tokenError?.message ?? "Secure invitation could not be created." }, { status: 400 });
     }
 
-    const inviteRedirect = `${siteUrl}/invite?token=${encodeURIComponent(String(token))}&mode=invite`;
+    const inviteRedirect = getAppRoute(`/invite?token=${encodeURIComponent(String(token))}&mode=invite`);
     const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: inviteRedirect,
       data: { role: "patient", patient_id: patientId },
@@ -119,7 +103,7 @@ export async function POST(request: NextRequest) {
     const signInClient = createClient(url, publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
-    const signInRedirect = `${siteUrl}/invite?token=${encodeURIComponent(String(token))}&mode=signin`;
+    const signInRedirect = getAppRoute(`/invite?token=${encodeURIComponent(String(token))}&mode=signin`);
     const { error: signInError } = await signInClient.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: signInRedirect, shouldCreateUser: false },

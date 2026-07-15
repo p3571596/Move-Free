@@ -10,19 +10,28 @@ Copy `.env.local.example` to `.env.local` and add the Supabase and application v
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SECRET_KEY=
+NEXT_PUBLIC_APP_URL=https://your-production-domain.example
 ```
 
 `SUPABASE_SECRET_KEY` is used only by the server-side patient email invitation route. Never prefix it with `NEXT_PUBLIC_` or expose it in browser code. All routine application data access continues through the authenticated Supabase client, so Row Level Security remains the source of truth.
 
-For Vercel, add the three values above under Project Settings → Environment Variables. Invitation links derive their destination from the live Move Free request URL rather than a manually entered site URL.
+`NEXT_PUBLIC_APP_URL` is required and must be the one public production origin patients can open without Vercel authentication. Do not use a preview deployment, team alias, path, query string, or trailing slash. Invitation creation fails clearly when this variable is missing or invalid instead of falling back to another deployment.
+
+For Vercel, add all four values above under Project Settings → Environment Variables for **Production**, then redeploy. The expected production domain for the current deployment is `https://move-free.vercel.app`; confirm that exact URL opens Move Free in an incognito window before using it for `NEXT_PUBLIC_APP_URL`.
 
 In Supabase Auth → URL Configuration:
 
-- Set **Site URL** to `https://move-free.vercel.app`.
-- Add `https://move-free.vercel.app/invite` under **Redirect URLs**.
-- During preview testing, optionally allow `https://*-phmhhcynk5-2739s-projects.vercel.app/invite` as well.
+- Set **Site URL** to the exact value of `NEXT_PUBLIC_APP_URL`.
+- Add `<NEXT_PUBLIC_APP_URL>/invite` under **Redirect URLs**.
+- Add `<NEXT_PUBLIC_APP_URL>/auth/callback` under **Redirect URLs** for current or future PKCE/OAuth callbacks.
+- Add `http://localhost:3000/**` only when local invitation testing is required.
+- Keep preview deployments out of patient invitation emails. If previews are intentionally tested, allow only the necessary preview pattern and remember that Vercel Deployment Protection may block patients.
 
 Supabase ignores an invitation `redirectTo` value that is not allow-listed and falls back to Site URL, so both settings must point to the application rather than `https://vercel.com`.
+
+If the customized Supabase **Invite user** email template builds its own confirmation link, ensure it uses `{{ .RedirectTo }}` rather than `{{ .SiteURL }}` so the invitation token and mode remain attached to the `/invite` destination.
+
+In Vercel → Project Settings → Deployment Protection, Production must be publicly accessible. Disable **Vercel Authentication** for Production (preview deployments may stay protected). If `https://move-free.vercel.app` is not the project's public production domain, replace it everywhere above with the exact domain shown under the production deployment.
 
 ## Commands
 

@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { Check, Copy, Mail, MessageSquareText, Send, X } from "lucide-react";
 import { createPatientInvite } from "@/lib/data";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { getAppRoute } from "@/lib/app-url";
 
 export function PatientInviteButton({ patientId, isLinked }: { patientId: string; isLinked: boolean }) {
   const [inviteUrl, setInviteUrl] = useState("");
@@ -40,10 +41,9 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
         setStatus(`${result.mode === "resend" ? "Patient sign-in link" : "Invitation"} sent to ${destination.trim()}.`);
         setOpen(false);
       } else {
-        const publicAppUrl = "https://move-free.vercel.app";
         const url = isLinked
-          ? `${publicAppUrl}/login`
-          : `${publicAppUrl}/invite?token=${encodeURIComponent(await createPatientInvite(supabase, patientId))}&mode=signin`;
+          ? getAppRoute("/login")
+          : getAppRoute(`/invite?token=${encodeURIComponent(await createPatientInvite(supabase, patientId))}&mode=signin`);
         setInviteUrl(url);
         await navigator.clipboard.writeText(url);
         setStatus(`SMS delivery is not configured yet. ${isLinked ? "Patient sign-in" : "Secure invitation"} link copied for ${destination.trim()}.`);
