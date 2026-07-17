@@ -33,6 +33,7 @@ export type Patient = {
   progress_percent?: number | null;
   status?: string | null;
   created_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type Episode = {

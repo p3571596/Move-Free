@@ -90,6 +90,10 @@ export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSn
     .eq("clinician_id", user.id)
     .order("created_at", { ascending: false });
 
+  if (patientsResult.error) {
+    throw patientsResult.error;
+  }
+
   const patients = patientsResult.data ?? [];
   const patientIds = patients.map((patient) => patient.id);
 
@@ -129,6 +133,10 @@ export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSn
       .order("created_at", { ascending: false }),
   ]);
 
+  for (const result of [episodesResult, checkinsResult, adherenceResult, decisionsResult]) {
+    if (result.error) throw result.error;
+  }
+
   const episodes = episodesResult.data ?? [];
   const episodeIds = episodes.map((episode) => episode.id);
   const [goalsResult, programsResult] = episodeIds.length
@@ -145,6 +153,9 @@ export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSn
         .order("updated_at", { ascending: false }),
     ])
     : [await emptyResult(), await emptyResult()];
+
+  if (goalsResult.error) throw goalsResult.error;
+  if (programsResult.error) throw programsResult.error;
 
   return {
     profile: await getProfile(client, user),
