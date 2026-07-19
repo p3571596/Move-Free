@@ -24,10 +24,11 @@ export default function LoginPage() {
     }
 
     const supabase = createSupabaseBrowserClient();
+    const normalizedEmail = email.trim().toLowerCase();
     const result =
       mode === "login"
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
+        ? await supabase.auth.signInWithPassword({ email: normalizedEmail, password })
+        : await supabase.auth.signUp({ email: normalizedEmail, password });
 
     if (result.error) {
       setMessage(result.error.message);
@@ -84,11 +85,30 @@ export default function LoginPage() {
         <form className="form" onSubmit={submit} style={{ marginTop: 22 }}>
           <div className="field">
             <label htmlFor="email">Email</label>
-            <input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            <input
+              id="email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
           </div>
           <div className="field">
             <label htmlFor="password">Password</label>
-            <input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} />
+            <input
+              id="password"
+              type="password"
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              minLength={6}
+            />
           </div>
           <button className="button" type="submit">
             {mode === "login" ? "Log in" : "Create account"}
