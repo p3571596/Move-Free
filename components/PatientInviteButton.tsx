@@ -68,6 +68,7 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
           <button className="icon-button" type="button" onClick={() => setOpen(false)} aria-label="Close invitation dialog"><X size={18}/></button>
         </div>
         <p className="muted">{isLinked ? "Send a fresh sign-in link to the patient’s existing account." : "The patient will securely link their account and see the assigned program immediately."}</p>
+        <p className="invite-tip">For testing, open the link on the patient&apos;s device or in a private browser window so an existing therapist session cannot be reused.</p>
         <div className="invite-channel-picker" role="group" aria-label="Invitation method">
           <button className={channel === "email" ? "channel-option active" : "channel-option"} type="button" onClick={() => { setChannel("email"); setDestination(""); }}><Mail size={18}/>Email</button>
           <button className={channel === "text" ? "channel-option active" : "channel-option"} type="button" onClick={() => { setChannel("text"); setDestination(""); }}><MessageSquareText size={18}/>Text</button>
