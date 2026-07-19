@@ -84,6 +84,33 @@ button {
 .form-error { color: var(--coral); font-weight: 700; }
 .invite-control { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .invite-control small { flex-basis: 100%; text-align: right; }
+.invite-tip { border-left: 3px solid var(--gold); padding: 8px 10px; color: var(--foreground); background: rgba(154, 118, 29, .08); line-height: 1.45; }
+.goal-field-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.patient-preview-stage { display: grid; place-items: start center; border: 1px solid var(--line); border-radius: 14px; padding: 28px; background: linear-gradient(145deg, rgba(31,122,90,.08), rgba(49,95,148,.08)); }
+.patient-preview-device { display: grid; grid-template-rows: auto minmax(560px, auto) auto; width: min(100%, 430px); overflow: hidden; border: 8px solid #17201b; border-radius: 28px; background: var(--background); box-shadow: 0 28px 70px rgba(23,32,27,.24); }
+.patient-preview-appbar { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); padding: 12px 14px; background: rgba(255,255,255,.94); }
+.patient-preview-appbar .brand-mark { width: 36px; height: 36px; }
+.patient-preview-appbar > span:nth-child(2) { display: grid; gap: 2px; }
+.patient-preview-appbar small { color: var(--muted); }
+.patient-preview-content { padding: 18px; }
+.patient-preview-content .patient-goal-hero { box-shadow: none; }
+.patient-goal-hero-compact { grid-template-columns: minmax(0,1fr) 82px; padding: 18px; }
+.patient-goal-hero-compact h1 { font-size: 25px; }
+.patient-goal-hero-compact .patient-goal-score { min-width: 78px; min-height: 78px; }
+.patient-goal-hero-compact .patient-goal-score strong { font-size: 23px; }
+.patient-goal-hero-compact .patient-goal-score span { margin-top: -12px; font-size: 9px; }
+.patient-action-stack { display: grid; gap: 10px; }
+.patient-action-stack button { width: 100%; color: var(--foreground); text-align: left; }
+.patient-action-stack button span { display: grid; gap: 4px; }
+.patient-action-stack small { color: var(--muted); }
+.patient-preview-section-header { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 10px; margin-bottom: 18px; }
+.patient-preview-section-header h2 { margin: 2px 0 0; font-size: 24px; }
+.patient-preview-content .patient-program-group + .patient-program-group { margin-top: 18px; }
+.preview-save-button { width: 100%; justify-content: center; margin-top: 18px; }
+.preview-note { margin: 0; color: var(--muted); font-size: 12px; text-align: center; }
+.patient-preview-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); background: #fff; }
+.patient-preview-tabs button { display: grid; justify-items: center; gap: 4px; border: 0; padding: 11px 6px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 800; }
+.patient-preview-tabs button.active { color: var(--accent-strong); background: var(--accent-soft); }
 
 @media (max-width: 720px) {
   .patient-nav { align-items: flex-start; padding: 12px 16px; }
@@ -94,6 +121,9 @@ button {
   .patient-goal-hero { grid-template-columns: 1fr; padding: 20px; }
   .patient-goal-score { min-width: 92px; min-height: 92px; justify-self: start; }
   .patient-goal-score strong { font-size: 25px; }
+  .goal-field-grid { grid-template-columns: 1fr; }
+  .patient-preview-stage { margin-inline: -4px; padding: 10px; }
+  .patient-preview-device { border-width: 5px; border-radius: 20px; }
 }
 
 .sidebar {
