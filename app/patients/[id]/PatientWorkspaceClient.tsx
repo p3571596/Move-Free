@@ -99,6 +99,7 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
           </div>
           <div className="builder-actions">
             <PatientInviteButton patientId={workspace.patient.id} isLinked={Boolean(workspace.patient.patient_profile_id)} />
+            <Link className="secondary-button" href={`/patients/${workspace.patient.id}/preview`} aria-label={`Preview the patient app for ${patientName}`}>Preview Patient App</Link>
             <Link className="secondary-button" href={`/patients/${workspace.patient.id}/edit`} aria-label={`Edit profile for ${patientName}`}>Edit Profile</Link>
             <Link className="button" href={`/program-builder/${workspace.patient.id}`} aria-label={`Update program for ${patientName}`}>Update Program</Link>
           </div>
