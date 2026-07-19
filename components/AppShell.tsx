@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         return supabase
           .from("profiles")
           .select("role")
-          .or(`user_id.eq.${data.user.id},id.eq.${data.user.id}`)
+          .eq("id", data.user.id)
           .maybeSingle();
       })
       .then((result) => setIsAdmin(result?.data?.role === "admin"))
