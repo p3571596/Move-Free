@@ -4,7 +4,6 @@ export type Role = "clinician" | "patient" | "admin" | string;
 
 export type Profile = {
   id: string;
-  user_id?: string | null;
   full_name?: string | null;
   role?: Role | null;
   email?: string | null;

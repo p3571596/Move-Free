@@ -23,6 +23,7 @@ In Supabase Auth → URL Configuration:
 
 - Set **Site URL** to the exact value of `NEXT_PUBLIC_APP_URL`.
 - Add `<NEXT_PUBLIC_APP_URL>/invite` under **Redirect URLs**.
+- Add `<NEXT_PUBLIC_APP_URL>/reset-password` under **Redirect URLs** so password recovery works on every device.
 - Add `<NEXT_PUBLIC_APP_URL>/auth/callback` under **Redirect URLs** for current or future PKCE/OAuth callbacks.
 - Add `http://localhost:3000/**` only when local invitation testing is required.
 - Keep preview deployments out of patient invitation emails. If previews are intentionally tested, allow only the necessary preview pattern and remember that Vercel Deployment Protection may block patients.
@@ -30,6 +31,8 @@ In Supabase Auth → URL Configuration:
 Supabase ignores an invitation `redirectTo` value that is not allow-listed and falls back to Site URL, so both settings must point to the application rather than `https://vercel.com`.
 
 If the customized Supabase **Invite user** email template builds its own confirmation link, ensure it uses `{{ .RedirectTo }}` rather than `{{ .SiteURL }}` so the invitation token and mode remain attached to the `/invite` destination.
+
+Returning patients should use `/login`, not reuse the one-time invitation. If their password is unknown, `/forgot-password` sends a recovery link to `/reset-password` and the user can then sign in normally from any browser or device.
 
 In Vercel → Project Settings → Deployment Protection, Production must be publicly accessible. Disable **Vercel Authentication** for Production (preview deployments may stay protected). If `https://move-free.vercel.app` is not the project's public production domain, replace it everywhere above with the exact domain shown under the production deployment.
 

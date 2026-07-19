@@ -3,8 +3,10 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import { claimPatientInvite, getEffectiveRole } from "@/lib/data";
+import { describeAuthError, normalizeAuthEmail, reportAuthError } from "@/lib/auth-errors";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,34 +14,45 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [errorCode, setErrorCode] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
   const configured = isSupabaseConfigured();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setMessage("");
+    setErrorCode(undefined);
 
     if (!configured) {
       setMessage("Add Supabase values to .env.local to enable authentication.");
       return;
     }
 
+    setSubmitting(true);
     const supabase = createSupabaseBrowserClient();
-    const normalizedEmail = email.trim().toLowerCase();
-    const result =
-      mode === "login"
-        ? await supabase.auth.signInWithPassword({ email: normalizedEmail, password })
-        : await supabase.auth.signUp({ email: normalizedEmail, password });
+    const normalizedEmail = normalizeAuthEmail(email);
+    const result = mode === "login"
+      ? await supabase.auth.signInWithPassword({ email: normalizedEmail, password })
+      : await supabase.auth.signUp({ email: normalizedEmail, password });
 
     if (result.error) {
-      setMessage(result.error.message);
+      reportAuthError(mode, result.error);
+      const failure = describeAuthError(result.error, mode);
+      setMessage(failure.message);
+      setErrorCode(failure.code);
+      setSubmitting(false);
       return;
     }
 
     setMessage(mode === "signup" ? "Account created. Check email if confirmation is enabled." : "Signed in.");
     const user = result.data.user;
-    if (!user) return;
+    if (!user) {
+      setSubmitting(false);
+      return;
+    }
     if (!result.data.session) {
       setMessage("Account created. Confirm your email, then return here to log in and finish joining your program.");
+      setSubmitting(false);
       return;
     }
 
@@ -50,6 +63,7 @@ export default function LoginPage() {
         localStorage.removeItem("moveFreePatientInvite");
       } catch (cause) {
         setMessage(cause instanceof Error ? cause.message : "Could not accept the patient invitation.");
+        setSubmitting(false);
         return;
       }
     }
@@ -110,11 +124,15 @@ export default function LoginPage() {
               minLength={6}
             />
           </div>
-          <button className="button" type="submit">
-            {mode === "login" ? "Log in" : "Create account"}
+          <button className="button" type="submit" disabled={submitting}>
+            {submitting ? "Please wait..." : mode === "login" ? "Log in" : "Create account"}
             <ArrowRight size={18} />
           </button>
-          {message ? <p className="muted">{message}</p> : null}
+          {mode === "login" ? <Link href="/forgot-password" className="muted" style={{ textAlign: "center" }}>Forgot password?</Link> : null}
+          {message ? <div role={errorCode ? "alert" : "status"} className="muted">
+            <p>{message}</p>
+            {errorCode ? <p style={{ marginTop: 6, fontSize: 12 }}>Authentication code: {errorCode}</p> : null}
+          </div> : null}
         </form>
         <button className="secondary-button" type="button" onClick={() => setMode(mode === "login" ? "signup" : "login")} style={{ marginTop: 14, width: "100%" }}>
           {mode === "login" ? "Need an account? Sign up" : "Already have an account? Log in"}

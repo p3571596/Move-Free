@@ -32,11 +32,13 @@ export async function getCurrentUser(client: Client) {
 }
 
 export async function getProfile(client: Client, user: User) {
-  const { data } = await client
+  const { data, error } = await client
     .from("profiles")
     .select("*")
-    .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+    .eq("id", user.id)
     .maybeSingle();
+
+  if (error) throw error;
 
   return data as Profile | null;
 }

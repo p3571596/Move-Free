@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { claimPatientInvite } from "@/lib/data";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { describeAuthError, reportAuthError } from "@/lib/auth-errors";
 
 type InviteMode = "invite" | "signin" | "access";
 type InviteState = "loading" | "needs-password" | "claiming" | "error";
@@ -149,10 +150,19 @@ export default function InvitePage() {
       setStatus("Your patient session could not be verified. Reopen the invitation or ask your clinician for a new one.");
       return;
     }
+    const inviteRole = userData.user.user_metadata?.role;
+    const invitedPatientId = userData.user.user_metadata?.patient_id;
+    if (inviteRole !== "patient" || typeof invitedPatientId !== "string") {
+      setInviteState("error");
+      setStatus("This invitation is not attached to the patient account currently signed in. Sign out, then open the invitation with the invited email address.");
+      return;
+    }
     const { error } = await client.auth.updateUser({ password });
     if (error) {
+      reportAuthError("invite-password", error);
+      const failure = describeAuthError(error, "password-update");
       setInviteState("needs-password");
-      setStatus(error.message);
+      setStatus(failure.message);
       return;
     }
     try {
