@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import { claimPatientInvite } from "@/lib/data";
+import { claimPatientInvite, getEffectiveRole } from "@/lib/data";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { describeAuthError, reportAuthError } from "@/lib/auth-errors";
 
@@ -81,6 +81,14 @@ export default function InvitePage() {
       if (!active || settled) return;
       settled = true;
       if (timeoutId) clearTimeout(timeoutId);
+
+      const effectiveRole = await getEffectiveRole(client, user);
+      if (effectiveRole !== "patient" && user.user_metadata?.role !== "patient") {
+        localStorage.removeItem("moveFreePatientInvite");
+        setInviteState("error");
+        setStatus("This browser is currently signed in to a therapist account. Open this patient link in a private browser window or on the patient’s device.");
+        return;
+      }
 
       if (invitationMode === "access") {
         setStatus("Opening your program...");
