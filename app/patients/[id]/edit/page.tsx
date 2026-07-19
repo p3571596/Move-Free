@@ -60,6 +60,12 @@ export default function EditPatientPage() {
           diagnosis: nullableValue(form.get("diagnosis")),
           primary_complaint: nullableValue(form.get("primary_complaint")),
           current_focus: nullableValue(form.get("current_focus")),
+          goal: nullableValue(form.get("goal")),
+          primary_outcome: nullableValue(form.get("primary_outcome")),
+          baseline_value: nullableValue(form.get("baseline_value")),
+          current_value: nullableValue(form.get("current_value")),
+          target_value: nullableValue(form.get("target_value")),
+          progress_percent: clampPercent(form.get("progress_percent")),
           status: String(form.get("status") ?? "active"),
         })
         .eq("id", patient.id)
@@ -93,6 +99,14 @@ export default function EditPatientPage() {
             <div className="field"><label htmlFor="diagnosis">Diagnosis</label><input id="diagnosis" name="diagnosis" defaultValue={patient.diagnosis ?? ""} /></div>
             <div className="field"><label htmlFor="primary_complaint">Primary complaint</label><textarea id="primary_complaint" name="primary_complaint" defaultValue={patient.primary_complaint ?? ""} /></div>
             <div className="field"><label htmlFor="current_focus">Current focus</label><textarea id="current_focus" name="current_focus" defaultValue={patient.current_focus ?? ""} /></div>
+            <div className="field"><label htmlFor="goal">Patient goal</label><textarea id="goal" name="goal" placeholder="For example: Walk 30 minutes comfortably" defaultValue={patient.goal ?? ""} /></div>
+            <div className="field"><label htmlFor="primary_outcome">How progress is measured</label><input id="primary_outcome" name="primary_outcome" placeholder="For example: Walking tolerance" defaultValue={patient.primary_outcome ?? ""} /></div>
+            <div className="goal-field-grid">
+              <div className="field"><label htmlFor="baseline_value">Starting point</label><input id="baseline_value" name="baseline_value" placeholder="10 minutes" defaultValue={patient.baseline_value ?? ""} /></div>
+              <div className="field"><label htmlFor="current_value">Current</label><input id="current_value" name="current_value" placeholder="18 minutes" defaultValue={patient.current_value ?? ""} /></div>
+              <div className="field"><label htmlFor="target_value">Target</label><input id="target_value" name="target_value" placeholder="30 minutes" defaultValue={patient.target_value ?? ""} /></div>
+            </div>
+            <div className="field"><label htmlFor="progress_percent">Goal progress (%)</label><input id="progress_percent" name="progress_percent" type="number" min={0} max={100} defaultValue={patient.progress_percent ?? 0} /></div>
             <div className="field"><label htmlFor="status">Status</label><select id="status" name="status" defaultValue={patient.status ?? "active"}>
               <option value="active">Active</option><option value="needs_review">Needs Review</option><option value="paused">Paused</option><option value="discharged">Discharged</option><option value="inactive">Inactive</option>
             </select></div>
@@ -108,6 +122,12 @@ export default function EditPatientPage() {
 function nullableValue(value: FormDataEntryValue | null) {
   const normalized = String(value ?? "").trim();
   return normalized || null;
+}
+
+function clampPercent(value: FormDataEntryValue | null) {
+  const percent = Number(value ?? 0);
+  if (!Number.isFinite(percent)) return 0;
+  return Math.min(100, Math.max(0, Math.round(percent)));
 }
 
 function getErrorMessage(caught: unknown) {
