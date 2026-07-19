@@ -18,6 +18,17 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const configured = isSupabaseConfigured();
 
+  function inviteClaimMessage(cause: unknown) {
+    if (cause && typeof cause === "object" && "message" in cause && typeof cause.message === "string") {
+      return cause.message;
+    }
+    return "Could not accept the patient invitation.";
+  }
+
+  function isStaleInvite(cause: unknown) {
+    return /expired|invalid|already claimed/i.test(inviteClaimMessage(cause));
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setMessage("");
@@ -56,15 +67,30 @@ export default function LoginPage() {
       return;
     }
 
+    const initialRole = await getEffectiveRole(supabase, user);
     const pendingInvite = localStorage.getItem("moveFreePatientInvite");
     if (pendingInvite) {
+      // A clinician can have an old patient invite left in this browser after
+      // testing the patient flow. It must never block a valid clinician login.
+      if (initialRole !== "patient" && user.user_metadata?.role !== "patient") {
+        localStorage.removeItem("moveFreePatientInvite");
+        router.replace("/dashboard");
+        return;
+      }
+
       try {
         await claimPatientInvite(supabase, pendingInvite);
         localStorage.removeItem("moveFreePatientInvite");
       } catch (cause) {
-        setMessage(cause instanceof Error ? cause.message : "Could not accept the patient invitation.");
-        setSubmitting(false);
-        return;
+        // Expired, invalid, or already-used invite links are browser state,
+        // not authentication failures. Clear them and continue normal routing.
+        if (isStaleInvite(cause)) {
+          localStorage.removeItem("moveFreePatientInvite");
+        } else {
+          setMessage(inviteClaimMessage(cause));
+          setSubmitting(false);
+          return;
+        }
       }
     }
 
