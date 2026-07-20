@@ -32,13 +32,12 @@ export default function PatientProgressPage() {
   return (
     <PatientShell>
       <RequireAuth><RoleGate allowed={["patient"]}>
-        <div className="mobile-frame">
-          <div className="topbar">
-            <div>
-              <p className="eyebrow">Progress</p>
-              <h2>Recovery signals</h2>
-            </div>
-          </div>
+        <div className="patient-screen">
+          <header className="patient-page-heading">
+            <p className="eyebrow">Progress</p>
+            <h1>Your movement journey</h1>
+            <p>See the progress you have recorded over time.</p>
+          </header>
           {!workspace && !loadError ? <div className="empty">Loading progress...</div> : null}
           {loadError ? <div className="empty form-error" role="alert">{loadError}</div> : null}
           {workspace && !workspace.patient ? (
@@ -55,12 +54,12 @@ export default function PatientProgressPage() {
                 <article className="card"><p className="eyebrow">Exercise participation</p><strong className="stat">{weekSummary?.completionRate == null ? "—" : `${weekSummary.completionRate}%`}</strong></article>
                 <article className="card"><p className="eyebrow">Movement streak</p><strong className="stat">{summary?.streakDays ?? 0} days</strong></article>
               </section>
-              <section className="panel" style={{ marginTop: 18 }}>
+              <section className="panel patient-progress-panel">
                 <p className="eyebrow">Your last 14 days</p>
                 <h3>Progress is more than one number</h3>
                 <PilotTrendCharts checkins={workspace.checkins} logs={workspace.adherenceLogs} />
               </section>
-              <section className="panel" style={{ marginTop: 18 }}>
+              <section className="panel patient-progress-panel">
                 <p className="eyebrow">Therapist measurements</p>
                 {workspace.progressMetrics.length ? <ProgressBars metrics={workspace.progressMetrics} /> : <p className="muted">Your therapist has not recorded additional progress measurements yet.</p>}
               </section>

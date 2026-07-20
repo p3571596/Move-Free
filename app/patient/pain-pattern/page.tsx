@@ -74,14 +74,12 @@ export default function PainPatternPage() {
   return (
     <PatientShell>
       <RequireAuth><RoleGate allowed={["patient"]}>
-        <div className="mobile-frame">
-          <div className="topbar">
-            <div>
-              <p className="eyebrow">Daily check-in</p>
-              <h2>How are you doing today?</h2>
-              <p className="muted">One check-in each day is usually enough. Add another if something meaningful changes.</p>
-            </div>
-          </div>
+        <div className="patient-screen">
+          <header className="patient-page-heading">
+            <p className="eyebrow">Daily check-in</p>
+            <h1>How are you today?</h1>
+            <p>One check-in is usually enough. Add another only if something meaningful changes.</p>
+          </header>
           {!workspace && !error ? <div className="empty">Loading patient...</div> : null}
           {error && !workspace ? <div className="empty form-error" role="alert">{error}</div> : null}
           {workspace && !workspace.patient ? (

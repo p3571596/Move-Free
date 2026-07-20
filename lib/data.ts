@@ -248,9 +248,9 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     episodeId ? client.from("goals").select("*").eq("episode_id", episodeId).limit(8) : emptyResult(),
     client.from("daily_checkins").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(30),
     episodeId ? client.from("progress_metrics").select("*").eq("episode_id", episodeId).order("measured_at", { ascending: true }).limit(12) : emptyResult(),
-    client.from("clinical_decisions").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(1),
-    client.from("visit_notes").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(1),
-    client.from("barriers").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(5),
+    access === "patient" ? emptyResult() : client.from("clinical_decisions").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(1),
+    access === "patient" ? emptyResult() : client.from("visit_notes").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(1),
+    access === "patient" ? emptyResult() : client.from("barriers").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(5),
     episodeId ? client
       .from("home_programs")
       .select("*")

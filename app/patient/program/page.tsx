@@ -77,14 +77,12 @@ export default function TodayProgramPage() {
   return (
     <PatientShell>
       <RequireAuth><RoleGate allowed={["patient"]}>
-        <div className="mobile-frame">
-          <div className="topbar">
-            <div>
-              <p className="eyebrow">Today&apos;s program</p>
-              <h2>{workspace?.program?.title ?? "Your movement plan"}</h2>
-              {workspace?.program?.patient_explanation ? <p className="muted">{workspace.program.patient_explanation}</p> : null}
-            </div>
-          </div>
+        <div className="patient-screen">
+          <header className="patient-page-heading">
+            <p className="eyebrow">Program</p>
+            <h1>{workspace?.program?.title ?? "Today&apos;s plan"}</h1>
+            <p>{workspace?.programExercises.length ?? 0} exercises assigned by your therapist.</p>
+          </header>
 
           {!workspace && !error ? <div className="empty">Loading today&apos;s program…</div> : null}
           {error && !workspace ? <div className="empty form-error" role="alert">{error}</div> : null}
@@ -96,7 +94,7 @@ export default function TodayProgramPage() {
             <section className="panel patient-start-card">
               <p className="eyebrow">Ready when you are</p>
               <h3>{workspace.programExercises.length} exercises in today&apos;s plan</h3>
-              <p className="muted">Record what you actually completed. You can also note pain, difficulty, or anything your therapist should know.</p>
+              <p className="muted">Record what you complete. Add pain, difficulty, or a note only when it helps your therapist understand the session.</p>
               <button className="button" type="button" onClick={() => setStarted(true)}><Play size={18} /> Start today&apos;s program</button>
             </section>
           ) : null}
