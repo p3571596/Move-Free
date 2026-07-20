@@ -5,10 +5,12 @@ import { PatientShell } from "@/components/PatientShell";
 import { RoleGate } from "@/components/RoleGate";
 import { GoalProgress } from "@/components/GoalProgress";
 import { ProgressBars } from "@/components/ProgressBars";
+import { PilotTrendCharts } from "@/components/PilotTrendCharts";
 import { RequireAuth } from "@/components/RequireAuth";
 import { loadCurrentPatientAppWorkspace } from "@/lib/data";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { PatientWorkspace } from "@/lib/types";
+import { summarizePatientActivity } from "@/lib/pilot-insights";
 
 export default function PatientProgressPage() {
   const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
@@ -24,8 +26,8 @@ export default function PatientProgressPage() {
     loadCurrentPatientAppWorkspace(supabase).then(setWorkspace).catch((cause) => setLoadError(cause instanceof Error ? cause.message : "Could not load progress."));
   }, []);
 
-  const completed = workspace?.adherenceLogs.filter((log) => log.completion_status === "completed").length ?? 0;
-  const total = workspace?.adherenceLogs.length ?? 0;
+  const summary = workspace ? summarizePatientActivity(workspace.checkins, workspace.adherenceLogs) : null;
+  const weekSummary = workspace ? summarizePatientActivity(workspace.checkins, workspace.adherenceLogs, new Date(Date.now() - 7 * 86_400_000).toISOString()) : null;
 
   return (
     <PatientShell>
@@ -48,14 +50,19 @@ export default function PatientProgressPage() {
           {workspace?.patient ? (
             <>
               <GoalProgress goals={workspace.goals} />
-              <section className="panel" style={{ marginTop: 18 }}>
-                <p className="eyebrow">Trend</p>
-                {workspace.progressMetrics.length ? <ProgressBars metrics={workspace.progressMetrics} /> : <p className="muted">Your therapist has not recorded progress measurements yet.</p>}
+              <section className="patient-progress-summary" aria-label="This week's progress">
+                <article className="card"><p className="eyebrow">Sessions this week</p><strong className="stat">{weekSummary?.completedSessions ?? 0}</strong></article>
+                <article className="card"><p className="eyebrow">Exercise participation</p><strong className="stat">{weekSummary?.completionRate == null ? "—" : `${weekSummary.completionRate}%`}</strong></article>
+                <article className="card"><p className="eyebrow">Movement streak</p><strong className="stat">{summary?.streakDays ?? 0} days</strong></article>
               </section>
               <section className="panel" style={{ marginTop: 18 }}>
-                <p className="eyebrow">Exercise completion</p>
-                <h3>{completed} completed</h3>
-                <p className="muted">Across {total} exercise logs submitted so far.</p>
+                <p className="eyebrow">Your last 14 days</p>
+                <h3>Progress is more than one number</h3>
+                <PilotTrendCharts checkins={workspace.checkins} logs={workspace.adherenceLogs} />
+              </section>
+              <section className="panel" style={{ marginTop: 18 }}>
+                <p className="eyebrow">Therapist measurements</p>
+                {workspace.progressMetrics.length ? <ProgressBars metrics={workspace.progressMetrics} /> : <p className="muted">Your therapist has not recorded additional progress measurements yet.</p>}
               </section>
             </>
           ) : null}

@@ -73,8 +73,8 @@ export default function PatientAppHomePage() {
                 </Link>
                 <Link className="card row-between" href="/patient/pain-pattern">
                   <span>
-                    <strong>Log Pain Pattern</strong>
-                    <p className="muted">Capture symptoms and notes</p>
+                    <strong>Add Today&apos;s Check-in</strong>
+                    <p className="muted">Record pain, symptom change, confidence, and a note</p>
                   </span>
                   <HeartPulse color="var(--coral)" />
                 </Link>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { GoalProgress } from "@/components/GoalProgress";
 import { ProgressBars } from "@/components/ProgressBars";
+import { PilotTrendCharts } from "@/components/PilotTrendCharts";
 import { RequireAuth } from "@/components/RequireAuth";
 import { emptyWorkspace, loadPatientWorkspace } from "@/lib/data";
 import { formatDate } from "@/lib/format";
@@ -71,13 +72,10 @@ export function PatientSectionClient({ patientId, section }: { patientId: string
 
 function ProgressSection({ workspace }: { workspace: PatientWorkspace }) {
   return (
-    <section className="grid two">
-      <GoalProgress goals={workspace.goals} />
-      <div className="panel">
-        <p className="eyebrow">Progress Trend</p>
-        <ProgressBars metrics={workspace.progressMetrics} />
-      </div>
-    </section>
+    <div className="grid">
+      <section className="grid two"><GoalProgress goals={workspace.goals} /><div className="panel"><p className="eyebrow">Clinical measures</p><ProgressBars metrics={workspace.progressMetrics} /></div></section>
+      <section className="panel"><p className="eyebrow">Patient feedback</p><h3>Pain, completion, and confidence</h3><PilotTrendCharts checkins={workspace.checkins} logs={workspace.adherenceLogs} /></section>
+    </div>
   );
 }
 
@@ -95,9 +93,23 @@ function LogsSection({ workspace }: { workspace: PatientWorkspace }) {
         ))}
       </ul>
       {!workspace.checkins.length ? <p className="muted" style={{ marginTop: 12 }}>No patient logs recorded yet.</p> : null}
+      <div className="section-header" style={{ marginTop: 24 }}><div><p className="eyebrow">Exercise sessions</p><h3>Recent exercise responses</h3></div><span className="pill">{workspace.adherenceLogs.length} entries</span></div>
+      <ul className="list" style={{ marginTop: 14 }}>
+        {workspace.adherenceLogs.slice(0, 30).map((log) => (
+          <li className="list-item" key={log.id}>
+            <strong>{formatLogStatus(log.completion_status)} · {formatDifficulty(log.difficulty)} · Pain {log.pain_during ?? "n/a"}/10</strong>
+            <p className="muted">{[log.actual_sets != null ? `${log.actual_sets} sets` : null, log.actual_reps != null ? `${log.actual_reps} reps` : null, log.actual_duration_minutes != null ? `${log.actual_duration_minutes} min` : null].filter(Boolean).join(" · ") || "Actual dosage not entered"}</p>
+            {log.notes ? <p>{log.notes}</p> : null}
+            <small className="muted">{formatDate(log.performed_at ?? log.created_at)}</small>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
+
+function formatLogStatus(value?: string | null) { return value ? value.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase()) : "Activity"; }
+function formatDifficulty(value?: string | null) { if (value === "too_easy") return "Easy"; if (value === "too_hard" || value === "painful") return "Hard"; return "About right"; }
 
 function DecisionSection({ workspace }: { workspace: PatientWorkspace }) {
   return (

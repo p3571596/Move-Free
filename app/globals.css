@@ -952,3 +952,53 @@ button {
   .filter-tabs button { flex: 0 0 auto; }
   .caseload-results-heading { align-items: flex-end; }
 }
+
+/* Closed-loop patient pilot */
+.patient-start-card { display: grid; gap: 14px; max-width: 720px; margin-inline: auto; padding: 28px; }
+.patient-start-card .button { justify-self: start; margin-top: 4px; }
+.patient-exercise-entry { display: grid; gap: 16px; border: 1px solid var(--line); border-radius: 12px; padding: 18px; background: #fff; box-shadow: 0 8px 24px rgba(23,32,27,.05); }
+.patient-exercise-entry.has-status { border-color: rgba(31,122,90,.42); }
+.exercise-entry-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.exercise-entry-heading h4 { margin: 0 0 5px; font-size: 18px; }
+.exercise-entry-heading strong { color: var(--accent-strong); font-size: 14px; }
+.patient-exercise-entry > p { margin: 0; line-height: 1.55; }
+.therapist-note { border-left: 3px solid var(--accent); padding: 9px 11px; background: var(--accent-soft); }
+.segmented-field { margin: 0; border: 0; padding: 0; }
+.segmented-field legend { margin-bottom: 7px; color: var(--muted); font-size: 13px; font-weight: 800; }
+.segment-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
+.segment-options button { min-height: 42px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; color: var(--foreground); background: #fff; font-weight: 750; }
+.segment-options button:hover, .segment-options button.active { border-color: var(--accent); color: var(--accent-strong); background: var(--accent-soft); }
+.exercise-log-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.exercise-log-grid .field label { display: grid; gap: 6px; }
+.patient-progress-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 18px; }
+.patient-progress-summary .card { display: grid; gap: 7px; }
+.since-review-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 9px; }
+.summary-signal { display: grid; gap: 5px; border: 1px solid var(--line); border-radius: 8px; padding: 11px; background: #fafbf9; }
+.summary-signal small { color: var(--muted); font-weight: 750; }
+.summary-signal strong { font-size: 14px; }
+.pilot-trends { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 16px; }
+.mini-trend { min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 13px; background: #fbfcfa; }
+.mini-trend h4 { margin: 0; font-size: 14px; }
+.mini-trend .section-header small { color: var(--muted); }
+.mini-trend-bars { display: flex; align-items: flex-end; gap: 5px; height: 126px; margin-top: 12px; overflow-x: auto; }
+.mini-trend-column { display: grid; grid-template-rows: minmax(0,1fr) auto; align-items: end; justify-items: center; gap: 4px; min-width: 26px; height: 100%; flex: 1; }
+.mini-trend-column small { color: var(--muted); font-size: 9px; }
+.mini-trend-bar { display: block; width: min(100%,22px); min-height: 2px; border-radius: 5px 5px 2px 2px; background: var(--blue); }
+.trend-pain { background: var(--coral); }
+.trend-adherence { background: var(--accent); }
+.trend-confidence { background: var(--blue); }
+.trend-context { grid-column: 1 / -1; }
+.pilot-trends.compact .trend-context { max-height: 250px; overflow: auto; }
+
+@media (max-width: 900px) {
+  .exercise-log-grid, .since-review-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .pilot-trends { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .segment-options, .patient-progress-summary, .exercise-log-grid { grid-template-columns: 1fr; }
+  .since-review-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .exercise-entry-heading { flex-direction: column; }
+  .patient-exercise-entry { padding: 15px; }
+  .patient-start-card { padding: 20px; }
+}

@@ -14,6 +14,8 @@ export default function PainPatternPage() {
   const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [submissionId, setSubmissionId] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -36,6 +38,7 @@ export default function PainPatternPage() {
     const data = new FormData(event.currentTarget);
     const painScore = Number(data.get("painScore"));
     setError("");
+    setSaving(true);
 
     if (isSupabaseConfigured()) {
       const supabase = createSupabaseBrowserClient();
@@ -50,15 +53,21 @@ export default function PainPatternPage() {
           aggravatingFactors: String(data.get("aggravatingFactors") ?? ""),
           easingFactors: String(data.get("easingFactors") ?? ""),
           confidenceScore: data.get("confidenceScore") ? Number(data.get("confidenceScore")) : null,
+          symptomDirection: String(data.get("symptomDirection")) as "improving" | "unchanged" | "worsening",
           patientComment: String(data.get("patientComment") ?? ""),
+          clientSubmissionId: submissionId,
         });
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not save pain pattern.");
+        const duplicate = cause instanceof Error && cause.message.includes("duplicate key");
+        setError(duplicate ? "This check-in was already saved." : cause instanceof Error ? cause.message : "Could not save daily check-in.");
+        setSaving(false);
         return;
       }
     }
 
-    setMessage("Pain pattern saved.");
+    setMessage("Today’s check-in was saved. Your therapist can now see it.");
+    setSubmissionId(crypto.randomUUID());
+    setSaving(false);
     event.currentTarget.reset();
   }
 
@@ -68,8 +77,9 @@ export default function PainPatternPage() {
         <div className="mobile-frame">
           <div className="topbar">
             <div>
-              <p className="eyebrow">Log Pain Pattern</p>
-              <h2>How are symptoms behaving?</h2>
+              <p className="eyebrow">Daily check-in</p>
+              <h2>How are you doing today?</h2>
+              <p className="muted">One check-in each day is usually enough. Add another if something meaningful changes.</p>
             </div>
           </div>
           {!workspace && !error ? <div className="empty">Loading patient...</div> : null}
@@ -86,6 +96,7 @@ export default function PainPatternPage() {
                 <label htmlFor="painScore">Pain intensity (0–10)</label>
                 <input id="painScore" name="painScore" type="number" min={0} max={10} defaultValue={3} required />
               </div>
+              <div className="field"><label htmlFor="symptomDirection">Compared with your last check-in</label><select id="symptomDirection" name="symptomDirection" defaultValue="unchanged" required><option value="improving">Improving</option><option value="unchanged">About the same</option><option value="worsening">Worsening</option></select></div>
               <div className="field">
                 <label htmlFor="painLocation">Where did you feel it?</label>
                 <input id="painLocation" name="painLocation" placeholder="For example: low back" />
@@ -96,9 +107,9 @@ export default function PainPatternPage() {
               <div className="field"><label htmlFor="easingFactors">What helped?</label><input id="easingFactors" name="easingFactors" /></div>
               <div className="field"><label htmlFor="confidenceScore">Confidence in your progress (0–10, optional)</label><input id="confidenceScore" name="confidenceScore" type="number" min={0} max={10}/></div>
               <div className="field"><label htmlFor="patientComment">What would you like your PT to know?</label><textarea id="patientComment" name="patientComment" /></div>
-              <button className="button" type="submit">
+              <button className="button" type="submit" disabled={saving || Boolean(message)}>
                 <HeartPulse size={18} />
-                Save pain log
+                {saving ? "Saving…" : message ? "Check-in saved" : "Save today’s check-in"}
               </button>
               {message ? <div className="success-banner" role="status"><strong>{message}</strong><Link href="/patient">Return home</Link></div> : null}
               {error ? <p className="form-error" role="alert">{error}</p> : null}

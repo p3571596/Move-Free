@@ -44,7 +44,7 @@ export default function DashboardPage() {
   const milestones = summaries.filter((summary) => summary.milestone).slice(0, 4);
   const reviewCount = summaries.filter((summary) => summary.needsReview).length;
   const painCount = summaries.filter((summary) => summary.painAlert).length;
-  const adherenceCount = summaries.filter((summary) => summary.inactivityAlert || (summary.adherencePercent != null && summary.adherencePercent < 70)).length;
+  const adherenceCount = summaries.filter((summary) => summary.inactivityAlert || summary.skippedCount >= 2 || (summary.adherencePercent != null && summary.adherencePercent < 60)).length;
 
   return (
     <AppShell>
@@ -94,13 +94,13 @@ export default function DashboardPage() {
                     <PriorityLane
                       category="pain"
                       title="Pain changes"
-                      description="Recent high pain or an increase of 2+ points"
+                      description="High or rising pain, or two worsening reports in a row"
                       items={priorityGroups.pain}
                     />
                     <PriorityLane
                       category="adherence"
                       title="Adherence & inactivity"
-                      description="Low recent completion signal or no activity for 3+ days"
+                      description="Low participation, repeated skips, or no activity for 3+ days"
                       items={priorityGroups.adherence}
                     />
                     <PriorityLane

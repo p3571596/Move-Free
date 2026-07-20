@@ -21,6 +21,9 @@ export type PatientSummary = {
   adherencePercent: number | null;
   painDelta: number | null;
   painAlert: boolean;
+  repeatedWorsening: boolean;
+  hardExerciseAlert: boolean;
+  skippedCount: number;
   inactivityAlert: boolean;
   needsReview: boolean;
   reviewCategory: ReviewCategory | null;
@@ -67,14 +70,19 @@ export function buildPatientSummaries(snapshot: ClinicianSnapshot | null): Patie
     const adherencePercent = calculateAdherence(adherenceLogs);
     const painDelta = calculatePainDelta(checkins);
     const latestPain = latestCheckin?.pain_score;
+    const repeatedWorsening = checkins.slice(0, 2).length === 2 && checkins.slice(0, 2).every((checkin) => checkin.symptom_direction === "worsening");
     const painAlert = isRecentCheckin(latestCheckin) && (
       (typeof latestPain === "number" && latestPain >= 7) ||
-      (painDelta != null && painDelta >= 2)
+      (painDelta != null && painDelta >= 2) ||
+      repeatedWorsening
     );
     const inactivityAlert = !lastActivity || daysSince(lastActivity) >= 3;
-    const reviewReasons = reviewReasonsFor({ patient, lastActivity, program, adherencePercent, painAlert });
+    const recentAdherence = adherenceLogs.filter((log) => isWithinDays(log.performed_at ?? log.created_at, 7));
+    const skippedCount = recentAdherence.filter((log) => log.completion_status === "skipped").length;
+    const hardExerciseAlert = recentAdherence.filter((log) => ["too_hard", "painful"].includes(log.difficulty ?? "")).length >= 2;
+    const reviewReasons = reviewReasonsFor({ patient, lastActivity, program, adherencePercent, painAlert, repeatedWorsening, skippedCount, hardExerciseAlert, recentLogCount: recentAdherence.length });
     const progress = getGoalProgress(latestGoal, patient);
-    const milestone = !reviewReasons.length && (
+    const milestone = !reviewReasons.length && isWithinDays(latestGoal?.updated_at ?? latestGoal?.created_at, 7) && (
       latestGoal?.status === "met" ||
       progress >= 80
     );
@@ -90,9 +98,12 @@ export function buildPatientSummaries(snapshot: ClinicianSnapshot | null): Patie
       adherencePercent,
       painDelta,
       painAlert,
+      repeatedWorsening,
+      hardExerciseAlert,
+      skippedCount,
       inactivityAlert,
       needsReview: reviewReasons.length > 0,
-      reviewCategory: painAlert ? "pain" : (inactivityAlert || (adherencePercent != null && adherencePercent < 70)) ? "adherence" : reviewReasons.length ? "review" : null,
+      reviewCategory: painAlert ? "pain" : (inactivityAlert || skippedCount >= 2 || (adherencePercent != null && recentAdherence.length >= 3 && adherencePercent < 60)) ? "adherence" : reviewReasons.length ? "review" : null,
       reviewReasons,
       goalProgress: progress,
       milestone,
@@ -162,20 +173,30 @@ function reviewReasonsFor({
   program,
   adherencePercent,
   painAlert,
+  repeatedWorsening,
+  skippedCount,
+  hardExerciseAlert,
+  recentLogCount,
 }: {
   patient: Patient;
   lastActivity: string | null;
   program: HomeProgram | null;
   adherencePercent: number | null;
   painAlert: boolean;
+  repeatedWorsening: boolean;
+  skippedCount: number;
+  hardExerciseAlert: boolean;
+  recentLogCount: number;
 }) {
   const reasons: string[] = [];
 
   if (patient.status === "needs_review") reasons.push("Marked for review");
-  if (painAlert) reasons.push("Pain increased or remains high");
+  if (painAlert) reasons.push(repeatedWorsening ? "Symptoms worsening twice in a row" : "Pain increased or remains high");
   if (!program) reasons.push("No program assigned");
   if (!lastActivity || daysSince(lastActivity) >= 3) reasons.push("No activity in 3+ days");
-  if (adherencePercent != null && adherencePercent < 70) reasons.push("Low completion signal");
+  if (recentLogCount >= 3 && adherencePercent != null && adherencePercent < 60) reasons.push("Participation below 60%");
+  if (skippedCount >= 2) reasons.push("2+ exercises skipped this week");
+  if (hardExerciseAlert) reasons.push("2+ exercises rated hard");
 
   return reasons;
 }
@@ -205,8 +226,8 @@ function calculateAdherence(logs: ExerciseAdherenceLog[]) {
     return value ? daysSince(value) <= 7 : false;
   });
   if (!recentLogs.length) return null;
-  const completed = recentLogs.filter((log) => log.completed || log.completion_status === "completed").length;
-  return Math.round((completed / recentLogs.length) * 100);
+  const participated = recentLogs.filter((log) => log.completed || ["completed", "partial"].includes(log.completion_status ?? "")).length;
+  return Math.round((participated / recentLogs.length) * 100);
 }
 
 function calculatePainDelta(checkins: DailyCheckin[]) {
@@ -220,6 +241,10 @@ function calculatePainDelta(checkins: DailyCheckin[]) {
 function isRecentCheckin(checkin: DailyCheckin | null) {
   const value = checkin?.created_at ?? checkin?.checkin_date;
   return Boolean(value && daysSince(value) <= 14);
+}
+
+function isWithinDays(value: string | null | undefined, days: number) {
+  return Boolean(value && daysSince(value) <= days);
 }
 
 function getGoalProgress(goal: Goal | null, patient: Patient) {

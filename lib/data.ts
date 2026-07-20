@@ -246,7 +246,7 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     adherenceResult,
   ] = await Promise.all([
     episodeId ? client.from("goals").select("*").eq("episode_id", episodeId).limit(8) : emptyResult(),
-    client.from("daily_checkins").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(7),
+    client.from("daily_checkins").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(30),
     episodeId ? client.from("progress_metrics").select("*").eq("episode_id", episodeId).order("measured_at", { ascending: true }).limit(12) : emptyResult(),
     client.from("clinical_decisions").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(1),
     client.from("visit_notes").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(1),
@@ -262,7 +262,7 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
       .select("*")
       .eq("patient_id", resolvedPatientId)
       .order("performed_at", { ascending: false })
-      .limit(100),
+      .limit(250),
   ]);
 
   throwFirstQueryError([
@@ -497,28 +497,44 @@ export async function saveFeedback(client: Client, message: string, sentiment: s
   }
 }
 
-export async function logExerciseCompletion(
+export type ExerciseLogInput = {
+  homeProgramExerciseId: string;
+  completionStatus: "completed" | "partial" | "skipped";
+  difficulty: "too_easy" | "appropriate" | "too_hard";
+  painDuring: number | null;
+  actualSets: number | null;
+  actualReps: number | null;
+  actualDurationMinutes: number | null;
+  notes: string;
+};
+
+export async function logExerciseSession(
   client: Client,
   patientId: string,
   homeProgramId: string,
-  homeProgramExerciseId: string,
-  completionStatus: string,
-  difficulty: string,
-  painDuring: number | null,
-  painAfter: number | null,
-  notes: string,
+  entries: ExerciseLogInput[],
+  sessionId: string,
 ) {
-  const { error } = await client.from("exercise_adherence_logs").insert({
+  if (!entries.length) throw new Error("Add at least one exercise result before saving.");
+
+  const performedAt = new Date().toISOString();
+  const rows = entries.map((entry) => ({
     patient_id: patientId,
     home_program_id: homeProgramId,
-    home_program_exercise_id: homeProgramExerciseId,
-    performed_at: new Date().toISOString(),
-    completion_status: completionStatus,
-    difficulty,
-    pain_during: painDuring,
-    pain_after: painAfter,
-    notes,
-  });
+    home_program_exercise_id: entry.homeProgramExerciseId,
+    session_id: sessionId,
+    client_submission_id: crypto.randomUUID(),
+    performed_at: performedAt,
+    completion_status: entry.completionStatus,
+    difficulty: entry.difficulty,
+    pain_during: entry.painDuring,
+    actual_sets: entry.actualSets,
+    actual_reps: entry.actualReps,
+    actual_duration_minutes: entry.actualDurationMinutes,
+    notes: entry.notes.trim() || null,
+  }));
+
+  const { error } = await client.from("exercise_adherence_logs").insert(rows);
 
   if (error) {
     throw error;
@@ -537,7 +553,9 @@ export async function logPainPattern(
     aggravatingFactors: string;
     easingFactors: string;
     confidenceScore: number | null;
+    symptomDirection: "improving" | "unchanged" | "worsening";
     patientComment: string;
+    clientSubmissionId: string;
   },
 ) {
   const { error } = await client.from("daily_checkins").insert({
@@ -551,7 +569,9 @@ export async function logPainPattern(
     aggravating_factors: input.aggravatingFactors,
     easing_factors: input.easingFactors,
     confidence_score: input.confidenceScore,
+    symptom_direction: input.symptomDirection,
     patient_comment: input.patientComment,
+    client_submission_id: input.clientSubmissionId,
   });
 
   if (error) {

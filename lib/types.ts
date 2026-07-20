@@ -122,6 +122,7 @@ export type DailyCheckin = {
   episode_id?: string | null;
   pain_location?: string | null;
   symptom_behavior?: string | null;
+  symptom_direction?: "improving" | "unchanged" | "worsening" | null;
   activity_context?: string | null;
   aggravating_factors?: string | null;
   easing_factors?: string | null;
@@ -131,6 +132,7 @@ export type DailyCheckin = {
   patient_comment?: string | null;
   checkin_date?: string | null;
   created_at?: string | null;
+  client_submission_id?: string | null;
 };
 
 export type ProgressMetric = {
@@ -189,6 +191,7 @@ export type ExerciseAdherenceLog = {
   patient_id?: string | null;
   home_program_id?: string | null;
   home_program_exercise_id?: string | null;
+  session_id?: string | null;
   completed?: boolean | null;
   completion_status?: string | null;
   difficulty?: string | null;
@@ -196,6 +199,10 @@ export type ExerciseAdherenceLog = {
   pain_before?: number | null;
   pain_during?: number | null;
   pain_after?: number | null;
+  actual_sets?: number | null;
+  actual_reps?: number | null;
+  actual_duration_minutes?: number | null;
+  client_submission_id?: string | null;
   notes?: string | null;
   created_at?: string | null;
 };

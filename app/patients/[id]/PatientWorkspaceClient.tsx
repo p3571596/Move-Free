@@ -7,12 +7,14 @@ import { AppShell } from "@/components/AppShell";
 import { GoalProgress } from "@/components/GoalProgress";
 import { MetricCard } from "@/components/MetricCard";
 import { ProgressBars } from "@/components/ProgressBars";
+import { PilotTrendCharts } from "@/components/PilotTrendCharts";
 import { RequireAuth } from "@/components/RequireAuth";
 import { PatientInviteButton } from "@/components/PatientInviteButton";
 import { emptyWorkspace, loadPatientWorkspace } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { PatientWorkspace } from "@/lib/types";
+import { summarizePatientActivity } from "@/lib/pilot-insights";
 
 export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
   const searchParams = useSearchParams();
@@ -82,6 +84,7 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
   ].filter(Boolean).join(" · ") || workspace.patient.primary_complaint || "Active care";
   const programTitle = workspace.program?.name ?? workspace.program?.title ?? "Current program";
   const assignedDate = workspace.program?.assigned_at ?? workspace.program?.start_date;
+  const activitySummary = summarizePatientActivity(workspace.checkins, workspace.adherenceLogs, workspace.decision?.created_at);
 
   return (
     <AppShell>
@@ -116,19 +119,20 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
           </Link>
         </div>
         <section className="grid two" style={{ marginTop: 18 }}>
-          <Link className="panel workspace-link-panel" href={`/patients/${workspace.patient.id}/logs`} aria-label={`Open patient logs for ${patientName}`}>
-            <p className="eyebrow">Patient Logs</p>
-            <h3>Since Last Visit</h3>
-            <ul className="list" style={{ marginTop: 12 }}>
-              {workspace.checkins.map((checkin) => (
-                <li className="list-item" key={checkin.id}>
-                  <strong>Pain {checkin.pain_score ?? "n/a"}/10 · Confidence {checkin.confidence_score ?? "n/a"}/10</strong>
-                  <p className="muted">{checkin.notes ?? "No notes"} · {formatDate(checkin.created_at)}</p>
-                </li>
-              ))}
-            </ul>
-            {!workspace.checkins.length ? <p className="muted">No patient logs recorded yet.</p> : null}
-          </Link>
+          <div className="panel">
+            <div className="section-header"><div><p className="eyebrow">Patient-reported activity</p><h3>Since last review</h3></div><Link className="secondary-button" href={`/patients/${workspace.patient.id}/logs`} aria-label={`Open all logs for ${patientName}`}>View logs</Link></div>
+            <div className="since-review-grid" style={{ marginTop: 14 }}>
+              <SummarySignal label="Participation" value={activitySummary.completionRate == null ? "No data" : `${activitySummary.completionRate}%`} />
+              <SummarySignal label="Sessions" value={String(activitySummary.completedSessions)} />
+              <SummarySignal label="Skipped" value={String(activitySummary.skippedExercises)} />
+              <SummarySignal label="Latest pain" value={activitySummary.latestPain == null ? "No data" : `${activitySummary.latestPain}/10`} />
+              <SummarySignal label="Average pain" value={activitySummary.averagePain == null ? "No data" : `${activitySummary.averagePain}/10`} />
+              <SummarySignal label="Symptoms" value={activitySummary.symptomDirection} />
+              <SummarySignal label="Difficulty" value={activitySummary.difficultyTrend} />
+              <SummarySignal label="Latest entry" value={formatDate(activitySummary.latestSubmissionAt)} />
+            </div>
+            {activitySummary.comments.length ? <ul className="list" style={{ marginTop: 14 }}>{activitySummary.comments.map((comment) => <li className="list-item" key={`${comment.date}-${comment.text}`}><p>{comment.text}</p><small className="muted">{formatDate(comment.date)}</small></li>)}</ul> : <p className="muted" style={{ marginTop: 14 }}>No patient comments since the last review.</p>}
+          </div>
           <div className="panel">
             <p className="eyebrow">Clinical Summary</p>
             <h3>{workspace.episode?.clinical_summary ?? workspace.visitNote?.summary ?? "No visit summary recorded"}</h3>
@@ -157,10 +161,11 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
           </Link>
         </section>
         <section className="grid two" style={{ marginTop: 18 }}>
-          <Link className="panel workspace-link-panel" href={`/patients/${workspace.patient.id}/progress`} aria-label={`Open progress trend for ${patientName}`}>
-            <p className="eyebrow">Progress trend</p>
-            <ProgressBars metrics={workspace.progressMetrics} />
-          </Link>
+          <div className="panel">
+            <div className="section-header"><div><p className="eyebrow">Progress trend</p><h3>Patient feedback over time</h3></div><Link className="secondary-button" href={`/patients/${workspace.patient.id}/progress`} aria-label={`Open full progress trend for ${patientName}`}>View details</Link></div>
+            <PilotTrendCharts checkins={workspace.checkins} logs={workspace.adherenceLogs} compact />
+            {workspace.progressMetrics.length ? <div style={{ marginTop: 18 }}><p className="eyebrow">Clinical measures</p><ProgressBars metrics={workspace.progressMetrics} /></div> : null}
+          </div>
           {workspace.program ? (
             <Link className="panel workspace-link-panel" href={`/program-builder/${workspace.patient.id}`} aria-label={`Open current program for ${patientName}`}>
               <div className="section-header">
@@ -199,4 +204,8 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
       </RequireAuth>
     </AppShell>
   );
+}
+
+function SummarySignal({ label, value }: { label: string; value: string }) {
+  return <div className="summary-signal"><small>{label}</small><strong>{value}</strong></div>;
 }
