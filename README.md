@@ -22,9 +22,8 @@ For Vercel, add all four values above under Project Settings → Environment Var
 In Supabase Auth → URL Configuration:
 
 - Set **Site URL** to the exact value of `NEXT_PUBLIC_APP_URL`.
-- Add `<NEXT_PUBLIC_APP_URL>/invite` under **Redirect URLs**.
-- Add `<NEXT_PUBLIC_APP_URL>/reset-password` under **Redirect URLs** so password recovery works on every device.
-- Add `<NEXT_PUBLIC_APP_URL>/auth/callback` under **Redirect URLs** for current or future PKCE/OAuth callbacks.
+- Add the exact production origin pattern `<NEXT_PUBLIC_APP_URL>/**` under **Redirect URLs**.
+- Password recovery uses `/auth/callback?next=/reset-password`; token-hash email templates can use `/auth/confirm`.
 - Add `http://localhost:3000/**` only when local invitation testing is required.
 - Keep preview deployments out of patient invitation emails. If previews are intentionally tested, allow only the necessary preview pattern and remember that Vercel Deployment Protection may block patients.
 
@@ -33,6 +32,8 @@ Supabase ignores an invitation `redirectTo` value that is not allow-listed and f
 If the customized Supabase **Invite user** email template builds its own confirmation link, ensure it uses `{{ .RedirectTo }}` rather than `{{ .SiteURL }}` so the invitation token and mode remain attached to the `/invite` destination.
 
 Returning patients should use `/login`, not reuse the one-time invitation. If their password is unknown, `/forgot-password` sends a recovery link to `/reset-password` and the user can then sign in normally from any browser or device.
+
+Before external pilot use, follow [SETUP_AUTH.md](SETUP_AUTH.md) to configure custom SMTP, email templates, redirect settings, and the authentication release checklist.
 
 In Vercel → Project Settings → Deployment Protection, Production must be publicly accessible. Disable **Vercel Authentication** for Production (preview deployments may stay protected). If `https://move-free.vercel.app` is not the project's public production domain, replace it everywhere above with the exact domain shown under the production deployment.
 

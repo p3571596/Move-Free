@@ -18,10 +18,10 @@ export default function ResetPasswordPage() {
     const client = createSupabaseBrowserClient();
     let active = true;
 
-    void client.auth.getSession().then(({ data, error }) => {
+    void client.auth.getUser().then(({ data, error }) => {
       if (!active) return;
-      if (error || !data.session) {
-        setMessage("This password reset link is invalid or expired. Request a new one.");
+      if (error || !data.user) {
+        setMessage("The recovery session is missing, expired, or already used. Request a new link and open only the newest email.");
         return;
       }
       setReady(true);
@@ -60,8 +60,7 @@ export default function ResetPasswordPage() {
     }
 
     await client.auth.signOut({ scope: "local" });
-    setMessage("Password updated. Sign in with the new password.");
-    router.replace("/login");
+    router.replace("/login?password=updated");
   }
 
   return <main className="auth-page"><section className="auth-panel">

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -10,13 +10,17 @@ import { describeAuthError, normalizeAuthEmail, reportAuthError } from "@/lib/au
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [errorCode, setErrorCode] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const configured = isSupabaseConfigured();
+
+  useEffect(() => {
+    setPasswordUpdated(new URLSearchParams(window.location.search).get("password") === "updated");
+  }, []);
 
   function inviteClaimMessage(cause: unknown) {
     if (cause && typeof cause === "object" && "message" in cause && typeof cause.message === "string") {
@@ -42,31 +46,23 @@ export default function LoginPage() {
     setSubmitting(true);
     const supabase = createSupabaseBrowserClient();
     const normalizedEmail = normalizeAuthEmail(email);
-    const result = mode === "login"
-      ? await supabase.auth.signInWithPassword({ email: normalizedEmail, password })
-      : await supabase.auth.signUp({ email: normalizedEmail, password });
+    const result = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
 
     if (result.error) {
-      reportAuthError(mode, result.error);
-      const failure = describeAuthError(result.error, mode);
+      reportAuthError("login", result.error);
+      const failure = describeAuthError(result.error, "login");
       setMessage(failure.message);
       setErrorCode(failure.code);
       setSubmitting(false);
       return;
     }
 
-    setMessage(mode === "signup" ? "Account created. Check email if confirmation is enabled." : "Signed in.");
+    setMessage("Signed in.");
     const user = result.data.user;
     if (!user) {
       setSubmitting(false);
       return;
     }
-    if (!result.data.session) {
-      setMessage("Account created. Confirm your email, then return here to log in and finish joining your program.");
-      setSubmitting(false);
-      return;
-    }
-
     const initialRole = await getEffectiveRole(supabase, user);
     const pendingInvite = localStorage.getItem("moveFreePatientInvite");
     if (pendingInvite) {
@@ -118,7 +114,7 @@ export default function LoginPage() {
         <div className="section-header">
           <div>
             <p className="eyebrow">Secure access</p>
-            <h2>{mode === "login" ? "Log in" : "Sign up"}</h2>
+            <h2>Log in</h2>
           </div>
           <ShieldCheck color="var(--accent)" />
         </div>
@@ -143,7 +139,7 @@ export default function LoginPage() {
             <input
               id="password"
               type="password"
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
@@ -151,18 +147,18 @@ export default function LoginPage() {
             />
           </div>
           <button className="button" type="submit" disabled={submitting}>
-            {submitting ? "Please wait..." : mode === "login" ? "Log in" : "Create account"}
+            {submitting ? "Please wait..." : "Log in"}
             <ArrowRight size={18} />
           </button>
-          {mode === "login" ? <Link href="/forgot-password" className="muted" style={{ textAlign: "center" }}>Forgot password?</Link> : null}
+          <Link href="/forgot-password" className="muted" style={{ textAlign: "center" }}>Forgot password?</Link>
+          {passwordUpdated ? <p role="status" className="muted">Password updated. Log in with your new password.</p> : null}
           {message ? <div role={errorCode ? "alert" : "status"} className="muted">
             <p>{message}</p>
             {errorCode ? <p style={{ marginTop: 6, fontSize: 12 }}>Authentication code: {errorCode}</p> : null}
           </div> : null}
         </form>
-        <button className="secondary-button" type="button" onClick={() => setMode(mode === "login" ? "signup" : "login")} style={{ marginTop: 14, width: "100%" }}>
-          {mode === "login" ? "Need an account? Sign up" : "Already have an account? Log in"}
-        </button>
+        <Link className="secondary-button" href="/signup" style={{ marginTop: 14, width: "100%" }}>Create a clinician account</Link>
+        <p className="muted" style={{ marginTop: 12 }}>Patients should accept their clinician invitation once, then return here for future logins.</p>
       </section>
     </main>
   );

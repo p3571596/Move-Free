@@ -24,8 +24,22 @@ export function describeAuthError(error: AuthError, action: "login" | "signup" |
 
   if (error.status === 429 || /rate limit/i.test(error.message)) {
     return {
-      message: "Too many attempts were made. Wait a few minutes, then try again.",
+      message: "Too many email requests were made. Wait a few minutes before requesting another email, then use only the newest link.",
       code: code ?? "rate_limited",
+    };
+  }
+
+  if (code === "otp_expired" || /expired|one-time token not found|otp.*invalid/i.test(error.message)) {
+    return {
+      message: "This secure link has expired or was already used. Request a new email and use only the newest link.",
+      code: code ?? "expired_or_used_link",
+    };
+  }
+
+  if (/session.*missing|auth session missing|jwt/i.test(error.message)) {
+    return {
+      message: "The secure recovery session is missing. Request a new password-reset email on this device.",
+      code: code ?? "missing_recovery_session",
     };
   }
 
@@ -41,11 +55,14 @@ export function describeAuthError(error: AuthError, action: "login" | "signup" |
 }
 
 export function reportAuthError(context: string, error: AuthError) {
-  console.error(`[auth:${context}]`, {
+  // Structured diagnostics intentionally omit email addresses, passwords,
+  // access tokens, refresh tokens, and invitation tokens.
+  console.error(JSON.stringify({
+    event: "auth_failure",
+    context,
     code: error.code ?? "unknown",
     status: error.status,
-    message: error.message,
-  });
+  }));
 }
 
 export function normalizeAuthEmail(email: string) {

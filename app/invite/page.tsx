@@ -46,6 +46,7 @@ export default function InvitePage() {
   const [token, setToken] = useState("");
   const [mode, setMode] = useState<InviteMode>("invite");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const client = createSupabaseBrowserClient();
@@ -148,7 +149,8 @@ export default function InvitePage() {
 
   async function finishInvite(event: FormEvent) {
     event.preventDefault();
-    if (!token) return;
+    if (!token || submitting) return;
+    setSubmitting(true);
     setInviteState("claiming");
     setStatus("Linking your program...");
     const client = clientRef.current ?? createSupabaseBrowserClient();
@@ -156,6 +158,7 @@ export default function InvitePage() {
     if (userError || !userData.user) {
       setInviteState("error");
       setStatus("Your patient session could not be verified. Reopen the invitation or ask your clinician for a new one.");
+      setSubmitting(false);
       return;
     }
     const inviteRole = userData.user.user_metadata?.role;
@@ -163,6 +166,7 @@ export default function InvitePage() {
     if (inviteRole !== "patient" || typeof invitedPatientId !== "string") {
       setInviteState("error");
       setStatus("This invitation is not attached to the patient account currently signed in. Sign out, then open the invitation with the invited email address.");
+      setSubmitting(false);
       return;
     }
     const { error } = await client.auth.updateUser({ password });
@@ -171,6 +175,7 @@ export default function InvitePage() {
       const failure = describeAuthError(error, "password-update");
       setInviteState("needs-password");
       setStatus(failure.message);
+      setSubmitting(false);
       return;
     }
     try {
@@ -181,13 +186,14 @@ export default function InvitePage() {
     } catch (cause) {
       setInviteState("error");
       setStatus(inviteErrorMessage(cause));
+      setSubmitting(false);
     }
   }
 
   return <main className="auth-page"><section className="auth-panel"><p className="eyebrow">Move Free patient invitation</p><h2>Join your movement program</h2><p className="muted">{status}</p>
     {inviteState === "needs-password" && mode === "invite" ? <form className="form" onSubmit={finishInvite} style={{ marginTop: 18 }}>
       <label className="field"><span>Create password</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} required /></label>
-      <button className="button" type="submit">Open my program</button>
+      <button className="button" type="submit" disabled={submitting}>{submitting ? "Opening..." : "Open my program"}</button>
     </form> : inviteState === "error" ? <div style={{ marginTop: 18 }}>
       <Link className="secondary-button" href="/login">Sign in with a different patient account</Link>
     </div> : null}

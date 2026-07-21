@@ -9,6 +9,11 @@ type InviteRequest = {
 
 function authEmailError(message: string, status?: number) {
   const rateLimited = status === 429 || /rate limit/i.test(message);
+  console.warn(JSON.stringify({
+    event: "patient_invitation_email_failed",
+    code: rateLimited ? "email_rate_limited" : "email_delivery_failed",
+    status: status ?? 400,
+  }));
   return NextResponse.json(
     { error: rateLimited
       ? "Supabase has temporarily reached its email limit. Wait before resending, or copy the patient login link and send it directly."
@@ -100,6 +105,14 @@ export async function POST(request: NextRequest) {
 
     if (!inviteError) return NextResponse.json({ sent: true, mode: "invite" });
 
+    // Only switch an existing Auth user to a sign-in link. Retrying every
+    // delivery/rate-limit failure with a second email call compounds provider
+    // limits and can invalidate a link the patient has already received.
+    const existingUser = inviteError.code === "email_exists"
+      || inviteError.code === "user_already_exists"
+      || /already.*(?:registered|exists)|been registered/i.test(inviteError.message);
+    if (!existingUser) return authEmailError(inviteError.message, inviteError.status);
+
     const signInClient = createClient(url, publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
@@ -114,6 +127,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ sent: true, mode: "signin" });
   } catch (cause) {
+    console.error(JSON.stringify({
+      event: "patient_invitation_failed",
+      code: cause instanceof Error ? cause.name : "unknown",
+    }));
     return NextResponse.json(
       { error: cause instanceof Error ? cause.message : "Invitation email could not be sent." },
       { status: 500 },
