@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { describeAuthError, normalizeAuthEmail, reportAuthError } from "@/lib/auth-errors";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -26,7 +28,7 @@ export default function SignupPage() {
     } else if (!data.session) {
       setMessage("Check your inbox to confirm the clinician account. If this email already has an account, return to login or reset its password.");
     } else {
-      window.location.assign("/dashboard");
+      router.push("/dashboard");
     }
     setSubmitting(false);
   }

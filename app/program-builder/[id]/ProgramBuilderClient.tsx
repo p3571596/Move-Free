@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
   const [library, setLibrary] = useState<Exercise[]>([]);
   const [draft, setDraft] = useState<HomeProgramExercise[]>([]);
   const [status, setStatus] = useState("");
+  const workflowStartedAt = useRef(Date.now());
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -32,6 +33,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
         setDraft(loadedWorkspace.programExercises);
         setLibrary(loadedLibrary);
         setStatus(loadedWorkspace.patient ? "" : "Patient not found for the current clinician.");
+        workflowStartedAt.current = Date.now();
       })
       .catch(() => {
         setWorkspace(emptyWorkspace());
@@ -120,12 +122,16 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const saved = await saveProgramDraft(supabase, workspace.patient.id, draft);
+      const saved = await saveProgramDraft(supabase, workspace.patient.id, draft, {
+        eventName: workspace.program ? "program_updated" : "program_created",
+        durationMs: Date.now() - workflowStartedAt.current,
+      });
       const loadedLibrary = await loadExerciseLibrary(supabase);
       setWorkspace((current) => current ? { ...current, ...saved } : current);
       setDraft(saved.programExercises);
       setLibrary(loadedLibrary);
       setStatus("Program saved.");
+      workflowStartedAt.current = Date.now();
       router.push(`/patients/${workspace.patient.id}?programSaved=1&librarySaved=${saved.libraryExerciseCount}`);
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : "Program could not be saved.");

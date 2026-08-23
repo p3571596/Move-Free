@@ -2,6 +2,7 @@
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type {
+  AnalyticsEventName,
   ClinicalDecision,
   ClinicianSnapshot,
   DailyCheckin,
@@ -9,6 +10,7 @@ import type {
   Episode,
   Exercise,
   ExerciseAdherenceLog,
+  FounderAnalytics,
   Goal,
   HomeProgram,
   HomeProgramExercise,
@@ -351,7 +353,12 @@ export async function loadCurrentPatientAppWorkspace(client: Client): Promise<Pa
   return patient ? loadPatientWorkspace(client, patient.id, "patient") : emptyWorkspace();
 }
 
-export async function saveProgramDraft(client: Client, patientId: string, items: HomeProgramExercise[]) {
+export async function saveProgramDraft(
+  client: Client,
+  patientId: string,
+  items: HomeProgramExercise[],
+  instrumentation?: { eventName: "program_created" | "program_updated"; durationMs: number },
+) {
   const user = await getCurrentUser(client);
 
   if (!user) {
@@ -395,6 +402,13 @@ export async function saveProgramDraft(client: Client, patientId: string, items:
 
     savedItems.push(normalizeProgramExercise(data));
   }
+
+  await trackAnalyticsEvent(client, {
+    eventName: instrumentation?.eventName ?? "program_updated",
+    patientId,
+    homeProgramId: program.id,
+    durationMs: instrumentation?.durationMs,
+  });
 
   return {
     program: normalizeProgram(program, patientId),
@@ -514,6 +528,7 @@ export async function logExerciseSession(
   homeProgramId: string,
   entries: ExerciseLogInput[],
   sessionId: string,
+  durationMs?: number,
 ) {
   if (!entries.length) throw new Error("Add at least one exercise result before saving.");
 
@@ -539,6 +554,13 @@ export async function logExerciseSession(
   if (error) {
     throw error;
   }
+
+  await trackAnalyticsEvent(client, {
+    eventName: "exercise_session_submitted",
+    patientId,
+    homeProgramId,
+    durationMs,
+  });
 }
 
 export async function logPainPattern(
@@ -556,6 +578,7 @@ export async function logPainPattern(
     symptomDirection: "improving" | "unchanged" | "worsening";
     patientComment: string;
     clientSubmissionId: string;
+    durationMs?: number;
   },
 ) {
   const { error } = await client.from("daily_checkins").insert({
@@ -577,6 +600,51 @@ export async function logPainPattern(
   if (error) {
     throw error;
   }
+
+  await trackAnalyticsEvent(client, {
+    eventName: "patient_checkin_submitted",
+    patientId: input.patientId,
+    durationMs: input.durationMs,
+  });
+}
+
+export async function trackAnalyticsEvent(
+  client: Client,
+  input: {
+    eventName: AnalyticsEventName;
+    patientId: string;
+    homeProgramId?: string | null;
+    durationMs?: number;
+  },
+) {
+  const durationMs = input.durationMs == null
+    ? null
+    : Math.max(0, Math.min(Math.round(input.durationMs), 21_600_000));
+  const { error } = await client.from("analytics_events").insert({
+    event_name: input.eventName,
+    patient_id: input.patientId,
+    home_program_id: input.homeProgramId ?? null,
+    duration_ms: durationMs,
+    client_event_id: crypto.randomUUID(),
+  });
+
+  // Product instrumentation must never block clinical work. The migration may
+  // also intentionally trail a preview deployment during staged rollout.
+  return !error;
+}
+
+export async function loadFounderAnalytics(client: Client, days = 30): Promise<FounderAnalytics> {
+  const user = await getCurrentUser(client);
+  if (!user) throw new Error("Sign in before opening analytics.");
+
+  const profile = await getProfile(client, user);
+  if (profile?.role !== "admin") throw new Error("Admin access required.");
+
+  const { data, error } = await client.rpc("get_founder_analytics", {
+    p_days: Math.max(7, Math.min(days, 90)),
+  });
+  if (error) throw error;
+  return data as FounderAnalytics;
 }
 
 async function ensureActiveEpisode(client: Client, patientId: string) {
@@ -823,10 +891,6 @@ function normalizeProgressMetrics(metrics: Array<Record<string, unknown>>) {
 
 function emptyResult() {
   return Promise.resolve({ data: [], error: null });
-}
-
-function emptySingleResult() {
-  return Promise.resolve({ data: null, error: null });
 }
 
 export function emptyWorkspace(): PatientWorkspace {

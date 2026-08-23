@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { HeartPulse } from "lucide-react";
 import { PatientShell } from "@/components/PatientShell";
@@ -16,6 +16,7 @@ export default function PainPatternPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [submissionId, setSubmissionId] = useState(() => crypto.randomUUID());
+  const workflowStartedAt = useRef(Date.now());
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -24,7 +25,10 @@ export default function PainPatternPage() {
     }
 
     const supabase = createSupabaseBrowserClient();
-    loadCurrentPatientAppWorkspace(supabase).then(setWorkspace).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load your patient record."));
+    loadCurrentPatientAppWorkspace(supabase).then((data) => {
+      setWorkspace(data);
+      workflowStartedAt.current = Date.now();
+    }).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load your patient record."));
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -56,6 +60,7 @@ export default function PainPatternPage() {
           symptomDirection: String(data.get("symptomDirection")) as "improving" | "unchanged" | "worsening",
           patientComment: String(data.get("patientComment") ?? ""),
           clientSubmissionId: submissionId,
+          durationMs: Date.now() - workflowStartedAt.current,
         });
       } catch (cause) {
         const duplicate = cause instanceof Error && cause.message.includes("duplicate key");
@@ -67,6 +72,7 @@ export default function PainPatternPage() {
 
     setMessage("Today’s check-in was saved. Your therapist can now see it.");
     setSubmissionId(crypto.randomUUID());
+    workflowStartedAt.current = Date.now();
     setSaving(false);
     event.currentTarget.reset();
   }

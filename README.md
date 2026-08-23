@@ -35,6 +35,8 @@ Returning patients should use `/login`, not reuse the one-time invitation. If th
 
 Before external pilot use, follow [SETUP_AUTH.md](SETUP_AUTH.md) to configure custom SMTP, email templates, redirect settings, and the authentication release checklist.
 
+Founder/admin product analytics are documented in [docs/analytics.md](docs/analytics.md). The dashboard uses real application data, includes privacy-minimized workflow timing, and remains unavailable until its migration is applied.
+
 In Vercel → Project Settings → Deployment Protection, Production must be publicly accessible. Disable **Vercel Authentication** for Production (preview deployments may stay protected). If `https://move-free.vercel.app` is not the project's public production domain, replace it everywhere above with the exact domain shown under the production deployment.
 
 ## Commands

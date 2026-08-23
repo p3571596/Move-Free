@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, HeartPulse, Play } from "lucide-react";
 import { PatientShell } from "@/components/PatientShell";
@@ -22,6 +22,7 @@ export default function TodayProgramPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
+  const workflowStartedAt = useRef(Date.now());
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -32,6 +33,7 @@ export default function TodayProgramPage() {
       .then((data) => {
         setWorkspace(data);
         setEntries(Object.fromEntries(data.programExercises.map((item) => [item.id, emptyEntry(item)])));
+        workflowStartedAt.current = Date.now();
       })
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load your program."));
   }, []);
@@ -63,9 +65,11 @@ export default function TodayProgramPage() {
         workspace.program.id,
         workspace.programExercises.map((item) => ({ homeProgramExerciseId: item.id, ...entries[item.id] })),
         sessionId,
+        Date.now() - workflowStartedAt.current,
       );
       setMessage("Today’s program was saved. Your therapist can now review it.");
       setSessionId(crypto.randomUUID());
+      workflowStartedAt.current = Date.now();
     } catch (cause) {
       const duplicate = cause instanceof Error && cause.message.includes("duplicate key");
       setError(duplicate ? "This session was already saved. Your therapist can see it." : cause instanceof Error ? cause.message : "Could not save today’s program.");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
@@ -10,7 +10,7 @@ import { ProgressBars } from "@/components/ProgressBars";
 import { PilotTrendCharts } from "@/components/PilotTrendCharts";
 import { RequireAuth } from "@/components/RequireAuth";
 import { PatientInviteButton } from "@/components/PatientInviteButton";
-import { emptyWorkspace, loadPatientWorkspace } from "@/lib/data";
+import { emptyWorkspace, loadPatientWorkspace, trackAnalyticsEvent } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { PatientWorkspace } from "@/lib/types";
@@ -20,6 +20,7 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
   const searchParams = useSearchParams();
   const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
   const [status, setStatus] = useState("");
+  const trackedPatientRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -29,10 +30,19 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
     }
 
     const supabase = createSupabaseBrowserClient();
+    const startedAt = performance.now();
     loadPatientWorkspace(supabase, patientId)
       .then((loadedWorkspace) => {
         setWorkspace(loadedWorkspace);
         setStatus(loadedWorkspace.patient ? "" : "Patient not found for the current clinician.");
+        if (loadedWorkspace.patient && trackedPatientRef.current !== patientId) {
+          trackedPatientRef.current = patientId;
+          void trackAnalyticsEvent(supabase, {
+            eventName: "patient_review_opened",
+            patientId,
+            durationMs: performance.now() - startedAt,
+          });
+        }
       })
       .catch(() => {
         setWorkspace(emptyWorkspace());

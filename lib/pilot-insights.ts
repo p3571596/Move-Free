@@ -117,7 +117,7 @@ function calculateStreak(logs: ExerciseAdherenceLog[]) {
   const activeDates = new Set(logs.filter((log) => ["completed", "partial"].includes(log.completion_status ?? ""))
     .flatMap((log) => log.performed_at ?? log.created_at ? [dateKey(log.performed_at ?? log.created_at!)] : []));
   if (!activeDates.size) return 0;
-  let cursor = new Date();
+  const cursor = new Date();
   if (!activeDates.has(dateKey(cursor.toISOString()))) cursor.setDate(cursor.getDate() - 1);
   let streak = 0;
   while (activeDates.has(dateKey(cursor.toISOString()))) {

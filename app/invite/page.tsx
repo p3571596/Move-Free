@@ -53,7 +53,6 @@ export default function InvitePage() {
     clientRef.current = client;
     let active = true;
     let settled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const params = new URLSearchParams(window.location.search);
     const invitationToken = params.get("token")?.trim() ?? "";
@@ -123,6 +122,13 @@ export default function InvitePage() {
       }
     }
 
+    const timeoutId = setTimeout(() => {
+      if (!active || settled) return;
+      settled = true;
+      setInviteState("error");
+      setStatus("Your patient session could not be established. The link may be expired or already used. Ask your clinician to send a new invitation.");
+    }, AUTH_WAIT_MS);
+
     const { data: authListener } = client.auth.onAuthStateChange((_event, session) => {
       if (session?.user) queueMicrotask(() => void completeForUser(session.user));
     });
@@ -131,13 +137,6 @@ export default function InvitePage() {
       if (data.user) return completeForUser(data.user);
       if (error && active) setStatus("Waiting for the secure patient session...");
     });
-
-    timeoutId = setTimeout(() => {
-      if (!active || settled) return;
-      settled = true;
-      setInviteState("error");
-      setStatus("Your patient session could not be established. The link may be expired or already used. Ask your clinician to send a new invitation.");
-    }, AUTH_WAIT_MS);
 
     return () => {
       active = false;

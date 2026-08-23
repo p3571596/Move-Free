@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Activity, Home, LayoutDashboard, MessageSquare, Stethoscope, UserRound } from "lucide-react";
+import { Activity, BarChart3, Home, LayoutDashboard, MessageSquare, Stethoscope, UserRound } from "lucide-react";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
 const navItems = [
@@ -64,10 +64,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
           {isAdmin ? (
-            <Link href="/feedback">
-              <MessageSquare size={18} />
-              Pilot Command Center
-            </Link>
+            <>
+              <Link href="/analytics">
+                <BarChart3 size={18} />
+                Founder Analytics
+              </Link>
+              <Link href="/feedback">
+                <MessageSquare size={18} />
+                Pilot Feedback
+              </Link>
+            </>
           ) : null}
           <button type="button" onClick={signOut}>
             <UserRound size={18} />

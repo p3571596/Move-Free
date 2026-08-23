@@ -230,7 +230,7 @@ function DashboardLoading() {
   return (
     <div className="dashboard-loading" aria-live="polite">
       <RefreshCw className="spin" size={20} />
-      Building today's priority briefing…
+      Building today&apos;s priority briefing…
     </div>
   );
 }
@@ -239,7 +239,7 @@ function DashboardError({ message }: { message: string }) {
   return (
     <div className="panel dashboard-error" role="alert">
       <AlertTriangle size={22} />
-      <div><strong>We could not load today's priorities.</strong><p>{message}</p></div>
+      <div><strong>We could not load today&apos;s priorities.</strong><p>{message}</p></div>
       <button className="secondary-button" onClick={() => window.location.reload()}>Try again</button>
     </div>
   );

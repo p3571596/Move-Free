@@ -207,6 +207,64 @@ export type ExerciseAdherenceLog = {
   created_at?: string | null;
 };
 
+export type AnalyticsEventName =
+  | "patient_review_opened"
+  | "program_created"
+  | "program_updated"
+  | "patient_checkin_submitted"
+  | "exercise_session_submitted";
+
+export type AnalyticsEvent = {
+  id: number;
+  event_name: AnalyticsEventName;
+  actor_id?: string | null;
+  patient_id?: string | null;
+  home_program_id?: string | null;
+  duration_ms?: number | null;
+  client_event_id?: string | null;
+  occurred_at?: string | null;
+  created_at?: string | null;
+};
+
+export type FounderAnalytics = {
+  rangeDays: number;
+  generatedAt: string;
+  summary: {
+    activeClinicians: number;
+    activePatients: number;
+    programsAssigned: number;
+    exerciseSessions: number;
+    exerciseAdherencePercent: number | null;
+    checkinCompletionPercent: number | null;
+    averageHoursBetweenCheckins: number | null;
+  };
+  painTrend: AnalyticsTrendSummary;
+  confidenceTrend: AnalyticsTrendSummary;
+  dailyTrends: Array<{
+    date: string;
+    pain: number | null;
+    confidence: number | null;
+    checkins: number;
+  }>;
+  workflowTimings: Array<{
+    eventName: AnalyticsEventName;
+    eventCount: number;
+    averageSeconds: number | null;
+    medianSeconds: number | null;
+  }>;
+  recentActivity: Array<{
+    kind: "workflow" | "checkin" | "exercise" | "program";
+    label: AnalyticsEventName | "program_assigned";
+    occurredAt: string;
+  }>;
+};
+
+type AnalyticsTrendSummary = {
+  recent: number | null;
+  previous: number | null;
+  change: number | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -224,11 +282,13 @@ export type Database = {
       visit_notes: Table<VisitNote>;
       barriers: Table<Barrier>;
       feedback: Table<Feedback>;
+      analytics_events: Table<AnalyticsEvent>;
     };
     Views: Record<string, never>;
     Functions: {
       create_patient_invite: { Args: { p_patient_id: string }; Returns: string };
       claim_patient_invite: { Args: { p_token: string }; Returns: string };
+      get_founder_analytics: { Args: { p_days?: number }; Returns: FounderAnalytics };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
