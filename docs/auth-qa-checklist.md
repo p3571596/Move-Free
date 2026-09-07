@@ -5,8 +5,10 @@ Use unique test emails and one public production deployment. Record the browser,
 ## Invitation and password creation
 
 - [ ] Clinician sends one invitation to a new patient email.
+- [ ] A link scanner or a manual HEAD/GET opens the app landing page without consuming the invitation.
 - [ ] Patient opens only the newest email in a private browser.
 - [ ] Invitation opens Move Free, not Vercel or Supabase.
+- [ ] Patient explicitly presses **Continue secure setup** before Supabase verifies the one-time token.
 - [ ] Patient creates an eight-or-more-character password once.
 - [ ] Patient record is linked and `/patient` shows the assigned program.
 - [ ] Refreshing `/patient` preserves the session.
@@ -36,6 +38,8 @@ Use unique test emails and one public production deployment. Record the browser,
 
 - [ ] Incorrect password shows `invalid_credentials` guidance without revealing sensitive data.
 - [ ] Existing patient email is never sent through clinician signup.
+- [ ] A clinician email entered as a patient destination is rejected without weakening the patient claim policy.
+- [ ] An activated patient receives the normal sign-in page, not another invitation or magic link.
 - [ ] Missing recovery session offers a new reset link.
 - [ ] Email rate limit returns a wait-and-use-the-newest-email message.
 - [ ] Repeated clicks cannot submit invite, login, reset, or password update twice.

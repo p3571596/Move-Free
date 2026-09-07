@@ -29,7 +29,11 @@ In Supabase Auth → URL Configuration:
 
 Supabase ignores an invitation `redirectTo` value that is not allow-listed and falls back to Site URL, so both settings must point to the application rather than `https://vercel.com`.
 
-If the customized Supabase **Invite user** email template builds its own confirmation link, ensure it uses `{{ .RedirectTo }}` rather than `{{ .SiteURL }}` so the invitation token and mode remain attached to the `/invite` destination.
+The Supabase **Invite user** and **Magic link** templates must use the
+scanner-safe links in [SETUP_AUTH.md](SETUP_AUTH.md). They preserve
+the `RedirectTo` value, append the `TokenHash` value, and land on `/invite`
+without first visiting the direct `ConfirmationURL`. The patient deliberately
+presses **Continue secure setup** before the one-time token is consumed.
 
 Returning patients should use `/login`, not reuse the one-time invitation. If their password is unknown, `/forgot-password` sends a recovery link to `/reset-password` and the user can then sign in normally from any browser or device.
 

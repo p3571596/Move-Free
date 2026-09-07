@@ -14,9 +14,9 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
   const [channel, setChannel] = useState<"email" | "text">("email");
   const [destination, setDestination] = useState("");
 
-  async function copy() {
-    await navigator.clipboard.writeText(inviteUrl);
-    setStatus("Invitation link copied.");
+  async function copy(url = inviteUrl) {
+    await navigator.clipboard.writeText(url);
+    setStatus(isLinked ? "Patient sign-in page copied." : "Invitation link copied.");
   }
 
   async function sendInvite(event: FormEvent) {
@@ -36,9 +36,9 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
           body: JSON.stringify({ patientId, email: destination.trim() }),
         });
-        const result = await response.json() as { error?: string; mode?: "invite" | "signin" | "resend" };
+        const result = await response.json() as { error?: string; mode?: "invite" | "resume" };
         if (!response.ok) throw new Error(result.error ?? "Invitation email could not be sent.");
-        setStatus(`${result.mode === "resend" ? "Patient sign-in link" : "Invitation"} sent to ${destination.trim()}.`);
+        setStatus(`${result.mode === "resume" ? "Setup link" : "Invitation"} sent to ${destination.trim()}.`);
         setOpen(false);
       } else {
         const url = isLinked
@@ -58,10 +58,18 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
 
   return <div className="invite-control">
     {isLinked ? <span className="pill"><Check size={15}/>Patient login linked</span> : null}
-    <button className="secondary-button" type="button" onClick={() => setOpen(true)} disabled={busy}><Send size={17}/>{isLinked ? "Resend Patient Link" : "Invite Patient"}</button>
-    {inviteUrl ? <button className="icon-button" type="button" onClick={copy} aria-label="Copy patient invitation link"><Copy size={17}/></button> : null}
+    <button className="secondary-button" type="button" onClick={() => {
+      if (isLinked) {
+        const loginUrl = getAppRoute("/login");
+        setInviteUrl(loginUrl);
+        void copy(loginUrl);
+      } else {
+        setOpen(true);
+      }
+    }} disabled={busy}>{isLinked ? <Copy size={17}/> : <Send size={17}/>} {isLinked ? "Copy Patient Sign-in" : "Invite Patient"}</button>
+    {inviteUrl ? <button className="icon-button" type="button" onClick={() => void copy()} aria-label="Copy patient invitation link"><Copy size={17}/></button> : null}
     {status ? <small className="muted" role="status">{status}</small> : null}
-    {open ? <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}>
+    {open && !isLinked ? <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}>
       <section className="invite-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-title" onMouseDown={(event) => event.stopPropagation()}>
         <div className="section-header">
           <div><p className="eyebrow">Patient access</p><h3 id="invite-title">{isLinked ? "Resend patient link" : "Invite patient"}</h3></div>

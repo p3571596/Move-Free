@@ -75,21 +75,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Use the email already linked to this patient account." }, { status: 400 });
       }
 
-      const signInClient = createClient(url, publishableKey, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      });
-      const { error: signInError } = await signInClient.auth.signInWithOtp({
-        email,
-        // Reuse the invitation callback that is already allow-listed in
-        // Supabase. The callback verifies the authenticated patient and then
-        // forwards them to /patient.
-        options: { emailRedirectTo: getAppRoute("/invite?mode=access"), shouldCreateUser: false },
-      });
-      if (signInError) {
-        return authEmailError(signInError.message, signInError.status);
-      }
-
-      return NextResponse.json({ sent: true, mode: "resend" });
+      return NextResponse.json({
+        error: "This patient account is already active. Returning patients should use the normal sign-in page and reset their password there if needed.",
+        code: "patient_account_active",
+      }, { status: 409 });
     }
 
     const { data: token, error: tokenError } = await authenticatedClient.rpc("create_patient_invite", { p_patient_id: patientId });
@@ -103,7 +92,14 @@ export async function POST(request: NextRequest) {
       data: { role: "patient", patient_id: patientId },
     });
 
-    if (!inviteError) return NextResponse.json({ sent: true, mode: "invite" });
+    if (!inviteError) {
+      console.info(JSON.stringify({
+        event: "patient_invitation_email_sent",
+        mode: "invite",
+        redirectPath: "/invite?token=[redacted]&mode=invite",
+      }));
+      return NextResponse.json({ sent: true, mode: "invite" });
+    }
 
     // Only switch an existing Auth user to a sign-in link. Retrying every
     // delivery/rate-limit failure with a second email call compounds provider
@@ -113,10 +109,40 @@ export async function POST(request: NextRequest) {
       || /already.*(?:registered|exists)|been registered/i.test(inviteError.message);
     if (!existingUser) return authEmailError(inviteError.message, inviteError.status);
 
+    let existingAuthUser = null;
+    for (let page = 1; page <= 10 && !existingAuthUser; page += 1) {
+      const { data: usersPage, error: usersError } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
+      if (usersError) throw usersError;
+      existingAuthUser = usersPage.users.find((user) => user.email?.toLowerCase() === email) ?? null;
+      if (usersPage.users.length < 1000) break;
+    }
+    if (!existingAuthUser) {
+      return NextResponse.json({ error: "The existing account could not be verified." }, { status: 409 });
+    }
+
+    const [existingProfileResult, linkedPatientResult] = await Promise.all([
+      adminClient.from("profiles").select("role").eq("id", existingAuthUser.id).maybeSingle(),
+      adminClient.from("patients").select("id").eq("patient_profile_id", existingAuthUser.id).maybeSingle(),
+    ]);
+    if (existingProfileResult.error) throw existingProfileResult.error;
+    if (linkedPatientResult.error) throw linkedPatientResult.error;
+
+    const belongsToAnotherRole = existingProfileResult.data?.role === "clinician"
+      || existingProfileResult.data?.role === "admin";
+    const belongsToAnotherPatient = Boolean(
+      linkedPatientResult.data && linkedPatientResult.data.id !== patientId,
+    );
+    if (belongsToAnotherRole || belongsToAnotherPatient) {
+      return NextResponse.json({
+        error: "This email already belongs to another Move Free account. Use the patient's own email address; clinician accounts cannot accept patient invitations.",
+        code: "email_belongs_to_another_account",
+      }, { status: 409 });
+    }
+
     const signInClient = createClient(url, publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
-    const signInRedirect = getAppRoute(`/invite?token=${encodeURIComponent(String(token))}&mode=signin`);
+    const signInRedirect = getAppRoute(`/invite?token=${encodeURIComponent(String(token))}&mode=invite`);
     const { error: signInError } = await signInClient.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: signInRedirect, shouldCreateUser: false },
@@ -125,7 +151,12 @@ export async function POST(request: NextRequest) {
       return authEmailError(signInError.message || inviteError.message, signInError.status);
     }
 
-    return NextResponse.json({ sent: true, mode: "signin" });
+    console.info(JSON.stringify({
+      event: "patient_invitation_email_sent",
+      mode: "resume",
+      redirectPath: "/invite?token=[redacted]&mode=invite",
+    }));
+    return NextResponse.json({ sent: true, mode: "resume" });
   } catch (cause) {
     console.error(JSON.stringify({
       event: "patient_invitation_failed",

@@ -38,7 +38,30 @@ For clinician email confirmation:
 </a>
 ```
 
-The patient invitation template must preserve the application `redirectTo`, which contains the secure patient claim token. Keep `{{ .ConfirmationURL }}` in that template unless the invitation implementation is changed together with the template. Do not replace it with `{{ .SiteURL }}`. Disable provider click tracking for this message.
+The patient invitation and magic-link templates must send scanners to the
+app-controlled `/invite` page without consuming the one-time Auth token. The
+application `redirectTo` contains the secure patient claim token, so preserve it
+and append the Auth token hash:
+
+```html
+<!-- Invite user template -->
+<h2>Join your Move Free program</h2>
+<p>Your clinician created a secure patient account for you.</p>
+<p><a href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}&amp;type=invite">Continue secure setup</a></p>
+<p>This link works once. Returning patients should use the normal sign-in page.</p>
+```
+
+```html
+<!-- Magic link template (used only to resume an incomplete invitation) -->
+<h2>Finish your Move Free setup</h2>
+<p><a href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}&amp;type=magiclink">Continue secure setup</a></p>
+```
+
+Do **not** use `{{ .ConfirmationURL }}` in these two templates: email security
+scanners can visit it and consume the one-time token before the patient. A GET
+or HEAD request to the new app-controlled link is harmless; the `/invite` page
+verifies the token only after the patient presses its continue button. Disable
+provider click tracking for both messages.
 
 ## 4. Auth settings
 
