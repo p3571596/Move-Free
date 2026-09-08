@@ -40,7 +40,14 @@ function inviteErrorMessage(cause: unknown) {
 }
 
 function isInvitedPatient(user: User) {
-  return user.user_metadata?.role === "patient" && typeof user.user_metadata?.patient_id === "string";
+  // Existing Auth users receive a server-controlled marker because Supabase
+  // magic links do not copy inviteUserByEmail metadata. New invited users keep
+  // the original user_metadata onboarding hint. Neither grants data access: the
+  // one-time database claim validates and consumes the secure patient token.
+  const hasPendingExistingUserInvite = typeof user.app_metadata?.pending_patient_invite_id === "string";
+  const hasNewUserInvite = user.user_metadata?.role === "patient"
+    && typeof user.user_metadata?.patient_id === "string";
+  return hasPendingExistingUserInvite || hasNewUserInvite;
 }
 
 function removeAuthTokenFromAddress() {

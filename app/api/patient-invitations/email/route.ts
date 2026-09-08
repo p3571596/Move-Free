@@ -120,15 +120,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "The existing account could not be verified." }, { status: 409 });
     }
 
-    const [existingProfileResult, linkedPatientResult] = await Promise.all([
+    const [existingProfileResult, linkedPatientResult, clinicianPatientResult] = await Promise.all([
       adminClient.from("profiles").select("role").eq("id", existingAuthUser.id).maybeSingle(),
       adminClient.from("patients").select("id").eq("patient_profile_id", existingAuthUser.id).maybeSingle(),
+      adminClient.from("patients").select("id").eq("clinician_id", existingAuthUser.id).limit(1).maybeSingle(),
     ]);
     if (existingProfileResult.error) throw existingProfileResult.error;
     if (linkedPatientResult.error) throw linkedPatientResult.error;
+    if (clinicianPatientResult.error) throw clinicianPatientResult.error;
 
     const belongsToAnotherRole = existingProfileResult.data?.role === "clinician"
-      || existingProfileResult.data?.role === "admin";
+      || existingProfileResult.data?.role === "admin"
+      || Boolean(clinicianPatientResult.data);
     const belongsToAnotherPatient = Boolean(
       linkedPatientResult.data && linkedPatientResult.data.id !== patientId,
     );
@@ -137,6 +140,30 @@ export async function POST(request: NextRequest) {
         error: "This email already belongs to another Move Free account. Use the patient's own email address; clinician accounts cannot accept patient invitations.",
         code: "email_belongs_to_another_account",
       }, { status: 409 });
+    }
+
+    // Magic links for pre-existing Auth users do not inherit the metadata from
+    // inviteUserByEmail. Add a server-controlled pending-invite marker so the
+    // fresh browser session can continue to password setup. The claim token and
+    // database function remain the authorization boundary.
+    const { error: inviteMarkerError } = await adminClient.auth.admin.updateUserById(
+      existingAuthUser.id,
+      {
+        app_metadata: {
+          ...existingAuthUser.app_metadata,
+          pending_patient_invite_id: patientId,
+        },
+      },
+    );
+    if (inviteMarkerError) {
+      console.error(JSON.stringify({
+        event: "patient_invitation_marker_failed",
+        code: inviteMarkerError.code ?? "unknown",
+        status: inviteMarkerError.status ?? 500,
+      }));
+      return NextResponse.json({
+        error: "The existing patient account could not be prepared for this invitation. Please try again.",
+      }, { status: 500 });
     }
 
     const signInClient = createClient(url, publishableKey, {

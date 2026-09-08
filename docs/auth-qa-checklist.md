@@ -13,6 +13,7 @@ Use unique test emails and one public production deployment. Record the browser,
 - [ ] Patient record is linked and `/patient` shows the assigned program.
 - [ ] Refreshing `/patient` preserves the session.
 - [ ] Reopening the invitation shows an expired/used-link explanation rather than a blank page.
+- [ ] An eligible email that already has an Auth account can verify the magic link, create a password, and claim the intended patient record.
 
 ## Normal and second-device login
 
@@ -39,6 +40,7 @@ Use unique test emails and one public production deployment. Record the browser,
 - [ ] Incorrect password shows `invalid_credentials` guidance without revealing sensitive data.
 - [ ] Existing patient email is never sent through clinician signup.
 - [ ] A clinician email entered as a patient destination is rejected without weakening the patient claim policy.
+- [ ] A legacy clinician account without a `profiles` row is also rejected when it already owns patient records.
 - [ ] An activated patient receives the normal sign-in page, not another invitation or magic link.
 - [ ] Missing recovery session offers a new reset link.
 - [ ] Email rate limit returns a wait-and-use-the-newest-email message.
