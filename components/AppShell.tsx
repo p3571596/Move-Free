@@ -1,48 +1,74 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Activity, BarChart3, Home, LayoutDashboard, MessageSquare, Stethoscope, UserRound } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  CalendarDays,
+  Home,
+  LayoutDashboard,
+  MessageSquare,
+  Settings,
+  Stethoscope,
+  Target,
+  UserRound,
+  Users,
+} from "lucide-react";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/patients", label: "Patients", icon: Stethoscope },
-  { href: "/exercise-studio", label: "Exercise Studio", icon: Activity },
+const sections = [
+  {
+    label: "Workspace",
+    items: [
+      { href: "/dashboard", label: "Today", icon: LayoutDashboard },
+      { href: "/patients", label: "Patients", icon: Stethoscope },
+      { href: "/schedule", label: "Schedule", icon: CalendarDays },
+    ],
+  },
+  {
+    label: "Care",
+    items: [
+      { href: "/program-builder", label: "Programs", icon: Target },
+      { href: "/exercise-studio", label: "Exercise Library", icon: Activity },
+      { href: "/messages", label: "Messages", icon: MessageSquare, preview: true },
+    ],
+  },
+  {
+    label: "Insights",
+    items: [
+      { href: "/outcomes", label: "Outcomes", icon: BarChart3, preview: true },
+    ],
+  },
+  {
+    label: "Practice",
+    items: [
+      { href: "/team", label: "Team", icon: Users, preview: true },
+      { href: "/settings", label: "Settings", icon: Settings, preview: true },
+    ],
+  },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      return;
-    }
-
+    if (!isSupabaseConfigured()) return;
     const supabase = createSupabaseBrowserClient();
     supabase.auth.getUser()
       .then(({ data }) => {
-        if (!data.user) {
-          return null;
-        }
-
-        return supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .maybeSingle();
+        if (!data.user) return null;
+        return supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
       })
       .then((result) => setIsAdmin(result?.data?.role === "admin"))
       .catch(() => setIsAdmin(false));
   }, []);
 
   async function signOut() {
-    if (isSupabaseConfigured()) {
-      const supabase = createSupabaseBrowserClient();
-      await supabase.auth.signOut();
-    }
+    if (isSupabaseConfigured()) await createSupabaseBrowserClient().auth.signOut();
     router.push("/login");
   }
 
@@ -53,28 +79,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="brand-mark">MF</span>
           <span>
             <h1>Move Free</h1>
-            <p>Clinical MVP</p>
+            <p>Rehabilitation workspace</p>
           </span>
         </Link>
+
         <nav className="nav" aria-label="Main">
-          {navItems.map((item) => (
-            <Link href={item.href} key={item.href}>
-              <item.icon size={18} />
-              {item.label}
-            </Link>
+          {sections.map((section) => (
+            <div key={section.label} className="nav-section">
+              <span className="nav-section-label">{section.label}</span>
+              {section.items.map((item) => {
+                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link href={item.href} key={item.href} className={active ? "active" : undefined}>
+                    <item.icon size={18} />
+                    <span>{item.label}</span>
+                    {item.preview ? <small className="nav-preview">Preview</small> : null}
+                  </Link>
+                );
+              })}
+            </div>
           ))}
+
           {isAdmin ? (
-            <>
-              <Link href="/analytics">
+            <div className="nav-section">
+              <span className="nav-section-label">Pilot</span>
+              <Link href="/analytics" className={pathname.startsWith("/analytics") ? "active" : undefined}>
                 <BarChart3 size={18} />
-                Founder Analytics
+                <span>Founder Analytics</span>
               </Link>
-              <Link href="/feedback">
+              <Link href="/feedback" className={pathname.startsWith("/feedback") ? "active" : undefined}>
                 <MessageSquare size={18} />
-                Pilot Feedback
+                <span>Pilot Feedback</span>
               </Link>
-            </>
+            </div>
           ) : null}
+
           <button type="button" onClick={signOut}>
             <UserRound size={18} />
             Sign out
@@ -84,7 +123,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="main">
         <Link className="clinician-home-button" href="/dashboard" aria-label="Return to clinician dashboard">
           <Home size={16} />
-          Dashboard
+          Today
         </Link>
         {children}
       </main>
