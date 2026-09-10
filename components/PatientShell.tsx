@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Activity, Home, LogOut, TrendingUp } from "lucide-react";
+import { Activity, HeartHandshake, Home, LogOut, TrendingUp } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 export function PatientShell({ children }: { children: React.ReactNode }) {
@@ -13,6 +13,7 @@ export function PatientShell({ children }: { children: React.ReactNode }) {
     { href: "/patient", label: "Today", icon: Home, exact: true },
     { href: "/patient/program", label: "Program", icon: Activity },
     { href: "/patient/progress", label: "Progress", icon: TrendingUp },
+    { href: "/patient/care", label: "Care", icon: HeartHandshake },
   ];
 
   return (
@@ -20,7 +21,7 @@ export function PatientShell({ children }: { children: React.ReactNode }) {
       <header className="patient-appbar">
         <Link href="/patient" className="patient-brand" aria-label="Move Free patient home">
           <span className="patient-brand-mark">MF</span>
-          <span><strong>Move Free</strong><small>My movement plan</small></span>
+          <span><strong>Move Free</strong><small>Your recovery, between visits</small></span>
         </Link>
         <button className="patient-signout" type="button" onClick={signOut} aria-label="Sign out">
           <LogOut size={19} />
