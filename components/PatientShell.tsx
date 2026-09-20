@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Activity, HeartHandshake, Home, LogOut, TrendingUp } from "lucide-react";
+import { Activity, MessageSquareText, Home, LogOut, TrendingUp } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 export function PatientShell({ children }: { children: React.ReactNode }) {
@@ -13,7 +13,7 @@ export function PatientShell({ children }: { children: React.ReactNode }) {
     { href: "/patient", label: "Today", icon: Home, exact: true },
     { href: "/patient/program", label: "Program", icon: Activity },
     { href: "/patient/progress", label: "Progress", icon: TrendingUp },
-    { href: "/patient/care", label: "Care", icon: HeartHandshake },
+    { href: "/patient/messages", label: "Messages", icon: MessageSquareText },
   ];
 
   return (

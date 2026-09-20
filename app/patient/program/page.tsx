@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, HeartPulse, Play } from "lucide-react";
+import { CheckCircle2, Play } from "lucide-react";
 import { PatientShell } from "@/components/PatientShell";
 import { RoleGate } from "@/components/RoleGate";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -17,6 +17,7 @@ type EntryState = Omit<ExerciseLogInput, "homeProgramExerciseId"> & { statusChos
 export default function TodayProgramPage() {
   const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
   const [entries, setEntries] = useState<Record<string, EntryState>>({});
+  const [step, setStep] = useState(0);
   const [started, setStarted] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -44,6 +45,8 @@ export default function TodayProgramPage() {
   }, []);
 
   const groups = useMemo(() => groupExercises(workspace?.programExercises ?? []), [workspace?.programExercises]);
+
+  const orderedExercises = groups.flatMap(([,items])=>items);
 
   function updateEntry(id: string, patch: Partial<EntryState>) {
     setEntries((current) => ({ ...current, [id]: { ...current[id], ...patch } }));
@@ -119,17 +122,14 @@ export default function TodayProgramPage() {
           {workspace?.programExercises.length && started ? (
             <form className="program-session" onSubmit={submit}>
               <fieldset disabled={saving || Boolean(message) || logsSaved} style={{ border: 0, padding: 0, minWidth: 0 }}>
-              {groups.map(([category, items]) => (
-                <section className="patient-program-group" key={category}>
-                  <div className="section-header"><h3>{formatCategory(category)}</h3><span className="pill">{items.length} {items.length === 1 ? "exercise" : "exercises"}</span></div>
-                  <div className="exercise-card-list">
-                    {items.map((item) => <ExerciseEntryCard key={item.id} item={item} value={entries[item.id]} onChange={(patch) => updateEntry(item.id, patch)} />)}
-                  </div>
-                </section>
-              ))}
+              {step < orderedExercises.length ? <section className="patient-program-group">
+                <p className="eyebrow">Exercise {step + 1} of {orderedExercises.length}</p>
+                <ExerciseEntryCard item={orderedExercises[step]} value={entries[orderedExercises[step].id]} onChange={patch=>updateEntry(orderedExercises[step].id,patch)}/>
+                <div className="row-between" style={{marginTop:16}}><button type="button" className="secondary-button" disabled={step===0} onClick={()=>setStep(step-1)}>Back</button><button type="button" className="button" disabled={!entries[orderedExercises[step].id]?.statusChosen} onClick={()=>setStep(step+1)}>{step===orderedExercises.length-1 ? "Finish and share feedback" : "Next exercise"}</button></div>
+              </section> : <button type="button" className="secondary-button" onClick={()=>setStep(0)}>Review exercise responses</button>}
 
               </fieldset>
-              <section className="panel form session-finish-card">
+              {step === orderedExercises.length ? <section className="panel form session-finish-card">
                 <fieldset disabled={saving || Boolean(message)} className="segmented-field">
                   <legend>How did today feel overall?</legend>
                   <div className="segment-options">{([["improving", "Better"], ["unchanged", "Same"], ["worsening", "Worse"]] as const).map(([value, label]) => <button type="button" key={value} aria-pressed={directionChosen && direction === value} className={directionChosen && direction === value ? "active" : ""} onClick={() => { setDirection(value); setDirectionChosen(true); }}>{label}</button>)}</div>
@@ -139,9 +139,9 @@ export default function TodayProgramPage() {
                 <p className="muted">Your therapist reviews updates during their usual working hours. This is not monitored continuously.</p>
                 <div><p className="eyebrow">Finish session</p><h3>Send today&apos;s results to your therapist</h3></div>
                 <button className="button" type="submit" disabled={saving || Boolean(message)}><CheckCircle2 size={18} />{saving ? "Saving…" : message ? "Program saved" : "Finish today’s program"}</button>
-                {message ? <div className="success-banner" role="status"><strong>{message}</strong><Link href="/patient/pain-pattern"><HeartPulse size={17} /> Add today&apos;s check-in</Link></div> : null}
+                {message ? <div className="success-banner" role="status"><strong>{message}</strong><Link href="/patient">Return to Today</Link></div> : null}
                 {error ? <p className="form-error" role="alert">{error}</p> : null}
-              </section>
+              </section> : null}
             </form>
           ) : null}
         </div>

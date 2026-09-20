@@ -13,6 +13,7 @@ import {
   TrendingUp,
   UsersRound,
 } from "lucide-react";
+import { EngineAnalyticsPanel } from "@/components/EngineAnalyticsPanel";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RoleGate } from "@/components/RoleGate";
@@ -59,6 +60,7 @@ export default function FounderAnalyticsPage() {
           </div>
         </header>
 
+        <EngineAnalyticsPanel days={days}/>
         {loading ? <div className="panel dashboard-loading"><RefreshCw className="spin" size={20} /><strong>Reading pilot activity…</strong></div> : null}
         {!loading && error ? <div className="panel dashboard-error"><div><strong>Analytics are unavailable.</strong><p className="muted">{error}</p></div><button className="secondary-button" type="button" onClick={load}>Try again</button></div> : null}
         {!loading && !error && analytics ? <AnalyticsContent analytics={analytics} /> : null}

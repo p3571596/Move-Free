@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PatientShell } from "@/components/PatientShell";
 import { RoleGate } from "@/components/RoleGate";
-import { GoalProgress } from "@/components/GoalProgress";
+import { PatientGoalSummary } from "@/components/PatientGoalSummary";
 import { ProgressBars } from "@/components/ProgressBars";
 import { PilotTrendCharts } from "@/components/PilotTrendCharts";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -48,7 +48,7 @@ export default function PatientProgressPage() {
           ) : null}
           {workspace?.patient ? (
             <>
-              <GoalProgress goals={workspace.goals} />
+              <PatientGoalSummary workspace={workspace} />
               <section className="patient-progress-summary" aria-label="This week's progress">
                 <article className="card"><p className="eyebrow">Sessions this week</p><strong className="stat">{weekSummary?.completedSessions ?? 0}</strong></article>
                 <article className="card"><p className="eyebrow">Exercise participation</p><strong className="stat">{weekSummary?.completionRate == null ? "—" : `${weekSummary.completionRate}%`}</strong></article>
