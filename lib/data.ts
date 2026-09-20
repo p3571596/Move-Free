@@ -278,7 +278,7 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     adherenceResult,
   ]);
 
-  const selectedProgram = selectVisibleProgram((programsResult.data ?? []) as HomeProgram[]);
+  const selectedProgram = selectVisibleProgram((programsResult.data ?? []) as HomeProgram[], access === "patient");
   const program = normalizeProgram(selectedProgram, patient.id);
   const programExercises = program
     ? await loadProgramExercises(client, program.id)
@@ -328,6 +328,33 @@ export async function loadExerciseLibrary(client: Client) {
     .limit(100);
 
   return (data ?? []).map(normalizeExercise) as Exercise[];
+}
+
+export async function publishPatientGuidance(client: Client, patientId: string, programId: string, guidance: string, expectedUpdatedAt: string) {
+  if (!guidance.trim() || guidance.length > 4000) throw new Error("Enter guidance of up to 4,000 characters.");
+  const workspace = await loadPatientWorkspace(client, patientId);
+  if (!workspace.patient || workspace.program?.id !== programId || !workspace.episode) {
+    throw new Error("This program is no longer current or you do not have an authorized care relationship. Reload before publishing.");
+  }
+  const { data, error } = await client.from("home_programs")
+    .update({ patient_explanation: guidance.trim(), updated_at: new Date().toISOString() })
+    .eq("id", programId).eq("episode_id", workspace.episode.id)
+    .eq("updated_at", expectedUpdatedAt).select("updated_at").maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("The program changed while you were reviewing. Reload and review the latest version.");
+  await trackAnalyticsEvent(client, { eventName: "program_updated", patientId, homeProgramId: programId });
+  return data.updated_at!;
+}
+
+export async function recordClinicalReview(client: Client, workspace: PatientWorkspace, decisionType: string, rationale: string, id: string) {
+  const user = await getCurrentUser(client);
+  if (!user || !workspace.patient || workspace.patient.clinician_id !== user.id) throw new Error("An authorized treating relationship is required.");
+  if (!["continue", "progress", "modify", "regress", "reassess", "refer_out", "discharge"].includes(decisionType) || !rationale.trim()) throw new Error("Choose a decision and document your review.");
+  const current = await loadPatientWorkspace(client, workspace.patient.id);
+  const latestActivity = (value: PatientWorkspace) => [...value.checkins.map(x => x.id), ...value.adherenceLogs.map(x => x.id)].sort().join(",");
+  if (latestActivity(current) !== latestActivity(workspace)) throw new Error("New patient feedback arrived. Reload and review it before marking reviewed.");
+  const { error } = await client.from("clinical_decisions").insert({ id, patient_id: workspace.patient.id, episode_id: workspace.episode?.id, clinician_id: user.id, decision_type: decisionType, rationale: rationale.trim() });
+  if (error) throw new Error(error.message);
 }
 
 export async function loadCurrentPatientAppWorkspace(client: Client): Promise<PatientWorkspace> {
@@ -514,7 +541,7 @@ export async function saveFeedback(client: Client, message: string, sentiment: s
 export type ExerciseLogInput = {
   homeProgramExerciseId: string;
   completionStatus: "completed" | "partial" | "skipped";
-  difficulty: "too_easy" | "appropriate" | "too_hard";
+  difficulty: "too_easy" | "appropriate" | "too_hard" | null;
   painDuring: number | null;
   actualSets: number | null;
   actualReps: number | null;
@@ -552,7 +579,9 @@ export async function logExerciseSession(
   const { error } = await client.from("exercise_adherence_logs").insert(rows);
 
   if (error) {
-    throw error;
+    if (error.code !== "23505") throw error;
+    const existing = await client.from("exercise_adherence_logs").select("home_program_exercise_id").eq("patient_id", patientId).eq("session_id", sessionId);
+    if (existing.error || existing.data?.length !== entries.length || entries.some(entry => !existing.data?.some(row => row.home_program_exercise_id === entry.homeProgramExerciseId))) throw error;
   }
 
   await trackAnalyticsEvent(client, {
@@ -568,7 +597,7 @@ export async function logPainPattern(
   input: {
     patientId: string;
     episodeId: string;
-    painScore: number;
+    painScore: number | null;
     painLocation: string;
     symptomBehavior: string;
     activityContext: string;
@@ -598,7 +627,9 @@ export async function logPainPattern(
   });
 
   if (error) {
-    throw error;
+    if (error.code !== "23505") throw error;
+    const existing = await client.from("daily_checkins").select("id").eq("patient_id", input.patientId).eq("client_submission_id", input.clientSubmissionId).maybeSingle();
+    if (existing.error || !existing.data) throw error;
   }
 
   await trackAnalyticsEvent(client, {
@@ -804,8 +835,8 @@ function normalizeTags(tags?: string[] | null) {
   return Array.from(new Set((tags ?? []).map((tag) => tag.trim().replace(/\s+/g, " ").toLowerCase()).filter(Boolean)));
 }
 
-function selectVisibleProgram(programs: HomeProgram[]) {
-  return programs.find((program) => program.status === "active") ?? programs[0] ?? null;
+function selectVisibleProgram(programs: HomeProgram[], patientAccess = false) {
+  return programs.find((program) => program.status === "active") ?? (patientAccess ? null : programs[0]) ?? null;
 }
 
 function normalizeProgram(program?: Partial<HomeProgram> | null, patientId?: string): HomeProgram | null {

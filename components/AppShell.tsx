@@ -18,36 +18,18 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
-const sections = [
-  {
-    label: "Workspace",
-    items: [
-      { href: "/dashboard", label: "Today", icon: LayoutDashboard },
-      { href: "/patients", label: "Patients", icon: Stethoscope },
-      { href: "/schedule", label: "Schedule", icon: CalendarDays },
-    ],
-  },
-  {
-    label: "Care",
-    items: [
-      { href: "/program-builder", label: "Programs", icon: Target },
-      { href: "/exercise-studio", label: "Exercise Library", icon: Activity },
-      { href: "/messages", label: "Messages", icon: MessageSquare, preview: true },
-    ],
-  },
-  {
-    label: "Insights",
-    items: [
-      { href: "/outcomes", label: "Outcomes", icon: BarChart3, preview: true },
-    ],
-  },
-  {
-    label: "Practice",
-    items: [
-      { href: "/team", label: "Team", icon: Users, preview: true },
-      { href: "/settings", label: "Settings", icon: Settings, preview: true },
-    ],
-  },
+const primary = [
+  { href: "/dashboard", label: "Today", icon: LayoutDashboard },
+  { href: "/patients", label: "Patients", icon: Stethoscope },
+  { href: "/messages", label: "Messages", icon: MessageSquare },
+];
+const more = [
+  { href: "/program-builder", label: "Programs", icon: Target },
+  { href: "/exercise-studio", label: "Exercise Library", icon: Activity },
+  { href: "/schedule", label: "Schedule", icon: CalendarDays },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/team", label: "Care Team", icon: Users },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -84,35 +66,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
 
         <nav className="nav" aria-label="Main">
-          {sections.map((section) => (
-            <div key={section.label} className="nav-section">
-              <span className="nav-section-label">{section.label}</span>
-              {section.items.map((item) => {
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                return (
-                  <Link href={item.href} key={item.href} className={active ? "active" : undefined}>
-                    <item.icon size={18} />
-                    <span>{item.label}</span>
-                    {item.preview ? <small className="nav-preview">Preview</small> : null}
-                  </Link>
-                );
-              })}
+          {primary.map((item) => <Link href={item.href} key={item.href} className={pathname === item.href || pathname.startsWith(`${item.href}/`) ? "active" : undefined}><item.icon size={18}/><span>{item.label}</span></Link>)}
+          <details className="more-navigation" key={pathname}>
+            <summary>More</summary>
+            <div className="more-menu">{more.map((item) => <Link href={item.href} key={item.href} className={pathname.startsWith(item.href) ? "active" : undefined}><item.icon size={18}/><span>{item.label}</span></Link>)}
+              {isAdmin ? <Link href="/feedback"><MessageSquare size={18}/>Pilot Feedback</Link> : null}<button type="button" onClick={signOut}><UserRound size={18}/>Sign out</button>
             </div>
-          ))}
-
-          {isAdmin ? (
-            <div className="nav-section">
-              <span className="nav-section-label">Pilot</span>
-              <Link href="/analytics" className={pathname.startsWith("/analytics") ? "active" : undefined}>
-                <BarChart3 size={18} />
-                <span>Founder Analytics</span>
-              </Link>
-              <Link href="/feedback" className={pathname.startsWith("/feedback") ? "active" : undefined}>
-                <MessageSquare size={18} />
-                <span>Pilot Feedback</span>
-              </Link>
-            </div>
-          ) : null}
+          </details>
 
           <button type="button" onClick={signOut}>
             <UserRound size={18} />

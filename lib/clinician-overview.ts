@@ -81,6 +81,8 @@ export function buildPatientSummaries(snapshot: ClinicianSnapshot | null): Patie
     const skippedCount = recentAdherence.filter((log) => log.completion_status === "skipped").length;
     const hardExerciseAlert = recentAdherence.filter((log) => ["too_hard", "painful"].includes(log.difficulty ?? "")).length >= 2;
     const reviewReasons = reviewReasonsFor({ patient, lastActivity, program, adherencePercent, painAlert, repeatedWorsening, skippedCount, hardExerciseAlert, recentLogCount: recentAdherence.length });
+    const lastReview = snapshot.openDecisions.find(item => item.patient_id === patient.id)?.created_at;
+    if (lastActivity && (!lastReview || timestamp(lastActivity) > timestamp(lastReview))) reviewReasons.unshift("Patient feedback to review");
     const progress = getGoalProgress(latestGoal, patient);
     const milestone = !reviewReasons.length && isWithinDays(latestGoal?.updated_at ?? latestGoal?.created_at, 7) && (
       latestGoal?.status === "met" ||

@@ -150,6 +150,7 @@ export type ProgressMetric = {
 
 export type ClinicalDecision = {
   id: string;
+  clinician_id?: string | null;
   patient_id?: string | null;
   episode_id?: string | null;
   decision?: string | null;

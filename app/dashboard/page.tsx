@@ -31,11 +31,17 @@ export default function DashboardPage() {
       return;
     }
 
-    const supabase = createSupabaseBrowserClient();
-    loadClinicianSnapshot(supabase)
-      .then(setSnapshot)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load today's priorities."))
-      .finally(() => setLoading(false));
+    let active = true;
+    const load = () => {
+      if (document.visibilityState !== "visible") return;
+      loadClinicianSnapshot(createSupabaseBrowserClient())
+        .then(value => { if (active) { setSnapshot(value); setError(""); } })
+        .catch(() => { if (active) setError("Could not refresh today's priorities."); })
+        .finally(() => { if (active) setLoading(false); });
+    };
+    load(); const timer = setInterval(load, 30000);
+    window.addEventListener("focus", load); document.addEventListener("visibilitychange", load);
+    return () => { active = false; clearInterval(timer); window.removeEventListener("focus", load); document.removeEventListener("visibilitychange", load); };
   }, []);
 
   const summaries = useMemo(() => buildPatientSummaries(snapshot), [snapshot]);

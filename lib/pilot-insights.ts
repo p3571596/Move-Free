@@ -43,7 +43,7 @@ export function summarizePatientActivity(
     latestPain: typeof latestCheckin?.pain_score === "number" ? latestCheckin.pain_score : null,
     averagePain: painValues.length ? roundOne(painValues.reduce((sum, value) => sum + value, 0) / painValues.length) : null,
     symptomDirection: deriveDirection(scopedCheckins),
-    difficultyTrend: hardCount >= 2 ? `${hardCount} exercises rated hard` : easyCount >= 2 ? `${easyCount} exercises rated easy` : scopedLogs.length ? "Mostly about right" : "No ratings yet",
+    difficultyTrend: hardCount > 0 ? `${hardCount} exercises rated hard` : easyCount > 0 ? `${easyCount} exercises rated easy` : scopedLogs.some(log => log.difficulty === "appropriate") ? "About right ratings" : "No ratings yet",
     latestSubmissionAt: latestDate(scopedCheckins, scopedLogs),
     comments: recentComments(scopedCheckins, scopedLogs).slice(0, 4),
     streakDays: calculateStreak(scopedLogs),

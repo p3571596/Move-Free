@@ -19,8 +19,20 @@ export default function LoginPage() {
   const configured = isSupabaseConfigured();
 
   useEffect(() => {
-    setPasswordUpdated(new URLSearchParams(window.location.search).get("password") === "updated");
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    setPasswordUpdated(params.get("password") === "updated");
+    // Home-screen launch resumes an existing verified session. Invitation and
+    // password-reset flows retain their current behavior.
+    if (!isSupabaseConfigured() || params.size || localStorage.getItem("moveFreePatientInvite")) return;
+    const supabase = createSupabaseBrowserClient();
+    let active = true;
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return;
+      const role = await getEffectiveRole(supabase, data.user);
+      if (active) router.replace(role === "patient" ? "/patient" : "/dashboard");
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [router]);
 
   function inviteClaimMessage(cause: unknown) {
     if (cause && typeof cause === "object" && "message" in cause && typeof cause.message === "string") {

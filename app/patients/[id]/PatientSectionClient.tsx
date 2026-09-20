@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { RecommendationEditor } from "@/components/RecommendationEditor";
 import { GoalProgress } from "@/components/GoalProgress";
 import { ProgressBars } from "@/components/ProgressBars";
 import { PilotTrendCharts } from "@/components/PilotTrendCharts";
@@ -64,7 +65,7 @@ export function PatientSectionClient({ patientId, section }: { patientId: string
         </div>
         {section === "progress" ? <ProgressSection workspace={workspace} /> : null}
         {section === "logs" ? <LogsSection workspace={workspace} /> : null}
-        {section === "decision" ? <DecisionSection workspace={workspace} /> : null}
+        {section === "decision" ? <><DecisionSection workspace={workspace} /><RecommendationEditor workspace={workspace}/></> : null}
       </RequireAuth>
     </AppShell>
   );
@@ -109,7 +110,7 @@ function LogsSection({ workspace }: { workspace: PatientWorkspace }) {
 }
 
 function formatLogStatus(value?: string | null) { return value ? value.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase()) : "Activity"; }
-function formatDifficulty(value?: string | null) { if (value === "too_easy") return "Easy"; if (value === "too_hard" || value === "painful") return "Hard"; return "About right"; }
+function formatDifficulty(value?: string | null) { if (value === "too_easy") return "Easy"; if (value === "too_hard" || value === "painful") return "Hard"; return value === "appropriate" ? "About right" : "Not rated"; }
 
 function DecisionSection({ workspace }: { workspace: PatientWorkspace }) {
   return (

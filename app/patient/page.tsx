@@ -21,10 +21,16 @@ export default function PatientAppHomePage() {
       return;
     }
 
-    const supabase = createSupabaseBrowserClient();
-    loadCurrentPatientAppWorkspace(supabase)
-      .then(setWorkspace)
-      .catch((cause) => setLoadError(cause instanceof Error ? cause.message : "Could not load your patient app."));
+    let active = true;
+    const load = () => {
+      if (document.visibilityState !== "visible") return;
+      loadCurrentPatientAppWorkspace(createSupabaseBrowserClient())
+        .then(value => { if (active) { setWorkspace(value); setLoadError(""); } })
+        .catch(() => { if (active) setLoadError("Could not refresh your plan. Reconnect to see the latest update."); });
+    };
+    load(); const timer = setInterval(load, 30000);
+    window.addEventListener("focus", load); document.addEventListener("visibilitychange", load);
+    return () => { active = false; clearInterval(timer); window.removeEventListener("focus", load); document.removeEventListener("visibilitychange", load); };
   }, []);
 
   const patientName = workspace?.patient?.display_name ?? workspace?.patient?.full_name;
@@ -92,7 +98,7 @@ export default function PatientAppHomePage() {
                 <section className="patient-feedback-card">
                   <span className="patient-action-icon"><MessageSquareText size={21}/></span>
                   <div><p className="eyebrow">From your therapist</p>
-                  <p>{workspace.program.patient_explanation}</p>
+                  <p>{workspace.program.patient_explanation}</p><Link href="/patient/care">View care update</Link>
                   </div>
                 </section>
               ) : null}

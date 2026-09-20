@@ -21,9 +21,10 @@ export async function proxy(request: NextRequest) {
   // Refresh and verify the auth cookie before protected pages render. RLS and
   // page-level role checks remain the actual authorization boundaries.
   await supabase.auth.getUser();
+  response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw.js|offline.html|manifest.webmanifest|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };

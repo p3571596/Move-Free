@@ -207,21 +207,21 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
             {draft.map((item) => (
               <div className="list-item" key={item.id}>
                 <div className="field">
-                  <label>Exercise</label>
-                  <input value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
+                  <label htmlFor={`exercise-${item.id}`}>Exercise</label>
+                  <input id={`exercise-${item.id}`} value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
                 </div>
                 <div className="grid three">
                   <div className="field">
-                    <label>Sets</label>
-                    <input type="number" min={0} value={item.sets ?? 0} onChange={(event) => updateItem(item.id, { sets: Number(event.target.value) })} />
+                    <label htmlFor={`sets-${item.id}`}>Sets</label>
+                    <input id={`sets-${item.id}`} type="number" min={0} value={item.sets ?? 0} onChange={(event) => updateItem(item.id, { sets: Number(event.target.value) })} />
                   </div>
                   <div className="field">
-                    <label>Reps</label>
-                    <input type="number" min={0} value={item.reps ?? 0} onChange={(event) => updateItem(item.id, { reps: Number(event.target.value) })} />
+                    <label htmlFor={`reps-${item.id}`}>Reps</label>
+                    <input id={`reps-${item.id}`} type="number" min={0} value={item.reps ?? 0} onChange={(event) => updateItem(item.id, { reps: Number(event.target.value) })} />
                   </div>
                   <div className="field">
-                    <label>Frequency</label>
-                    <input value={item.frequency ?? ""} onChange={(event) => updateItem(item.id, { frequency: event.target.value })} />
+                    <label htmlFor={`frequency-${item.id}`}>Frequency</label>
+                    <input id={`frequency-${item.id}`} value={item.frequency ?? ""} onChange={(event) => updateItem(item.id, { frequency: event.target.value })} />
                   </div>
                 </div>
                 {item.exercise?.id.startsWith("custom-") ? (
@@ -237,8 +237,8 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                   </div>
                 ) : null}
                 <div className="field">
-                  <label>Notes</label>
-                  <textarea value={item.notes ?? ""} onChange={(event) => updateItem(item.id, { notes: event.target.value })} />
+                  <label htmlFor={`notes-${item.id}`}>Notes</label>
+                  <textarea id={`notes-${item.id}`} value={item.notes ?? ""} onChange={(event) => updateItem(item.id, { notes: event.target.value })} />
                 </div>
               </div>
             ))}
