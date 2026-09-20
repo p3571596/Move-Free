@@ -40,3 +40,9 @@ Build, lint, and Node regression tests run locally. Browser tests use real Supab
 Email delivery, brand-new emailed OTP/password setup, physical iOS/Android installation, OS background behavior, long-duration refresh-token expiry, and browser-specific push behavior are not covered by desktop Chromium sessions. No push behavior is implemented.
 
 See the final test report for exact run results. Diagram PDFs are in `docs/workflows/`.
+
+## Preview connection
+
+The existing Vercel preview environment had no Supabase public connection values. `next.config.ts` supplies the project URL and publishable (public, RLS-constrained) key only when both `VERCEL_ENV=preview` and the feature branch name match. This preview shares the live project's database as authorized for synthetic testing; it is not an isolated sandbox. Production configuration is unaffected. Secret invitation-email credentials are not embedded; email delivery remains unverified on the preview. Replace this temporary branch-scoped configuration with Vercel preview environment variables when a separate test project is available.
+
+The browser regression runner is `tests/e2e.mjs`. It requires Playwright (or `PLAYWRIGHT_MODULE` pointing to an installed module), Chrome, the two public Supabase environment variables, and an untracked `TEST_FIXTURE_PATH` JSON containing synthetic credentials and record IDs. It mutates only those supplied test records. Never supply real patient fixtures.
