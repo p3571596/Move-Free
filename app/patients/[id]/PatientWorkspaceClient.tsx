@@ -11,6 +11,7 @@ import { PilotTrendCharts } from "@/components/PilotTrendCharts";
 import { RequireAuth } from "@/components/RequireAuth";
 import { PatientInviteButton } from "@/components/PatientInviteButton";
 import { emptyWorkspace, loadPatientWorkspace, trackAnalyticsEvent } from "@/lib/data";
+import { formatRepsOrTime } from "@/lib/exercise-media";
 import { formatDate } from "@/lib/format";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { PatientWorkspace } from "@/lib/types";
@@ -192,7 +193,7 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
                     <strong>{item.exercise?.name ?? "Exercise"}</strong>
                     <p className="muted">{item.exercise?.category ?? item.category ?? "Category not set"}</p>
                     <p className="muted">
-                      {item.dosage_sets ?? item.sets ?? 0} sets · {item.dosage_reps ?? item.reps ?? 0} reps · {item.frequency ?? "Frequency not set"}
+                      {item.dosage_sets ?? item.sets ?? 0} sets · {formatRepsOrTime(item.dosage_reps ?? item.reps) || "Repetitions/time not set"} · {item.frequency ?? "Frequency not set"}
                     </p>
                     <p>{item.notes ?? "No notes"}</p>
                   </li>

@@ -440,7 +440,7 @@ export async function saveProgramDraft(
         exercise_id: exercise.id,
         sort_order: index,
         dosage_sets: String(item.sets ?? item.dosage_sets ?? ""),
-        dosage_reps: String(item.reps ?? item.dosage_reps ?? ""),
+        dosage_reps: String(item.dosage_reps ?? item.reps ?? ""),
         frequency: item.frequency ?? null,
         notes: item.notes ?? null,
         category: normalizeExerciseCategory(item.category ?? item.exercise?.category),
@@ -887,7 +887,7 @@ function normalizeProgramExercise(item: HomeProgramExercise) {
   return {
     ...item,
     sets: Number.isNaN(sets) ? 0 : sets,
-    reps: Number.isNaN(reps) ? 0 : reps,
+    reps: Number.isNaN(reps) ? null : reps,
     exercise: normalizeExercise(item.exercise),
   };
 }
@@ -922,7 +922,7 @@ function exerciseFromProgramItem(item: HomeProgramExercise) {
 
 function formatDefaultDosage(item: HomeProgramExercise) {
   const sets = item.sets ?? item.dosage_sets;
-  const reps = item.reps ?? item.dosage_reps;
+  const reps = item.dosage_reps ?? item.reps;
   const frequency = item.frequency;
   const dosage = [
     sets ? `${sets} sets` : null,

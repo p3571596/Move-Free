@@ -180,7 +180,7 @@ export default function InvitePage() {
         if (!active || settled) return;
         settled = true;
         setInviteState("error");
-        setStatus("Your patient session could not be established. The link may be expired or already used. Ask your clinician to send a new invitation.");
+        setStatus("Sign in with your patient account to link this invitation. If you do not have an account yet, ask your clinician for an email invitation.");
       }, AUTH_WAIT_MS);
     });
 
