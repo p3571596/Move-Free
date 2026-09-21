@@ -5,6 +5,8 @@ import { ArrowLeft, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { ExerciseVideoField } from "@/components/ExerciseVideoField";
+import { approvedVideoFromForm } from "@/lib/exercise-media";
 import { ExerciseVideo } from "@/components/ExerciseVideo";
 import { TagInput } from "@/components/TagInput";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -112,8 +114,9 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       : item));
   }
 
-  async function submit(event: FormEvent) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = new FormData(event.currentTarget);
     setStatus("Saving program...");
 
     if (!isSupabaseConfigured() || !workspace?.patient) {
@@ -122,11 +125,21 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
     }
 
     try {
+      const videoUpdates: Record<string, string | null> = {};
+      for (const item of draft) {
+        const raw = String(form.get(`video-${item.id}`) ?? "");
+        if (raw !== (item.exercise?.video_url ?? "")) {
+          const videoForm = new FormData();
+          videoForm.set("video_url", raw);
+          videoForm.set("video_approved", String(form.get(`video-approved-${item.id}`) ?? ""));
+          videoUpdates[item.id] = approvedVideoFromForm(videoForm);
+        }
+      }
       const supabase = createSupabaseBrowserClient();
       const saved = await saveProgramDraft(supabase, workspace.patient.id, draft, {
         eventName: workspace.program ? "program_updated" : "program_created",
         durationMs: Date.now() - workflowStartedAt.current,
-      });
+      }, videoUpdates);
       const loadedLibrary = await loadExerciseLibrary(supabase);
       setWorkspace((current) => current ? { ...current, ...saved } : current);
       setDraft(saved.programExercises);
@@ -211,7 +224,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                   <label htmlFor={`exercise-${item.id}`}>Exercise</label>
                   <input id={`exercise-${item.id}`} value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
                 </div>
-                <ExerciseVideo url={item.exercise?.video_url} name={item.exercise?.name??"Exercise"}/>
+                <ExerciseVideoField initialUrl={item.exercise?.video_url} name={item.exercise?.name ?? "Exercise"} inputId={`video-url-${item.id}`} fieldName={`video-${item.id}`} approvalName={`video-approved-${item.id}`} />
                 <div className="grid three">
                   <div className="field">
                     <label htmlFor={`sets-${item.id}`}>Sets</label>

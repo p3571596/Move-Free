@@ -410,6 +410,7 @@ export async function saveProgramDraft(
   patientId: string,
   items: HomeProgramExercise[],
   instrumentation?: { eventName: "program_created" | "program_updated"; durationMs: number },
+  videoUpdates: Record<string, string | null> = {},
 ) {
   const user = await getCurrentUser(client);
 
@@ -417,9 +418,17 @@ export async function saveProgramDraft(
     throw new Error("Sign in before saving a program.");
   }
 
+  // Validate all proposed links before any program writes.
+  const videos = Object.fromEntries(Object.entries(videoUpdates).map(([id, url]) => [id, validatedVideoUrl(url)]));
   const episode = await ensureActiveEpisode(client, patientId);
   const program = await ensureHomeProgram(client, episode);
-  const exercises = await Promise.all(items.map((item) => ensureExercise(client, exerciseFromProgramItem(item), user.id)));
+  const exercises = await Promise.all(items.map(async (item) => {
+    const exercise = await ensureExercise(client, exerciseFromProgramItem(item), user.id);
+    if (Object.prototype.hasOwnProperty.call(videos, item.id)) {
+      return updateExerciseVideo(client, exercise.id, user.id, videos[item.id]);
+    }
+    return exercise;
+  }));
   const savedItems: HomeProgramExercise[] = [];
 
   const { error: deleteError } = await client
@@ -990,4 +999,13 @@ function throwFirstQueryError(results: Array<{ error?: unknown }>) {
   if (failed?.error) {
     throw failed.error;
   }
+}
+
+/** Update only media; never overwrite shared library instructions or dosage. */
+export async function updateExerciseVideo(client: Client, exerciseId: string, clinicianId: string, url: string | null) {
+  const { data, error } = await client.from("exercises")
+    .update({ video_url: validatedVideoUrl(url) })
+    .eq("id", exerciseId).eq("clinician_id", clinicianId).select("*").single();
+  if (error) throw error;
+  return normalizeExercise(data) as Exercise;
 }
