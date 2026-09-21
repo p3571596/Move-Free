@@ -160,7 +160,9 @@ function timestamp(value?: string | null) {
 }
 
 function dateKey(value: string) {
-  return new Date(value).toISOString().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function titleCase(value: string) {
