@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Play } from "lucide-react";
+import { ExerciseVideo } from "@/components/ExerciseVideo";
+import { formatRepsOrTime } from "@/lib/exercise-media";
 import { PatientShell } from "@/components/PatientShell";
 import { RoleGate } from "@/components/RoleGate";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -23,7 +25,7 @@ export default function TodayProgramPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [sessionId] = useState(() => crypto.randomUUID());
-  const [direction, setDirection] = useState<"improving" | "unchanged" | "worsening">("unchanged");
+  const [direction, setDirection] = useState<"improving" | "unchanged" | "worsening" | null>(null);
   const [directionChosen, setDirectionChosen] = useState(false);
   const [pain, setPain] = useState<number | null>(null);
   const [comment, setComment] = useState("");
@@ -64,7 +66,6 @@ export default function TodayProgramPage() {
       return;
     }
 
-    if (!directionChosen) { setError("Choose Better, Same, or Worse before sending your feedback."); return; }
     setSaving(true);
     setError("");
     try {
@@ -131,8 +132,9 @@ export default function TodayProgramPage() {
               </fieldset>
               {step === orderedExercises.length ? <section className="panel form session-finish-card">
                 <fieldset disabled={saving || Boolean(message)} className="segmented-field">
-                  <legend>How did today feel overall?</legend>
+                  <legend>How did today feel overall? (optional)</legend>
                   <div className="segment-options">{([["improving", "Better"], ["unchanged", "Same"], ["worsening", "Worse"]] as const).map(([value, label]) => <button type="button" key={value} aria-pressed={directionChosen && direction === value} className={directionChosen && direction === value ? "active" : ""} onClick={() => { setDirection(value); setDirectionChosen(true); }}>{label}</button>)}</div>
+                  {directionChosen ? <button type="button" className="secondary-button" onClick={()=>{setDirection(null);setDirectionChosen(false);}}>Clear symptom rating</button> : null}
                   <NumberField label="Pain after (0–10, optional)" value={pain} max={10} onChange={setPain}/>
                   <div className="field"><label htmlFor="session-comment">Anything your therapist should know? (optional)</label><textarea id="session-comment" maxLength={2000} value={comment} onChange={event => setComment(event.target.value)}/></div>
                 </fieldset>
@@ -155,12 +157,14 @@ function ExerciseEntryCard({ item, value, onChange }: { item: HomeProgramExercis
   return (
     <article className={`patient-exercise-entry${value.statusChosen ? " has-status" : ""}`}>
       <div className="exercise-entry-heading">
-        <div><h4>{item.exercise?.name ?? "Exercise"}</h4><strong>{formatDosage(item)}</strong></div>
+        <div><h4>{item.exercise?.name ?? "Exercise"}</h4></div>
         <span className="pill">{formatCategory(item.category ?? item.exercise?.category ?? "other")}</span>
       </div>
+      <ExerciseVideo key={item.id} url={item.exercise?.video_url} name={item.exercise?.name??"Exercise"}/>
+      <p><strong>{formatDosage(item)}</strong></p>
       {item.exercise?.patient_instructions ? <p>{item.exercise.patient_instructions}</p> : null}
-      {item.exercise?.video_url?.startsWith("https://") ? <a className="secondary-button" href={item.exercise.video_url} target="_blank" rel="noopener noreferrer">Watch exercise video</a> : null}
-      {item.notes ? <p className="therapist-note"><strong>Therapist note:</strong> {item.notes}</p> : null}
+
+      {item.notes ? <p className="therapist-note"><strong>Key cues:</strong> {item.notes}</p> : null}
       <fieldset className="segmented-field">
         <legend>What did you complete?</legend>
         <div className="segment-options">
@@ -191,6 +195,6 @@ function emptyEntry(): EntryState {
 
 function groupExercises(items: HomeProgramExercise[]) { const grouped = new Map<string, HomeProgramExercise[]>(); for (const item of items) { const category = item.category ?? item.exercise?.category ?? "other"; grouped.set(category, [...(grouped.get(category) ?? []), item]); } return [...grouped.entries()].sort(([left], [right]) => categoryOrder.indexOf(left) - categoryOrder.indexOf(right)); }
 function formatCategory(category: string) { return category.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
-function formatDosage(item: HomeProgramExercise) { return [item.dosage_sets ? `${item.dosage_sets} sets` : null, item.dosage_reps ? `${item.dosage_reps} reps` : null, item.frequency].filter(Boolean).join(" · ") || "Follow your therapist’s instructions"; }
+function formatDosage(item: HomeProgramExercise) { return [item.dosage_sets ? `${item.dosage_sets} sets` : null, formatRepsOrTime(item.dosage_reps), item.frequency].filter(Boolean).join(" · ") || "Follow your therapist’s instructions"; }
 function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1); }
 function PatientLinkEmptyState() { return <div className="empty"><strong>Your account still needs to be linked.</strong><p>Ask your clinician to resend the invitation, then open that link while signed in with this account.</p></div>; }

@@ -1,5 +1,6 @@
 "use client";
 
+import {validatedVideoUrl, formatRepsOrTime} from "./exercise-media";
 import type { EngineResult } from "./clinical-engine";
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
@@ -493,6 +494,7 @@ export async function createExercise(client: Client, exercise: Partial<Exercise>
       clinical_purpose: exercise.clinical_purpose ?? exercise.description ?? null,
       patient_instructions: exercise.patient_instructions ?? exercise.instructions ?? null,
       default_dosage: exercise.default_dosage ?? null,
+      video_url: validatedVideoUrl(exercise.video_url),
       is_active: exercise.is_active ?? true,
     })
     .select("*")
@@ -532,6 +534,7 @@ export async function updateExercise(client: Client, exerciseId: string, exercis
       clinical_purpose: exercise.clinical_purpose ?? exercise.description ?? null,
       patient_instructions: exercise.patient_instructions ?? exercise.instructions ?? null,
       default_dosage: exercise.default_dosage ?? null,
+      video_url: validatedVideoUrl(exercise.video_url),
       is_active: exercise.is_active ?? true,
     })
     .eq("id", exerciseId)
@@ -628,7 +631,7 @@ export async function logPainPattern(
     aggravatingFactors: string;
     easingFactors: string;
     confidenceScore: number | null;
-    symptomDirection: "improving" | "unchanged" | "worsening";
+    symptomDirection: "improving" | "unchanged" | "worsening" | null;
     patientComment: string;
     clientSubmissionId: string;
     durationMs?: number;
@@ -800,6 +803,7 @@ async function ensureExercise(client: Client, exercise?: Exercise | null, clinic
       clinical_purpose: exercise?.description ?? exercise?.clinical_purpose ?? null,
       patient_instructions: exercise?.instructions ?? exercise?.patient_instructions ?? null,
       default_dosage: exercise?.default_dosage ?? null,
+      video_url: validatedVideoUrl(exercise?.video_url),
       is_active: true,
     })
     .select("*")
@@ -922,7 +926,7 @@ function formatDefaultDosage(item: HomeProgramExercise) {
   const frequency = item.frequency;
   const dosage = [
     sets ? `${sets} sets` : null,
-    reps ? `${reps} reps` : null,
+    formatRepsOrTime(reps),
     frequency,
   ].filter(Boolean).join(" · ");
 

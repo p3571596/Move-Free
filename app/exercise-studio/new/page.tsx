@@ -3,6 +3,8 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ExerciseVideoField } from "@/components/ExerciseVideoField";
+import { approvedVideoFromForm } from "@/lib/exercise-media";
 import { Save } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { TagInput } from "@/components/TagInput";
@@ -34,6 +36,7 @@ export default function NewExercisePage() {
         clinical_purpose: String(form.get("clinical_purpose") ?? ""),
         patient_instructions: String(form.get("patient_instructions") ?? ""),
         default_dosage: String(form.get("default_dosage") ?? ""),
+        video_url: approvedVideoFromForm(form),
         tags,
         is_active: true,
       });
@@ -89,6 +92,7 @@ export default function NewExercisePage() {
             <label htmlFor="default_dosage">Default dosage</label>
             <input id="default_dosage" name="default_dosage" placeholder="2 sets of 10, 3x/week" />
           </div>
+          <ExerciseVideoField/>
           <button className="button" type="submit">
             <Save size={18} />
             Save Exercise

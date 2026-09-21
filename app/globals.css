@@ -1132,3 +1132,9 @@ button, input, select, textarea { font: inherit; }
   .patient-tabbar a { min-width: 0; }
   .more-menu button { width: 100%; }
 }
+
+.exercise-video { margin: 16px 0; min-width: 0; }
+.exercise-video iframe { display: block; width: 100%; aspect-ratio: 16 / 9; min-height: 200px; border: 0; border-radius: 12px; background: #14271f; }
+.exercise-video .video-load { width: 100%; min-height: 160px; justify-content: center; background: var(--accent-soft); }
+.exercise-video p, .exercise-video a { font-size: 13px; }
+.exercise-video a { text-decoration: underline; }

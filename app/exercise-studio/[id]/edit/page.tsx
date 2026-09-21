@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { ExerciseVideoField } from "@/components/ExerciseVideoField";
+import { approvedVideoFromForm } from "@/lib/exercise-media";
 import { Save } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -43,6 +45,7 @@ export default function EditExercisePage() {
         clinical_purpose: String(form.get("clinical_purpose") ?? ""),
         patient_instructions: String(form.get("patient_instructions") ?? ""),
         default_dosage: String(form.get("default_dosage") ?? ""),
+        video_url: approvedVideoFromForm(form),
         tags,
         is_active: exercise.is_active ?? true,
       });
@@ -75,6 +78,7 @@ export default function EditExercisePage() {
             <div className="field"><label htmlFor="clinical_purpose">Clinical purpose</label><textarea id="clinical_purpose" name="clinical_purpose" defaultValue={exercise.clinical_purpose ?? ""} /></div>
             <div className="field"><label htmlFor="patient_instructions">Patient instructions</label><textarea id="patient_instructions" name="patient_instructions" defaultValue={exercise.patient_instructions ?? ""} /></div>
             <div className="field"><label htmlFor="default_dosage">Default dosage</label><input id="default_dosage" name="default_dosage" defaultValue={exercise.default_dosage ?? ""} /></div>
+            <ExerciseVideoField initialUrl={exercise.video_url} name={exercise.name??"Exercise"}/>
             <button className="button" type="submit"><Save size={18} />Save Changes</button>
             {status ? <p className="muted">{status}</p> : null}
           </form>

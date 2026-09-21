@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { ExerciseVideo } from "@/components/ExerciseVideo";
 import { TagInput } from "@/components/TagInput";
 import { RequireAuth } from "@/components/RequireAuth";
 import { emptyWorkspace, loadExerciseLibrary, loadPatientWorkspace, saveProgramDraft } from "@/lib/data";
@@ -210,14 +211,15 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                   <label htmlFor={`exercise-${item.id}`}>Exercise</label>
                   <input id={`exercise-${item.id}`} value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
                 </div>
+                <ExerciseVideo url={item.exercise?.video_url} name={item.exercise?.name??"Exercise"}/>
                 <div className="grid three">
                   <div className="field">
                     <label htmlFor={`sets-${item.id}`}>Sets</label>
                     <input id={`sets-${item.id}`} type="number" min={0} value={item.sets ?? 0} onChange={(event) => updateItem(item.id, { sets: Number(event.target.value) })} />
                   </div>
                   <div className="field">
-                    <label htmlFor={`reps-${item.id}`}>Reps</label>
-                    <input id={`reps-${item.id}`} type="number" min={0} value={item.reps ?? 0} onChange={(event) => updateItem(item.id, { reps: Number(event.target.value) })} />
+                    <label htmlFor={`reps-${item.id}`}>Reps or time</label>
+                    <input id={`reps-${item.id}`} type="text" placeholder="10 reps or 30 seconds" value={item.dosage_reps ?? item.reps ?? ""} onChange={(event) => updateItem(item.id, { dosage_reps: event.target.value, reps: null })} />
                   </div>
                   <div className="field">
                     <label htmlFor={`frequency-${item.id}`}>Frequency</label>
@@ -237,7 +239,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                   </div>
                 ) : null}
                 <div className="field">
-                  <label htmlFor={`notes-${item.id}`}>Notes</label>
+                  <label htmlFor={`notes-${item.id}`}>Key clinical cues for this patient</label>
                   <textarea id={`notes-${item.id}`} value={item.notes ?? ""} onChange={(event) => updateItem(item.id, { notes: event.target.value })} />
                 </div>
               </div>
@@ -271,6 +273,8 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                       Add
                     </button>
                   </div>
+                  <ExerciseVideo url={exercise.video_url} name={exercise.name??"Exercise"}/>
+                  <Link href={`/exercise-studio/${exercise.id}/edit`} target="_blank" rel="noopener noreferrer">Edit instructions or video in library</Link>
                   <p>{exercise.description ?? exercise.instructions ?? "No description available."}</p>
                 </li>
               ))}
