@@ -1,6 +1,6 @@
 # Stage 1 release gate — 2026-09-21
 
-Status: BLOCKED. Do not merge or start Stage 2 until all required checks pass.
+Status: AUTOMATED RELEASE GATE PASSED. Promotion is authorized by the user. Production deployment and synthetic smoke verification are still required before Stage 2 begins.
 
 Candidate: PR #4, `feature/stage1-video-pwa`, starting commit `99ce53fd6eaf939536d52519c0137f0ac30cb86c`.
 
@@ -13,13 +13,13 @@ Candidate: PR #4, `feature/stage1-video-pwa`, starting commit `99ce53fd6eaf93953
 
 Rollback application code/deployment if necessary, but do not restore the vulnerable authorization policies. Database security hardening must remain in place.
 
-## Confirmed blockers
+## Blockers found and resolved
 
 1. Live profiles allowed authenticated users to update their own role to admin. Reproduced using one synthetic account in a rolled-back transaction; no existing patient records accessed.
 2. Live clinical authorization helpers and policies granted unrelated administrators access. Application filters cannot secure direct API requests.
 3. Saved engine evaluations and authored Messages require the prepared clinical-engine migration, which is not applied in the shared database.
 4. Current inline Program Builder video editing needs a fresh hosted workflow test.
-5. Physical phone acceptance remains to be confirmed by the user.
+5. Physical Home Screen installation and email delivery remain manual follow-ups; browser emulation does not establish physical-device behavior.
 
 ## Initial evidence
 
@@ -39,3 +39,19 @@ Rollback application code/deployment if necessary, but do not restore the vulner
 - The hosted baseline workflow verified feedback, clinical review/disagreement persistence, approved guidance refresh and inline Program Builder video approval. A test locator initially expected “Play”; YouTube mobile exposes “Play video”. The corrected targeted test confirmed advancing video time and active playback.
 
 The definitive updated-preview workflow and production smoke results will be recorded before release is declared complete. Physical-device behavior and email delivery are separate from browser emulation; they must not be reported as tested unless verified.
+
+## Final preview evidence
+
+- Tested app commit: `e74c77e1dde15c36b281d126248fa8f9e97e7d59`.
+- Preview: https://move-free-5hq4j5fc3-phmhhcynk5-2739s-projects.vercel.app
+- Vercel: READY, deployment `dpl_62xXovvSzh5QCau16Da7Fw4gek8d`.
+- GitHub Pilot readiness run `35671651739`: success, including 19 unit tests and both PostgreSQL suites.
+- Hosted synthetic end-to-end suite: all checks passed. Covered independent logins, patient Today/goal, completed/partial/skipped feedback, clinician Today/Since Last Visit, engine missing information and safety explanation, saved clinician disagreement, approval-only guidance with automatic refresh, inline Program Builder video approval/reset, actual YouTube playback, dosage delivery, subsequent response, two-way Messages, independent-session continuity, unrelated clinician/admin read/write denial, blocked self-promotion, invitation endpoint authorization, invalid/missing recovery sessions, manifest/icons/service worker, public-assets-only cache and offline reconnect. No browser runtime errors.
+- Fresh invitation claiming through login was verified on the baseline deployment before the patch-level framework update; unchanged claim RPC remains in use.
+- A final compatibility check found a legacy treating account without a profile. Migration `20260922002657_preserve_legacy_clinician_pilot_writes` aligns actor foreign keys with `auth.users`, matching existing patient/exercise ownership. RLS is unchanged. Local tests and a live rolled-back synthetic test verified program audit, engine review and messages without a profile. Existing account information was not changed.
+- The final follow-up commit contains migration/tests/report updates only; tested application code is unchanged.
+- Prior production is preserved as branch `rollback/pre-pilot-v1`. Do not restore vulnerable authorization policies or dependencies.
+
+## Practical verification limits
+
+Mobile behavior was tested in a 390-pixel touch-browser context, plus an independent desktop session. Physical iOS/Android installation, physical camera access, Vimeo playback, delivered invitation/recovery email and extended idle sessions were not verified. Preview email sending lacks its server-only delivery secret; it returns an explicit 503 for authorized callers while anonymous/unrelated callers receive 401/403. Verify delivered email and actual devices before inviting real patients. No real patient records were used for workflow tests.
