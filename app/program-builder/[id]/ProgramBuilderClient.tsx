@@ -5,6 +5,9 @@ import { ArrowLeft, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { ExerciseVideoField } from "@/components/ExerciseVideoField";
+import { approvedVideoFromForm } from "@/lib/exercise-media";
+import { ExerciseVideo } from "@/components/ExerciseVideo";
 import { TagInput } from "@/components/TagInput";
 import { RequireAuth } from "@/components/RequireAuth";
 import { emptyWorkspace, loadExerciseLibrary, loadPatientWorkspace, saveProgramDraft } from "@/lib/data";
@@ -111,8 +114,9 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       : item));
   }
 
-  async function submit(event: FormEvent) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = new FormData(event.currentTarget);
     setStatus("Saving program...");
 
     if (!isSupabaseConfigured() || !workspace?.patient) {
@@ -121,11 +125,21 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
     }
 
     try {
+      const videoUpdates: Record<string, string | null> = {};
+      for (const item of draft) {
+        const raw = String(form.get(`video-${item.id}`) ?? "");
+        if (raw !== (item.exercise?.video_url ?? "")) {
+          const videoForm = new FormData();
+          videoForm.set("video_url", raw);
+          videoForm.set("video_approved", String(form.get(`video-approved-${item.id}`) ?? ""));
+          videoUpdates[item.id] = approvedVideoFromForm(videoForm);
+        }
+      }
       const supabase = createSupabaseBrowserClient();
       const saved = await saveProgramDraft(supabase, workspace.patient.id, draft, {
         eventName: workspace.program ? "program_updated" : "program_created",
         durationMs: Date.now() - workflowStartedAt.current,
-      });
+      }, videoUpdates);
       const loadedLibrary = await loadExerciseLibrary(supabase);
       setWorkspace((current) => current ? { ...current, ...saved } : current);
       setDraft(saved.programExercises);
@@ -207,21 +221,22 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
             {draft.map((item) => (
               <div className="list-item" key={item.id}>
                 <div className="field">
-                  <label>Exercise</label>
-                  <input value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
+                  <label htmlFor={`exercise-${item.id}`}>Exercise</label>
+                  <input id={`exercise-${item.id}`} value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
                 </div>
+                <ExerciseVideoField initialUrl={item.exercise?.video_url} name={item.exercise?.name ?? "Exercise"} inputId={`video-url-${item.id}`} fieldName={`video-${item.id}`} approvalName={`video-approved-${item.id}`} />
                 <div className="grid three">
                   <div className="field">
-                    <label>Sets</label>
-                    <input type="number" min={0} value={item.sets ?? 0} onChange={(event) => updateItem(item.id, { sets: Number(event.target.value) })} />
+                    <label htmlFor={`sets-${item.id}`}>Sets</label>
+                    <input id={`sets-${item.id}`} type="number" min={0} value={item.sets ?? 0} onChange={(event) => updateItem(item.id, { sets: Number(event.target.value) })} />
                   </div>
                   <div className="field">
-                    <label>Reps</label>
-                    <input type="number" min={0} value={item.reps ?? 0} onChange={(event) => updateItem(item.id, { reps: Number(event.target.value) })} />
+                    <label htmlFor={`reps-${item.id}`}>Reps or time</label>
+                    <input id={`reps-${item.id}`} type="text" placeholder="10 reps or 30 seconds" value={item.dosage_reps ?? item.reps ?? ""} onChange={(event) => updateItem(item.id, { dosage_reps: event.target.value, reps: null })} />
                   </div>
                   <div className="field">
-                    <label>Frequency</label>
-                    <input value={item.frequency ?? ""} onChange={(event) => updateItem(item.id, { frequency: event.target.value })} />
+                    <label htmlFor={`frequency-${item.id}`}>Frequency</label>
+                    <input id={`frequency-${item.id}`} value={item.frequency ?? ""} onChange={(event) => updateItem(item.id, { frequency: event.target.value })} />
                   </div>
                 </div>
                 {item.exercise?.id.startsWith("custom-") ? (
@@ -237,8 +252,8 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                   </div>
                 ) : null}
                 <div className="field">
-                  <label>Notes</label>
-                  <textarea value={item.notes ?? ""} onChange={(event) => updateItem(item.id, { notes: event.target.value })} />
+                  <label htmlFor={`notes-${item.id}`}>Key clinical cues for this patient</label>
+                  <textarea id={`notes-${item.id}`} value={item.notes ?? ""} onChange={(event) => updateItem(item.id, { notes: event.target.value })} />
                 </div>
               </div>
             ))}
@@ -271,6 +286,8 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                       Add
                     </button>
                   </div>
+                  <ExerciseVideo url={exercise.video_url} name={exercise.name??"Exercise"}/>
+                  <Link href={`/exercise-studio/${exercise.id}/edit`} target="_blank" rel="noopener noreferrer">Edit instructions or video in library</Link>
                   <p>{exercise.description ?? exercise.instructions ?? "No description available."}</p>
                 </li>
               ))}

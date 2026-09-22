@@ -1,3 +1,5 @@
+import type { EngineResult } from "./clinical-engine";
+
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Role = "clinician" | "patient" | "admin" | string;
@@ -150,6 +152,7 @@ export type ProgressMetric = {
 
 export type ClinicalDecision = {
   id: string;
+  clinician_id?: string | null;
   patient_id?: string | null;
   episode_id?: string | null;
   decision?: string | null;
@@ -157,6 +160,20 @@ export type ClinicalDecision = {
   rationale?: string | null;
   action_items?: string | null;
   created_at?: string | null;
+};
+
+export type CareMessage = {id: string; patient_id: string; author_id: string; body: string; program_id: string | null; kind: "patient_message" | "clinician_message" | "approved_guidance"; created_at: string};
+
+export type EngineReviewRecord = {
+  id: string; patient_id: string; clinician_id: string; engine_version: string;
+  engine_result: EngineResult; source_snapshot: Json; program_snapshot: Json;
+  disposition: "accepted" | "modified" | "rejected" | "not_evaluated";
+  disagreement_reason: string | null; clinician_modification: string | null; created_at: string;
+};
+export type EngineAnalytics = {
+  reviews: number; accepted: number; modified: number; rejected: number; notEvaluated: number;
+  withSubsequentResponse: number;
+  rules: Array<{rule: string; reviews: number; accepted: number; modified: number; rejected: number}>;
 };
 
 export type VisitNote = {
@@ -279,6 +296,8 @@ export type Database = {
       daily_checkins: Table<DailyCheckin>;
       progress_metrics: Table<ProgressMetric>;
       clinical_decisions: Table<ClinicalDecision>;
+      clinical_engine_reviews: Table<EngineReviewRecord>;
+      care_messages: Table<CareMessage>;
       visit_notes: Table<VisitNote>;
       barriers: Table<Barrier>;
       feedback: Table<Feedback>;
@@ -288,6 +307,9 @@ export type Database = {
     Functions: {
       create_patient_invite: { Args: { p_patient_id: string }; Returns: string };
       claim_patient_invite: { Args: { p_token: string }; Returns: string };
+      publish_care_guidance: {Args: {p_patient_id: string; p_program_id: string; p_expected_version: string; p_body: string; p_message_id: string}; Returns: string};
+      record_engine_review: { Args: {p_id: string; p_patient_id: string; p_episode_id: string; p_decision: string; p_rationale: string; p_engine: Json; p_source: Json; p_disposition: string; p_disagreement: string; p_modification: string}; Returns: undefined };
+      get_engine_pilot_analytics: {Args: {p_days?: number}; Returns: EngineAnalytics};
       get_founder_analytics: { Args: { p_days?: number }; Returns: FounderAnalytics };
     };
     Enums: Record<string, never>;

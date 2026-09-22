@@ -2,17 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Activity, AlertTriangle, CheckCircle2, ChevronRight, Clock3, HeartPulse, RefreshCw, Target } from "lucide-react";
+import { Activity, AlertTriangle, ChevronRight, RefreshCw } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
 import {
   buildPatientSummaries,
   buildRecentActivity,
   getGoalTitle,
-  getPatientDiagnosis,
   getPatientName,
   type PatientSummary,
-  type ReviewCategory,
 } from "@/lib/clinician-overview";
 import { loadClinicianSnapshot } from "@/lib/data";
 import { formatDate, initials } from "@/lib/format";
@@ -31,20 +29,23 @@ export default function DashboardPage() {
       return;
     }
 
-    const supabase = createSupabaseBrowserClient();
-    loadClinicianSnapshot(supabase)
-      .then(setSnapshot)
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load today's priorities."))
-      .finally(() => setLoading(false));
+    let active = true;
+    const load = () => {
+      if (document.visibilityState !== "visible") return;
+      loadClinicianSnapshot(createSupabaseBrowserClient())
+        .then(value => { if (active) { setSnapshot(value); setError(""); } })
+        .catch(() => { if (active) setError("Could not refresh today's priorities."); })
+        .finally(() => { if (active) setLoading(false); });
+    };
+    load(); const timer = setInterval(load, 30000);
+    window.addEventListener("focus", load); document.addEventListener("visibilitychange", load);
+    return () => { active = false; clearInterval(timer); window.removeEventListener("focus", load); document.removeEventListener("visibilitychange", load); };
   }, []);
 
   const summaries = useMemo(() => buildPatientSummaries(snapshot), [snapshot]);
   const activities = useMemo(() => buildRecentActivity(snapshot), [snapshot]);
-  const priorityGroups = useMemo(() => groupPriorities(summaries), [summaries]);
   const milestones = summaries.filter((summary) => summary.milestone).slice(0, 4);
   const reviewCount = summaries.filter((summary) => summary.needsReview).length;
-  const painCount = summaries.filter((summary) => summary.painAlert).length;
-  const adherenceCount = summaries.filter((summary) => summary.inactivityAlert || summary.skippedCount >= 2 || (summary.adherencePercent != null && summary.adherencePercent < 60)).length;
 
   return (
     <AppShell>
@@ -66,12 +67,7 @@ export default function DashboardPage() {
 
         {!loading && !error ? (
           <>
-            <section className="priority-stat-grid" aria-label="Today's priority totals">
-              <PriorityStat icon={AlertTriangle} label="Needs review" value={reviewCount} tone="review" />
-              <PriorityStat icon={HeartPulse} label="Pain concerns" value={painCount} tone="pain" />
-              <PriorityStat icon={Clock3} label="Adherence attention" value={adherenceCount} tone="adherence" />
-              <PriorityStat icon={Target} label="Meaningful progress" value={milestones.length} tone="progress" />
-            </section>
+            <p className="muted">{reviewCount} need review · {milestones.length} recent goal milestones</p>
 
             {!summaries.length ? (
               <div className="empty dashboard-empty">
@@ -80,130 +76,18 @@ export default function DashboardPage() {
                 <Link className="button" href="/patients">Open Patients</Link>
               </div>
             ) : (
-              <div className="dashboard-priority-layout">
-                <section className="dashboard-section priority-board">
-                  <div className="section-header">
-                    <div>
-                      <p className="eyebrow">Attention queue</p>
-                      <h3>Review before the next visit</h3>
-                    </div>
-                    <span className="pill">{reviewCount} total</span>
-                  </div>
-
-                  <div className="priority-lanes">
-                    <PriorityLane
-                      category="pain"
-                      title="Pain changes"
-                      description="High or rising pain, or two worsening reports in a row"
-                      items={priorityGroups.pain}
-                    />
-                    <PriorityLane
-                      category="adherence"
-                      title="Adherence & inactivity"
-                      description="Low participation, repeated skips, or no activity for 3+ days"
-                      items={priorityGroups.adherence}
-                    />
-                    <PriorityLane
-                      category="review"
-                      title="Care setup & review"
-                      description="Marked for review or missing an assigned program"
-                      items={priorityGroups.review}
-                    />
-                  </div>
+              <div className="form">
+                <section className="panel"><div className="section-header"><h3>Clinical inbox</h3><span className="pill">{reviewCount} to review</span></div>
+                  {reviewCount ? <ul className="priority-list">{summaries.filter(s=>s.needsReview).map(summary=><PriorityPatient key={summary.patient.id} summary={summary}/>)}</ul> : <p>No new feedback needs review.</p>}
                 </section>
-
-                <aside className="dashboard-side-column">
-                  <section className="panel dashboard-section compact-panel">
-                    <div className="section-header">
-                      <div>
-                        <p className="eyebrow">Progress</p>
-                        <h3>Meaningful milestones</h3>
-                      </div>
-                      <CheckCircle2 size={20} color="var(--accent)" />
-                    </div>
-                    {milestones.length ? (
-                      <ul className="priority-list">
-                        {milestones.map((summary) => (
-                          <li key={summary.patient.id}>
-                            <Link className="compact-activity-link" href={`/patients/${summary.patient.id}`}>
-                              <span className="activity-icon progress-icon"><Target size={16} /></span>
-                              <span>
-                                <strong>{getPatientName(summary.patient)}</strong>
-                                <small>{getGoalTitle(summary)} · {summary.goalProgress}%</small>
-                              </span>
-                              <ChevronRight size={16} />
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : <p className="empty-inline">No goals have reached the milestone signal yet.</p>}
-                  </section>
-
-                  <section className="panel dashboard-section compact-panel">
-                    <div className="section-header">
-                      <div>
-                        <p className="eyebrow">Live feed</p>
-                        <h3>Recent patient activity</h3>
-                      </div>
-                      <Activity size={20} color="var(--blue)" />
-                    </div>
-                    {activities.length ? (
-                      <ul className="priority-list">
-                        {activities.map((event) => (
-                          <li key={event.id}>
-                            <Link className="compact-activity-link" href={`/patients/${event.patientId}`}>
-                              <span className={`activity-icon ${event.kind}`}><Activity size={16} /></span>
-                              <span>
-                                <strong>{event.patientName}</strong>
-                                <small>{event.label} · {event.detail}</small>
-                                <small>{formatDate(event.occurredAt)}</small>
-                              </span>
-                              <ChevronRight size={16} />
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : <p className="empty-inline">No check-ins or program activity yet.</p>}
-                  </section>
-                </aside>
+                {milestones.length ? <section className="panel"><h3>Progress toward meaningful goals</h3><ul className="priority-list">{milestones.map(summary=><PriorityPatient key={summary.patient.id} summary={summary}/>)}</ul></section> : null}
+                <details className="panel"><summary>Recent patient activity</summary><ul className="priority-list">{activities.slice(0,8).map(event=><li key={event.id}><Link className="compact-activity-link" href={`/patients/${event.patientId}`}><Activity size={16}/><span><strong>{event.patientName}</strong><small>{event.label} · {event.detail} · {formatDate(event.occurredAt)}</small></span><ChevronRight size={16}/></Link></li>)}</ul></details>
               </div>
             )}
           </>
         ) : null}
       </RequireAuth>
     </AppShell>
-  );
-}
-
-function PriorityStat({ icon: Icon, label, value, tone }: { icon: typeof AlertTriangle; label: string; value: number; tone: string }) {
-  return (
-    <article className={`priority-stat priority-stat-${tone}`}>
-      <span className="priority-stat-icon"><Icon size={20} /></span>
-      <span>
-        <strong>{value}</strong>
-        <small>{label}</small>
-      </span>
-    </article>
-  );
-}
-
-function PriorityLane({ category, title, description, items }: { category: ReviewCategory; title: string; description: string; items: PatientSummary[] }) {
-  return (
-    <div className={`priority-lane priority-${category}`}>
-      <div className="priority-lane-heading">
-        <span className="priority-dot" />
-        <div>
-          <h4>{title}</h4>
-          <p>{description}</p>
-        </div>
-        <span className="lane-count">{items.length}</span>
-      </div>
-      {items.length ? (
-        <ul className="priority-list">
-          {items.map((summary) => <PriorityPatient key={summary.patient.id} summary={summary} />)}
-        </ul>
-      ) : <p className="empty-inline">Nothing needs attention here.</p>}
-    </div>
   );
 }
 
@@ -215,7 +99,9 @@ function PriorityPatient({ summary }: { summary: PatientSummary }) {
         <span className="avatar small-avatar">{initials(name)}</span>
         <span className="priority-patient-copy">
           <strong>{name}</strong>
-          <small>{getPatientDiagnosis(summary)}</small>
+          <small>{getGoalTitle(summary)}</small>
+          <small>{summary.latestCheckin?.symptom_direction ? `Symptoms: ${summary.latestCheckin.symptom_direction}` : "No symptom update"}{summary.latestCheckin?.pain_score != null ? ` · Pain ${summary.latestCheckin.pain_score}/10` : ""} · {summary.adherencePercent == null ? "Participation not recorded" : `${summary.adherencePercent}% of logged exercises completed or partial`}</small>
+          {summary.latestCheckin?.patient_comment ? <small>“{summary.latestCheckin.patient_comment}”</small> : null}
           <span className="reason-chip-row">
             {summary.reviewReasons.slice(0, 2).map((reason) => <em key={reason}>{reason}</em>)}
           </span>
@@ -243,11 +129,4 @@ function DashboardError({ message }: { message: string }) {
       <button className="secondary-button" onClick={() => window.location.reload()}>Try again</button>
     </div>
   );
-}
-
-function groupPriorities(summaries: PatientSummary[]) {
-  return summaries.reduce<Record<ReviewCategory, PatientSummary[]>>((groups, summary) => {
-    if (summary.reviewCategory) groups[summary.reviewCategory].push(summary);
-    return groups;
-  }, { pain: [], adherence: [], review: [] });
 }

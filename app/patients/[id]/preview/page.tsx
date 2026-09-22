@@ -13,6 +13,8 @@ import { emptyWorkspace, loadPatientWorkspace } from "@/lib/data";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { HomeProgramExercise, PatientWorkspace } from "@/lib/types";
 
+import { formatRepsOrTime } from "@/lib/exercise-media";
+
 type PreviewTab = "home" | "program" | "response" | "progress";
 
 export default function PatientPreviewPage() {
@@ -158,7 +160,7 @@ function formatCategory(category: string) {
 }
 
 function formatDosage(item: HomeProgramExercise) {
-  return [item.dosage_sets ? `${item.dosage_sets} sets` : null, item.dosage_reps ? `${item.dosage_reps} reps` : null, item.frequency].filter(Boolean).join(" · ") || "Follow your therapist’s instructions";
+  return [item.dosage_sets ? `${item.dosage_sets} sets` : null, formatRepsOrTime(item.dosage_reps), item.frequency].filter(Boolean).join(" · ") || "Follow your therapist’s instructions";
 }
 
 function toggleCompleted(id: string, setCompleted: Dispatch<SetStateAction<Set<string>>>) {

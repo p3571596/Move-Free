@@ -43,7 +43,7 @@ export function summarizePatientActivity(
     latestPain: typeof latestCheckin?.pain_score === "number" ? latestCheckin.pain_score : null,
     averagePain: painValues.length ? roundOne(painValues.reduce((sum, value) => sum + value, 0) / painValues.length) : null,
     symptomDirection: deriveDirection(scopedCheckins),
-    difficultyTrend: hardCount >= 2 ? `${hardCount} exercises rated hard` : easyCount >= 2 ? `${easyCount} exercises rated easy` : scopedLogs.length ? "Mostly about right" : "No ratings yet",
+    difficultyTrend: hardCount > 0 ? `${hardCount} exercises rated hard` : easyCount > 0 ? `${easyCount} exercises rated easy` : scopedLogs.some(log => log.difficulty === "appropriate") ? "About right ratings" : "No ratings yet",
     latestSubmissionAt: latestDate(scopedCheckins, scopedLogs),
     comments: recentComments(scopedCheckins, scopedLogs).slice(0, 4),
     streakDays: calculateStreak(scopedLogs),
@@ -160,7 +160,9 @@ function timestamp(value?: string | null) {
 }
 
 function dateKey(value: string) {
-  return new Date(value).toISOString().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function titleCase(value: string) {

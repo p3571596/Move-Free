@@ -11,6 +11,7 @@ import { PilotTrendCharts } from "@/components/PilotTrendCharts";
 import { RequireAuth } from "@/components/RequireAuth";
 import { PatientInviteButton } from "@/components/PatientInviteButton";
 import { emptyWorkspace, loadPatientWorkspace, trackAnalyticsEvent } from "@/lib/data";
+import { formatRepsOrTime } from "@/lib/exercise-media";
 import { formatDate } from "@/lib/format";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { PatientWorkspace } from "@/lib/types";
@@ -94,7 +95,7 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
   ].filter(Boolean).join(" · ") || workspace.patient.primary_complaint || "Active care";
   const programTitle = workspace.program?.name ?? workspace.program?.title ?? "Current program";
   const assignedDate = workspace.program?.assigned_at ?? workspace.program?.start_date;
-  const activitySummary = summarizePatientActivity(workspace.checkins, workspace.adherenceLogs, workspace.decision?.created_at);
+  const activitySummary = summarizePatientActivity(workspace.checkins, workspace.adherenceLogs, workspace.visitNote?.created_at);
 
   return (
     <AppShell>
@@ -130,7 +131,7 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
         </div>
         <section className="grid two" style={{ marginTop: 18 }}>
           <div className="panel">
-            <div className="section-header"><div><p className="eyebrow">Patient-reported activity</p><h3>Since last review</h3></div><Link className="secondary-button" href={`/patients/${workspace.patient.id}/logs`} aria-label={`Open all logs for ${patientName}`}>View logs</Link></div>
+            <div className="section-header"><div><p className="eyebrow">Patient-reported activity</p><h3>Since Last Visit</h3><p className="muted">{workspace.visitNote?.created_at ? `Since the recorded visit on ${formatDate(workspace.visitNote.created_at)}` : "No visit recorded: showing the last 14 days"}</p></div><Link className="secondary-button" href={`/patients/${workspace.patient.id}/logs`} aria-label={`Open all logs for ${patientName}`}>View logs</Link></div>
             <div className="since-review-grid" style={{ marginTop: 14 }}>
               <SummarySignal label="Participation" value={activitySummary.completionRate == null ? "No data" : `${activitySummary.completionRate}%`} />
               <SummarySignal label="Sessions" value={String(activitySummary.completedSessions)} />
@@ -141,7 +142,7 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
               <SummarySignal label="Difficulty" value={activitySummary.difficultyTrend} />
               <SummarySignal label="Latest entry" value={formatDate(activitySummary.latestSubmissionAt)} />
             </div>
-            {activitySummary.comments.length ? <ul className="list" style={{ marginTop: 14 }}>{activitySummary.comments.map((comment) => <li className="list-item" key={`${comment.date}-${comment.text}`}><p>{comment.text}</p><small className="muted">{formatDate(comment.date)}</small></li>)}</ul> : <p className="muted" style={{ marginTop: 14 }}>No patient comments since the last review.</p>}
+            {activitySummary.comments.length ? <ul className="list" style={{ marginTop: 14 }}>{activitySummary.comments.map((comment) => <li className="list-item" key={`${comment.date}-${comment.text}`}><p>{comment.text}</p><small className="muted">{formatDate(comment.date)}</small></li>)}</ul> : <p className="muted" style={{ marginTop: 14 }}>No patient comments in this period.</p>}
           </div>
           <div className="panel">
             <p className="eyebrow">Clinical Summary</p>
@@ -192,7 +193,7 @@ export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
                     <strong>{item.exercise?.name ?? "Exercise"}</strong>
                     <p className="muted">{item.exercise?.category ?? item.category ?? "Category not set"}</p>
                     <p className="muted">
-                      {item.dosage_sets ?? item.sets ?? 0} sets · {item.dosage_reps ?? item.reps ?? 0} reps · {item.frequency ?? "Frequency not set"}
+                      {item.dosage_sets ?? item.sets ?? 0} sets · {formatRepsOrTime(item.dosage_reps ?? item.reps) || "Repetitions/time not set"} · {item.frequency ?? "Frequency not set"}
                     </p>
                     <p>{item.notes ?? "No notes"}</p>
                   </li>

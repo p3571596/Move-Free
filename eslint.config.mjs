@@ -13,5 +13,5 @@ export default defineConfig([
       "react-hooks/purity": "off",
     },
   },
-  globalIgnores([".next/**", "node_modules/**", "supabase/.temp/**", "next-env.d.ts"]),
+  globalIgnores(["work/**", ".next/**", "node_modules/**", "supabase/.temp/**", "next-env.d.ts"]),
 ]);

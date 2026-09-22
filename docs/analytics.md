@@ -15,7 +15,7 @@ Analytics use real application records. No mock rows are generated. `analytics_e
 
 Do not add names, email addresses, diagnoses, pain locations, comments, notes, or arbitrary JSON properties to this table. The dashboard RPC returns aggregate values and generic recent-activity labels only; it does not return patient identifiers or free text.
 
-RLS allows clinicians to insert clinician events only for their own patients and patients to insert patient events only for their linked patient record. Only admins may select event rows. There are no client update or delete policies.
+RLS allows clinicians to insert clinician events only for their own patients and patients to insert patient events only for their linked patient record. Only the treating clinician may select patient event rows. Administrators use the aggregate-only RPC and have no global row access. There are no client update or delete policies.
 
 ## Metric derivation
 

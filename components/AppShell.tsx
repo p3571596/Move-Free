@@ -1,48 +1,56 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Activity, BarChart3, Home, LayoutDashboard, MessageSquare, Stethoscope, UserRound } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  CalendarDays,
+  Home,
+  LayoutDashboard,
+  MessageSquare,
+  Settings,
+  Stethoscope,
+  Target,
+  UserRound,
+  Users,
+} from "lucide-react";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+const primary = [
+  { href: "/dashboard", label: "Today", icon: LayoutDashboard },
   { href: "/patients", label: "Patients", icon: Stethoscope },
-  { href: "/exercise-studio", label: "Exercise Studio", icon: Activity },
+  { href: "/messages", label: "Messages", icon: MessageSquare },
+];
+const more = [
+  { href: "/program-builder", label: "Programs", icon: Target },
+  { href: "/exercise-studio", label: "Exercise Library", icon: Activity },
+  { href: "/schedule", label: "Schedule", icon: CalendarDays },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/team", label: "Care Team", icon: Users },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      return;
-    }
-
+    if (!isSupabaseConfigured()) return;
     const supabase = createSupabaseBrowserClient();
     supabase.auth.getUser()
       .then(({ data }) => {
-        if (!data.user) {
-          return null;
-        }
-
-        return supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .maybeSingle();
+        if (!data.user) return null;
+        return supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
       })
       .then((result) => setIsAdmin(result?.data?.role === "admin"))
       .catch(() => setIsAdmin(false));
   }, []);
 
   async function signOut() {
-    if (isSupabaseConfigured()) {
-      const supabase = createSupabaseBrowserClient();
-      await supabase.auth.signOut();
-    }
+    if (isSupabaseConfigured()) await createSupabaseBrowserClient().auth.signOut();
     router.push("/login");
   }
 
@@ -53,28 +61,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="brand-mark">MF</span>
           <span>
             <h1>Move Free</h1>
-            <p>Clinical MVP</p>
+            <p>Rehabilitation workspace</p>
           </span>
         </Link>
+
         <nav className="nav" aria-label="Main">
-          {navItems.map((item) => (
-            <Link href={item.href} key={item.href}>
-              <item.icon size={18} />
-              {item.label}
-            </Link>
-          ))}
-          {isAdmin ? (
-            <>
-              <Link href="/analytics">
-                <BarChart3 size={18} />
-                Founder Analytics
-              </Link>
-              <Link href="/feedback">
-                <MessageSquare size={18} />
-                Pilot Feedback
-              </Link>
-            </>
-          ) : null}
+          {primary.map((item) => <Link href={item.href} key={item.href} className={pathname === item.href || pathname.startsWith(`${item.href}/`) ? "active" : undefined}><item.icon size={18}/><span>{item.label}</span></Link>)}
+          <details className="more-navigation" key={pathname}>
+            <summary>More</summary>
+            <div className="more-menu">{more.map((item) => <Link href={item.href} key={item.href} className={pathname.startsWith(item.href) ? "active" : undefined}><item.icon size={18}/><span>{item.label}</span></Link>)}
+              {isAdmin ? <Link href="/feedback"><MessageSquare size={18}/>Pilot Feedback</Link> : null}<button type="button" onClick={signOut}><UserRound size={18}/>Sign out</button>
+            </div>
+          </details>
+
           <button type="button" onClick={signOut}>
             <UserRound size={18} />
             Sign out
@@ -84,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="main">
         <Link className="clinician-home-button" href="/dashboard" aria-label="Return to clinician dashboard">
           <Home size={16} />
-          Dashboard
+          Today
         </Link>
         {children}
       </main>

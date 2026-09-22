@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Move Free Clinical Decision Engine v0.1</title>
+  <style>
+    :root { --bg:#f5f7fb; --card:#fff; --text:#162033; --muted:#667085; --line:#d9deea; --accent:#2855d9; --danger:#a52626; --warn:#8a5700; --good:#176b43; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width:1120px; margin:0 auto; padding:24px; }
+    header { margin-bottom:18px; }
+    h1 { margin:0 0 6px; font-size:30px; }
+    h2 { font-size:19px; margin:0 0 14px; }
+    h3 { font-size:16px; margin:18px 0 8px; }
+    p { line-height:1.5; }
+    .sub { color:var(--muted); margin:0; }
+    .grid { display:grid; grid-template-columns:1.1fr .9fr; gap:18px; align-items:start; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:0 3px 14px rgba(16,24,40,.05); }
+    .section { border-top:1px solid var(--line); padding-top:16px; margin-top:16px; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    label { display:block; font-size:13px; font-weight:650; margin:0 0 6px; }
+    input, select, textarea { width:100%; border:1px solid var(--line); border-radius:9px; padding:10px; font:inherit; background:#fff; color:var(--text); }
+    input[type="checkbox"] { width:auto; margin-right:8px; }
+    textarea { min-height:72px; resize:vertical; }
+    .check { display:flex; align-items:flex-start; font-weight:500; margin:9px 0; }
+    button { border:0; border-radius:9px; padding:11px 15px; font-weight:700; cursor:pointer; }
+    .primary { background:var(--accent); color:white; }
+    .secondary { background:#eef2ff; color:#2542a5; }
+    .ghost { background:#f2f4f7; color:#344054; }
+    .danger { background:#fff0f0; color:var(--danger); }
+    .actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:16px; }
+    .badge { display:inline-block; padding:5px 9px; border-radius:999px; font-size:12px; font-weight:750; margin-right:6px; }
+    .badge.good { color:var(--good); background:#eaf8f1; }
+    .badge.warn { color:var(--warn); background:#fff4dd; }
+    .badge.danger { color:var(--danger); background:#ffebeb; }
+    .badge.info { color:#2542a5; background:#eef2ff; }
+    .recommendation { font-size:25px; font-weight:800; margin:10px 0; }
+    ul { padding-left:20px; }
+    li { margin:7px 0; }
+    .muted { color:var(--muted); }
+    .small { font-size:12px; }
+    .result-empty { padding:28px 8px; text-align:center; color:var(--muted); }
+    .log-item { border-top:1px solid var(--line); padding:12px 0; }
+    .log-item:first-child { border-top:0; }
+    .sticky { position:sticky; top:14px; }
+    @media (max-width:850px) { .grid { grid-template-columns:1fr; } .sticky { position:static; } }
+    @media (max-width:560px) { .row { grid-template-columns:1fr; } .wrap { padding:14px; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Move Free Clinical Decision Engine <span class="badge info">v0.1</span></h1>
+    <p class="sub">A clinician-controlled prototype based on your current follow-up reasoning. It is not a diagnostic or autonomous medical tool.</p>
+  </header>
+
+  <div class="grid">
+    <main class="card">
+      <h2>Follow-up case input</h2>
+      <div class="row">
+        <div><label for="caseId">Case label</label><input id="caseId" placeholder="e.g., Knee follow-up 03" /></div>
+        <div><label for="weeks">Weeks since evaluation</label><input id="weeks" type="number" min="0" step="1" value="2" /></div>
+      </div>
+
+      <div class="section">
+        <h2>1. Safety and new information</h2>
+        <label class="check"><input id="redFlag" type="checkbox" /> Red flag or urgent medical concern</label>
+        <label class="check"><input id="newNeuro" type="checkbox" /> New or worsening neurological signs</label>
+        <label class="check"><input id="fracture" type="checkbox" /> Fracture suspicion or significant new trauma</label>
+        <label class="check"><input id="systemic" type="checkbox" /> New systemic, bowel/bladder, or otherwise unexplained symptom change</label>
+        <label class="check"><input id="patternChange" type="checkbox" /> Pain/symptom pattern is meaningfully different from evaluation</label>
+      </div>
+
+      <div class="section">
+        <h2>2. What happened between visits?</h2>
+        <div class="row">
+          <div><label for="adherence">Exercise adherence (%)</label><input id="adherence" type="number" min="0" max="100" value="90" /></div>
+          <div><label for="sleep">Sleep/recovery</label><select id="sleep"><option value="good">Adequate</option><option value="mixed">Variable</option><option value="poor">Poor</option></select></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div><label for="dailyLoad">Daily activity effect</label><select id="dailyLoad"><option value="neutral">No clear interference</option><option value="under">Underactive / avoiding</option><option value="over">Overdoing / aggravating</option><option value="changed">Major lifestyle or routine change</option></select></div>
+          <div><label for="technique">Program execution verified?</label><select id="technique"><option value="yes">Yes, technique and dosage reviewed</option><option value="no">No / uncertain</option><option value="incorrect">Incorrect technique or dosage identified</option></select></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>3. Symptom and load response</h2>
+        <div class="row">
+          <div><label for="baselinePain">Usual baseline pain (0–10)</label><input id="baselinePain" type="number" min="0" max="10" step="0.5" value="2" /></div>
+          <div><label for="exercisePain">Peak pain during exercise (0–10)</label><input id="exercisePain" type="number" min="0" max="10" step="0.5" value="3" /></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div><label for="painIncrease">Maximum increase from baseline (0–10)</label><input id="painIncrease" type="number" min="0" max="10" step="0.5" value="1" /></div>
+          <div><label for="recoveryHours">Time to return to baseline (hours)</label><input id="recoveryHours" type="number" min="0" step="1" value="24" /></div>
+        </div>
+        <label class="check"><input id="swelling" type="checkbox" /> Increased swelling or inflammatory response</label>
+        <label class="check"><input id="fatigue" type="checkbox" /> Excessive fatigue/tiredness or reduced willingness to exercise</label>
+        <label class="check"><input id="otherAdverse" type="checkbox" /> Other unexpected adverse response</label>
+      </div>
+
+      <div class="section">
+        <h2>4. Performance and progress</h2>
+        <div class="row">
+          <div><label for="rpe">Exercise RPE (0–10)</label><input id="rpe" type="number" min="0" max="10" step="0.5" value="6" /></div>
+          <div><label for="movement">Movement quality</label><select id="movement"><option value="good">Good / expected</option><option value="mixed">Inconsistent</option><option value="poor">Poor or compensatory</option></select></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div><label for="objective">Objective findings</label><select id="objective"><option value="improving">Improving</option><option value="stable">Stable</option><option value="worsening">Worsening</option><option value="unknown">Not measured</option></select></div>
+          <div><label for="function">Function/activity goal</label><select id="function"><option value="improving">Improving</option><option value="stable">Stable</option><option value="worsening">Worsening</option><option value="unknown">Not measured</option></select></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div><label for="painTrend">Overall pain trend</label><select id="painTrend"><option value="improving">Improving</option><option value="stable">Stable</option><option value="worsening">Worsening</option></select></div>
+          <div><label for="expected">Is progress broadly expected for this stage?</label><select id="expected"><option value="yes">Yes</option><option value="slower">Slower than expected</option><option value="no">No meaningful progression</option></select></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>5. Other limiting factors</h2>
+        <label class="check"><input id="psych" type="checkbox" /> Psychological factors, fear, low confidence, or pain/activity mismatch require attention</label>
+        <label for="notes">Clinical notes</label><textarea id="notes" placeholder="Anything the structured fields do not capture"></textarea>
+      </div>
+
+      <div class="actions">
+        <button class="primary" onclick="runEngine()">Generate recommendation</button>
+        <button class="ghost" onclick="loadExample('progress')">Load progress example</button>
+        <button class="ghost" onclick="loadExample('stall')">Load stalled example</button>
+        <button class="danger" onclick="resetForm()">Reset</button>
+      </div>
+    </main>
+
+    <aside class="sticky">
+      <section class="card" id="resultCard">
+        <h2>Engine recommendation</h2>
+        <div id="result" class="result-empty">Enter a case and generate a recommendation.</div>
+      </section>
+
+      <section class="card" style="margin-top:18px">
+        <h2>Compare with your decision</h2>
+        <label for="clinicianDecision">Your decision</label>
+        <select id="clinicianDecision">
+          <option value="">Choose after reviewing the case</option>
+          <option>Progress — repetitions</option>
+          <option>Progress — frequency</option>
+          <option>Maintain current plan</option>
+          <option>Review execution / improve adherence</option>
+          <option>Regress or reduce load</option>
+          <option>Address psychological or symptom-management factors</option>
+          <option>Reassess diagnosis</option>
+          <option>Refer / urgent escalation</option>
+          <option>Need more information</option>
+        </select>
+        <label for="disagreeWhy" style="margin-top:12px">Why do you agree or disagree?</label>
+        <textarea id="disagreeWhy" placeholder="What information or reasoning did the engine miss?"></textarea>
+        <label for="outcome" style="margin-top:12px">Later outcome (optional)</label>
+        <textarea id="outcome" placeholder="What happened after your decision?"></textarea>
+        <div class="actions"><button class="secondary" onclick="saveComparison()">Save comparison</button><button class="ghost" onclick="exportLog()">Export log</button></div>
+      </section>
+
+      <section class="card" style="margin-top:18px">
+        <h2>Saved comparisons</h2>
+        <div id="log" class="muted small">No comparisons saved yet.</div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script>
+let lastResult = null;
+const $ = id => document.getElementById(id);
+const val = id => $(id).value;
+const num = id => Number(val(id) || 0);
+const checked = id => $(id).checked;
+
+function runEngine(){
+  const reasons=[]; const flags=[]; let recommendation=''; let bottleneck=''; let urgency='info';
+  const safety = checked('redFlag') || checked('newNeuro') || checked('fracture') || checked('systemic');
+  const changedPattern = checked('patternChange');
+  const adverse = checked('swelling') || checked('fatigue') || checked('otherAdverse') || num('painIncrease')>2 || num('exercisePain')>5 || num('recoveryHours')>=48;
+  const progressionReady = !adverse && val('movement')==='good' && num('rpe')<7 && val('expected')==='yes';
+  const notProgressing = val('expected')!=='yes' || val('objective')==='stable' || val('objective')==='worsening' || val('function')==='stable' || val('function')==='worsening' || val('painTrend')==='worsening';
+  const executionUnproven = num('adherence')<90 || val('technique')!=='yes' || val('dailyLoad')!=='neutral' || val('sleep')==='poor';
+
+  if(safety){
+    recommendation='Refer / urgent escalation'; bottleneck='Safety or possible non-routine pathology'; urgency='danger';
+    if(checked('redFlag')) reasons.push('A red flag or urgent concern was selected.');
+    if(checked('newNeuro')) reasons.push('New or worsening neurological signs require escalation or focused reassessment.');
+    if(checked('fracture')) reasons.push('Fracture suspicion or significant trauma changes the treatment pathway.');
+    if(checked('systemic')) reasons.push('New systemic or bowel/bladder-related change requires medical consideration.');
+    flags.push('Do not use the progression pathway until safety is resolved.');
+  } else if(changedPattern && notProgressing){
+    recommendation='Reassess diagnosis'; bottleneck='New information no longer fully fits the working hypothesis'; urgency='warn';
+    reasons.push('The symptom pattern changed meaningfully.','Progress is not following the expected course.');
+    flags.push('Consider alternate or additional diagnoses and referral when appropriate.');
+  } else if(adverse){
+    recommendation='Regress or reduce load'; bottleneck='Load tolerance / recovery'; urgency='warn';
+    if(num('painIncrease')>2) reasons.push('Pain increased more than 2/10 from baseline.');
+    if(num('exercisePain')>5) reasons.push('Exercise pain exceeded the general 5/10 guideline.');
+    if(num('recoveryHours')>=48) reasons.push('Symptoms did not return to baseline within 48 hours.');
+    if(checked('swelling')) reasons.push('Swelling or inflammatory response increased.');
+    if(checked('fatigue')) reasons.push('Excessive fatigue or reduced willingness to exercise was reported.');
+    if(checked('otherAdverse')) reasons.push('An unexpected adverse response was reported.');
+    flags.push('Reduce dosage or exercise difficulty, then reassess response before progressing.');
+  } else if(notProgressing && executionUnproven){
+    recommendation='Review execution / improve adherence'; bottleneck='The current plan may not have been fully tested'; urgency='warn';
+    if(num('adherence')<90) reasons.push(`Adherence was ${num('adherence')}%, below your current 90% target.`);
+    if(val('technique')==='no') reasons.push('Exercise technique and dosage have not been verified.');
+    if(val('technique')==='incorrect') reasons.push('Incorrect execution or dosage was identified.');
+    if(val('dailyLoad')!=='neutral') reasons.push('Daily activity may be underloading, overloading, or disrupting the plan.');
+    if(val('sleep')==='poor') reasons.push('Poor sleep/recovery may be limiting adaptation.');
+    flags.push('Spend a session clarifying the program and addressing the most likely barrier before redesigning it.');
+  } else if(notProgressing && checked('psych')){
+    recommendation='Address psychological or symptom-management factors'; bottleneck='Psychological/contextual factors'; urgency='warn';
+    reasons.push('Progress remains slower than expected despite a sufficiently tested plan.','Psychological factors or a mismatch between pain report and activity/progress were identified.');
+    flags.push('Consider education, graded exposure, confidence-building, co-management, or referral.');
+  } else if(notProgressing){
+    recommendation='Maintain briefly, then reconsider intervention'; bottleneck='Unexplained lack of expected progression'; urgency='warn';
+    reasons.push('The patient is not progressing as expected.','No clear adherence, execution, recovery, or psychological bottleneck was identified.');
+    flags.push('Verify objective data and consider changing the intervention; reassess the diagnosis if second thoughts emerge.');
+  } else if(progressionReady){
+    recommendation='Progress — repetitions'; bottleneck='No current barrier identified'; urgency='good';
+    reasons.push('No adverse response was identified.','Symptoms remained within the general pain and recovery thresholds.','Movement quality is good.','RPE is below 7/10.','Progress is occurring as expected.');
+    flags.push('Increase repetitions first. Consider frequency next if the response remains expected.');
+  } else {
+    recommendation='Maintain current plan'; bottleneck='One or more progression criteria are not yet met'; urgency='info';
+    if(val('movement')!=='good') reasons.push('Movement quality is not consistently good.');
+    if(num('rpe')>=7) reasons.push('RPE is 7/10 or higher.');
+    if(val('expected')!=='yes') reasons.push('Progress is not clearly on the expected trajectory.');
+    if(!reasons.length) reasons.push('The patient is stable, but the full progression threshold was not met.');
+    flags.push('Continue the current dosage and reassess the limiting criterion.');
+  }
+
+  lastResult={recommendation,bottleneck,reasons,flags,urgency,timestamp:new Date().toISOString(),inputs:getInputs()};
+  renderResult(lastResult);
+}
+
+function renderResult(r){
+  $('result').innerHTML=`
+    <span class="badge ${r.urgency}">${r.urgency==='good'?'Progression pathway':r.urgency==='danger'?'Safety pathway':r.urgency==='warn'?'Modification pathway':'Hold pathway'}</span>
+    <div class="recommendation">${escapeHtml(r.recommendation)}</div>
+    <p><strong>Likely rate-limiting factor:</strong> ${escapeHtml(r.bottleneck)}</p>
+    <h3>Why</h3><ul>${r.reasons.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>
+    <h3>Suggested next step</h3><ul>${r.flags.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>
+    <p class="muted small">Clinician review is required. This prototype applies explicit rules and does not diagnose or replace professional judgment.</p>`;
+}
+
+function getInputs(){
+  const ids=['caseId','weeks','redFlag','newNeuro','fracture','systemic','patternChange','adherence','sleep','dailyLoad','technique','baselinePain','exercisePain','painIncrease','recoveryHours','swelling','fatigue','otherAdverse','rpe','movement','objective','function','painTrend','expected','psych','notes'];
+  const out={}; ids.forEach(id=>out[id]=$(id).type==='checkbox'?checked(id):val(id)); return out;
+}
+
+function saveComparison(){
+  if(!lastResult){ alert('Generate an engine recommendation first.'); return; }
+  if(!val('clinicianDecision')){ alert('Choose your clinical decision first.'); return; }
+  const log=JSON.parse(localStorage.getItem('moveFreeDecisionLog')||'[]');
+  log.unshift({caseId:val('caseId')||'Untitled case', engine:lastResult, clinicianDecision:val('clinicianDecision'), rationale:val('disagreeWhy'), outcome:val('outcome'), savedAt:new Date().toISOString()});
+  localStorage.setItem('moveFreeDecisionLog',JSON.stringify(log)); renderLog();
+}
+
+function renderLog(){
+  const log=JSON.parse(localStorage.getItem('moveFreeDecisionLog')||'[]');
+  if(!log.length){ $('log').innerHTML='No comparisons saved yet.'; return; }
+  $('log').innerHTML=log.slice(0,8).map(x=>`<div class="log-item"><strong>${escapeHtml(x.caseId)}</strong><br>Engine: ${escapeHtml(x.engine.recommendation)}<br>Your decision: ${escapeHtml(x.clinicianDecision)}<br><span class="muted">${new Date(x.savedAt).toLocaleString()}</span></div>`).join('');
+}
+
+function exportLog(){
+  const log=localStorage.getItem('moveFreeDecisionLog')||'[]';
+  const blob=new Blob([log],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='move-free-decision-log.json'; a.click(); URL.revokeObjectURL(url);
+}
+
+function resetForm(){ document.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false); document.querySelectorAll('textarea').forEach(x=>x.value=''); $('caseId').value=''; $('weeks').value=2; $('adherence').value=90; $('sleep').value='good'; $('dailyLoad').value='neutral'; $('technique').value='yes'; $('baselinePain').value=2; $('exercisePain').value=3; $('painIncrease').value=1; $('recoveryHours').value=24; $('rpe').value=6; $('movement').value='good'; $('objective').value='improving'; $('function').value='improving'; $('painTrend').value='improving'; $('expected').value='yes'; $('result').className='result-empty'; $('result').innerHTML='Enter a case and generate a recommendation.'; lastResult=null; }
+
+function loadExample(type){ resetForm(); if(type==='progress'){ $('caseId').value='Example: expected progression'; } else { $('caseId').value='Example: stalled progress'; $('adherence').value=65; $('sleep').value='poor'; $('dailyLoad').value='over'; $('technique').value='no'; $('objective').value='stable'; $('function').value='stable'; $('painTrend').value='stable'; $('expected').value='no'; } runEngine(); }
+function escapeHtml(s){ return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+renderLog();
+</script>
+</body>
+</html>

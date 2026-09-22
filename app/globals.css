@@ -1095,3 +1095,46 @@ button {
   .analytics-controls button { flex: 1; }
   .analytics-kpi-grid, .analytics-trend-summaries, .analytics-activity-list { grid-template-columns: 1fr; }
 }
+
+/* Installable mobile shell */
+html { scroll-padding-bottom: 100px; }
+body { padding-top: env(safe-area-inset-top); }
+button, input, select, textarea { font: inherit; }
+.more-navigation { position: relative; }
+.more-navigation summary { cursor: pointer; padding: 14px; border-radius: 10px; font-weight: 650; }
+.more-menu { display: grid; gap: 4px; padding: 8px; background: white; border: 1px solid #dce5e0; border-radius: 12px; }
+.install-support { max-width: 660px; margin: 16px auto; padding: 12px 20px calc(90px + env(safe-area-inset-bottom)); text-align: center; color: #546b64; font-size: 14px; }
+.install-support button { background: none; border: 0; color: #174e46; text-decoration: underline; cursor: pointer; min-height: 44px; }
+.connection-notice { position: sticky; bottom: 78px; z-index: 60; background: #fff3d6; color: #533c00; padding: 16px; text-align: center; }
+.patient-tabbar { padding-bottom: env(safe-area-inset-bottom); }
+.patient-main { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+.patient-appbar { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+.feedback-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.feedback-options button { min-height: 44px; }
+@media (max-width: 760px) {
+  .app-shell { display: block; }
+  .sidebar { width: 100%; position: static; padding: 14px 16px; border-right: 0; }
+  .sidebar .brand { margin-bottom: 0; }
+  .sidebar .nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; background: white; border-top: 1px solid #dce5e0; padding: 4px 8px calc(4px + env(safe-area-inset-bottom)); }
+  .sidebar .nav > a { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 8px 4px; font-size: 12px; min-height: 52px; }
+  .sidebar .nav > button { display: none; }
+  .more-navigation summary { text-align: center; padding: 20px 8px; font-size: 12px; }
+  .more-menu { position: absolute; bottom: 100%; right: 0; width: min(300px, 85vw); max-height: 65vh; overflow: auto; box-shadow: 0 -8px 32px #163e4620; }
+  .main { margin-left: 0; width: 100%; min-width: 0; padding: 20px 16px calc(96px + env(safe-area-inset-bottom)); }
+  .main .topbar { flex-wrap: wrap; }
+  input, select, textarea { font-size: 16px; }
+  .segment-options { flex-wrap: wrap; }
+  .exercise-log-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.patient-tabbar { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 760px) {
+  .sidebar { backdrop-filter: none; }
+  .patient-tabbar a { min-width: 0; }
+  .more-menu button { width: 100%; }
+}
+
+.exercise-video { margin: 16px 0; min-width: 0; }
+.exercise-video iframe { display: block; width: 100%; aspect-ratio: 16 / 9; min-height: 200px; border: 0; border-radius: 12px; background: #14271f; }
+.exercise-video .video-load { width: 100%; min-height: 160px; justify-content: center; background: var(--accent-soft); }
+.exercise-video p, .exercise-video a { font-size: 13px; }
+.exercise-video a { text-decoration: underline; }

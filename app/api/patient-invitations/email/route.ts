@@ -25,13 +25,12 @@ function authEmailError(message: string, status?: number) {
 function getConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  const secretKey = process.env.SUPABASE_SECRET_KEY;
 
-  if (!url || !publishableKey || !secretKey) {
+  if (!url || !publishableKey) {
     throw new Error("Patient email invitations are not configured.");
   }
 
-  return { url, publishableKey, secretKey };
+  return { url, publishableKey };
 }
 
 export async function POST(request: NextRequest) {
@@ -47,7 +46,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "A valid patient and email are required." }, { status: 400 });
     }
 
-    const { url, publishableKey, secretKey } = getConfig();
+    const { url, publishableKey } = getConfig();
     const authenticatedClient = createClient(url, publishableKey, {
       global: { headers: { Authorization: `Bearer ${accessToken}` } },
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -63,6 +62,12 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (patientError || !patient) return NextResponse.json({ error: "Patient not found or access denied." }, { status: 403 });
 
+    // Authorization must not depend on whether email delivery is configured.
+    const secretKey = process.env.SUPABASE_SECRET_KEY;
+    if (!secretKey) return NextResponse.json(
+      { error: "Patient email invitations are not configured in this environment. Use the patient sign-in link." },
+      { status: 503 },
+    );
     const adminClient = createClient(url, secretKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });

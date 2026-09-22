@@ -1,5 +1,8 @@
 "use client";
 
+import {validatedVideoUrl, formatRepsOrTime} from "./exercise-media";
+import type { EngineResult } from "./clinical-engine";
+
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type {
   AnalyticsEventName,
@@ -278,7 +281,7 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     adherenceResult,
   ]);
 
-  const selectedProgram = selectVisibleProgram((programsResult.data ?? []) as HomeProgram[]);
+  const selectedProgram = selectVisibleProgram((programsResult.data ?? []) as HomeProgram[], access === "patient");
   const program = normalizeProgram(selectedProgram, patient.id);
   const programExercises = program
     ? await loadProgramExercises(client, program.id)
@@ -330,6 +333,55 @@ export async function loadExerciseLibrary(client: Client) {
   return (data ?? []).map(normalizeExercise) as Exercise[];
 }
 
+export async function publishPatientGuidance(client: Client, patientId: string, programId: string, guidance: string, expectedUpdatedAt: string) {
+  if (!guidance.trim() || guidance.length > 4000) throw new Error("Enter guidance of up to 4,000 characters.");
+  const workspace = await loadPatientWorkspace(client, patientId);
+  if (!workspace.patient || workspace.program?.id !== programId || !workspace.episode) {
+    throw new Error("This program is no longer current or you do not have an authorized care relationship. Reload before publishing.");
+  }
+  const available = await client.from("care_messages").select("id").limit(0);
+  if (!available.error) {
+    const {data,error} = await client.rpc("publish_care_guidance",{p_patient_id:patientId,p_program_id:programId,p_expected_version:expectedUpdatedAt,p_body:guidance.trim(),p_message_id:crypto.randomUUID()});
+    if(error) throw new Error(error.message);
+    await trackAnalyticsEvent(client,{eventName:"program_updated",patientId,homeProgramId:programId});
+    return data;
+  }
+  // Retain the existing pilot publication while the additive history migration awaits approval.
+  const { data, error } = await client.from("home_programs")
+    .update({ patient_explanation: guidance.trim(), updated_at: new Date().toISOString() })
+    .eq("id", programId).eq("episode_id", workspace.episode.id)
+    .eq("updated_at", expectedUpdatedAt).select("updated_at").maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("The program changed while you were reviewing. Reload and review the latest version.");
+  await trackAnalyticsEvent(client, { eventName: "program_updated", patientId, homeProgramId: programId });
+  return data.updated_at!;
+}
+
+export async function recordClinicalReview(client: Client, workspace: PatientWorkspace, decisionType: string, rationale: string, id: string, evaluation?: {result: EngineResult; disposition: string; disagreementReason: string; modification: string}) {
+  const user = await getCurrentUser(client);
+  if (!user || !workspace.patient || workspace.patient.clinician_id !== user.id) throw new Error("An authorized treating relationship is required.");
+  if (!["continue", "progress", "modify", "regress", "reassess", "contact", "other", "refer_out", "discharge"].includes(decisionType) || !rationale.trim()) throw new Error("Choose a decision and document your review.");
+  const storedDecision = ["contact", "other"].includes(decisionType) ? "modify" : decisionType;
+  const decisionRationale = ["contact", "other"].includes(decisionType) ? `${decisionType === "contact" ? "Contact patient" : "Other action"}: ${rationale.trim()}` : rationale.trim();
+  const current = await loadPatientWorkspace(client, workspace.patient.id);
+  const latestActivity = (value: PatientWorkspace) => [...value.checkins.map(x => x.id), ...value.adherenceLogs.map(x => x.id)].sort().join(",");
+  if (latestActivity(current) !== latestActivity(workspace)) throw new Error("New patient feedback arrived. Reload and review it before marking reviewed.");
+  if (evaluation) {
+    if (!workspace.episode || !evaluation.disposition) throw new Error("Complete the engine comparison before saving.");
+    const {error} = await client.rpc("record_engine_review", {
+      p_id: id, p_patient_id: workspace.patient.id, p_episode_id: workspace.episode.id,
+      p_decision: storedDecision, p_rationale: decisionRationale,
+      p_engine: JSON.parse(JSON.stringify(evaluation.result)),
+      p_source: JSON.parse(JSON.stringify({ capturedAt: new Date().toISOString(), clinicianFinalAction: decisionType, patientGoal: workspace.patient.goal, goals: workspace.goals, checkins: workspace.checkins, adherenceLogs: workspace.adherenceLogs, progressMetrics: workspace.progressMetrics, programBeforeReview: workspace.program, exercisesBeforeReview: workspace.programExercises, inputProvenance: "Clinician assessment; initial pain trend from latest patient report when available. No uncollected fields inferred." })),
+      p_disposition: evaluation.disposition, p_disagreement: evaluation.disagreementReason, p_modification: evaluation.modification,
+    });
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const { error } = await client.from("clinical_decisions").insert({ id, patient_id: workspace.patient.id, episode_id: workspace.episode?.id, clinician_id: user.id, decision_type: storedDecision, rationale: decisionRationale, action_items: decisionType });
+  if (error) throw new Error(error.message);
+}
+
 export async function loadCurrentPatientAppWorkspace(client: Client): Promise<PatientWorkspace> {
   const user = await getCurrentUser(client);
 
@@ -358,6 +410,7 @@ export async function saveProgramDraft(
   patientId: string,
   items: HomeProgramExercise[],
   instrumentation?: { eventName: "program_created" | "program_updated"; durationMs: number },
+  videoUpdates: Record<string, string | null> = {},
 ) {
   const user = await getCurrentUser(client);
 
@@ -365,9 +418,17 @@ export async function saveProgramDraft(
     throw new Error("Sign in before saving a program.");
   }
 
+  // Validate all proposed links before any program writes.
+  const videos = Object.fromEntries(Object.entries(videoUpdates).map(([id, url]) => [id, validatedVideoUrl(url)]));
   const episode = await ensureActiveEpisode(client, patientId);
   const program = await ensureHomeProgram(client, episode);
-  const exercises = await Promise.all(items.map((item) => ensureExercise(client, exerciseFromProgramItem(item), user.id)));
+  const exercises = await Promise.all(items.map(async (item) => {
+    const exercise = await ensureExercise(client, exerciseFromProgramItem(item), user.id);
+    if (Object.prototype.hasOwnProperty.call(videos, item.id)) {
+      return updateExerciseVideo(client, exercise.id, user.id, videos[item.id]);
+    }
+    return exercise;
+  }));
   const savedItems: HomeProgramExercise[] = [];
 
   const { error: deleteError } = await client
@@ -388,7 +449,7 @@ export async function saveProgramDraft(
         exercise_id: exercise.id,
         sort_order: index,
         dosage_sets: String(item.sets ?? item.dosage_sets ?? ""),
-        dosage_reps: String(item.reps ?? item.dosage_reps ?? ""),
+        dosage_reps: String(item.dosage_reps ?? item.reps ?? ""),
         frequency: item.frequency ?? null,
         notes: item.notes ?? null,
         category: normalizeExerciseCategory(item.category ?? item.exercise?.category),
@@ -442,6 +503,7 @@ export async function createExercise(client: Client, exercise: Partial<Exercise>
       clinical_purpose: exercise.clinical_purpose ?? exercise.description ?? null,
       patient_instructions: exercise.patient_instructions ?? exercise.instructions ?? null,
       default_dosage: exercise.default_dosage ?? null,
+      video_url: validatedVideoUrl(exercise.video_url),
       is_active: exercise.is_active ?? true,
     })
     .select("*")
@@ -481,6 +543,7 @@ export async function updateExercise(client: Client, exerciseId: string, exercis
       clinical_purpose: exercise.clinical_purpose ?? exercise.description ?? null,
       patient_instructions: exercise.patient_instructions ?? exercise.instructions ?? null,
       default_dosage: exercise.default_dosage ?? null,
+      video_url: validatedVideoUrl(exercise.video_url),
       is_active: exercise.is_active ?? true,
     })
     .eq("id", exerciseId)
@@ -514,7 +577,7 @@ export async function saveFeedback(client: Client, message: string, sentiment: s
 export type ExerciseLogInput = {
   homeProgramExerciseId: string;
   completionStatus: "completed" | "partial" | "skipped";
-  difficulty: "too_easy" | "appropriate" | "too_hard";
+  difficulty: "too_easy" | "appropriate" | "too_hard" | null;
   painDuring: number | null;
   actualSets: number | null;
   actualReps: number | null;
@@ -552,7 +615,9 @@ export async function logExerciseSession(
   const { error } = await client.from("exercise_adherence_logs").insert(rows);
 
   if (error) {
-    throw error;
+    if (error.code !== "23505") throw error;
+    const existing = await client.from("exercise_adherence_logs").select("home_program_exercise_id").eq("patient_id", patientId).eq("session_id", sessionId);
+    if (existing.error || existing.data?.length !== entries.length || entries.some(entry => !existing.data?.some(row => row.home_program_exercise_id === entry.homeProgramExerciseId))) throw error;
   }
 
   await trackAnalyticsEvent(client, {
@@ -568,14 +633,14 @@ export async function logPainPattern(
   input: {
     patientId: string;
     episodeId: string;
-    painScore: number;
+    painScore: number | null;
     painLocation: string;
     symptomBehavior: string;
     activityContext: string;
     aggravatingFactors: string;
     easingFactors: string;
     confidenceScore: number | null;
-    symptomDirection: "improving" | "unchanged" | "worsening";
+    symptomDirection: "improving" | "unchanged" | "worsening" | null;
     patientComment: string;
     clientSubmissionId: string;
     durationMs?: number;
@@ -598,7 +663,9 @@ export async function logPainPattern(
   });
 
   if (error) {
-    throw error;
+    if (error.code !== "23505") throw error;
+    const existing = await client.from("daily_checkins").select("id").eq("patient_id", input.patientId).eq("client_submission_id", input.clientSubmissionId).maybeSingle();
+    if (existing.error || !existing.data) throw error;
   }
 
   await trackAnalyticsEvent(client, {
@@ -745,6 +812,7 @@ async function ensureExercise(client: Client, exercise?: Exercise | null, clinic
       clinical_purpose: exercise?.description ?? exercise?.clinical_purpose ?? null,
       patient_instructions: exercise?.instructions ?? exercise?.patient_instructions ?? null,
       default_dosage: exercise?.default_dosage ?? null,
+      video_url: validatedVideoUrl(exercise?.video_url),
       is_active: true,
     })
     .select("*")
@@ -804,8 +872,8 @@ function normalizeTags(tags?: string[] | null) {
   return Array.from(new Set((tags ?? []).map((tag) => tag.trim().replace(/\s+/g, " ").toLowerCase()).filter(Boolean)));
 }
 
-function selectVisibleProgram(programs: HomeProgram[]) {
-  return programs.find((program) => program.status === "active") ?? programs[0] ?? null;
+function selectVisibleProgram(programs: HomeProgram[], patientAccess = false) {
+  return programs.find((program) => program.status === "active") ?? (patientAccess ? null : programs[0]) ?? null;
 }
 
 function normalizeProgram(program?: Partial<HomeProgram> | null, patientId?: string): HomeProgram | null {
@@ -828,7 +896,7 @@ function normalizeProgramExercise(item: HomeProgramExercise) {
   return {
     ...item,
     sets: Number.isNaN(sets) ? 0 : sets,
-    reps: Number.isNaN(reps) ? 0 : reps,
+    reps: Number.isNaN(reps) ? null : reps,
     exercise: normalizeExercise(item.exercise),
   };
 }
@@ -863,11 +931,11 @@ function exerciseFromProgramItem(item: HomeProgramExercise) {
 
 function formatDefaultDosage(item: HomeProgramExercise) {
   const sets = item.sets ?? item.dosage_sets;
-  const reps = item.reps ?? item.dosage_reps;
+  const reps = item.dosage_reps ?? item.reps;
   const frequency = item.frequency;
   const dosage = [
     sets ? `${sets} sets` : null,
-    reps ? `${reps} reps` : null,
+    formatRepsOrTime(reps),
     frequency,
   ].filter(Boolean).join(" · ");
 
@@ -931,4 +999,13 @@ function throwFirstQueryError(results: Array<{ error?: unknown }>) {
   if (failed?.error) {
     throw failed.error;
   }
+}
+
+/** Update only media; never overwrite shared library instructions or dosage. */
+export async function updateExerciseVideo(client: Client, exerciseId: string, clinicianId: string, url: string | null) {
+  const { data, error } = await client.from("exercises")
+    .update({ video_url: validatedVideoUrl(url) })
+    .eq("id", exerciseId).eq("clinician_id", clinicianId).select("*").single();
+  if (error) throw error;
+  return normalizeExercise(data) as Exercise;
 }
