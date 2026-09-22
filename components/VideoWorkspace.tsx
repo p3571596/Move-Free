@@ -63,9 +63,9 @@ function DemonstrationApproval({asset,exercise,onSaved}:{asset:ExerciseVideoAsse
   async function save(e:FormEvent){e.preventDefault();if(!viewed||!approved)return;setBusy(true);setError("");try{const {error}=await createSupabaseBrowserClient().rpc("approve_exercise_video",{p_id:asset.id,p_title:title,p_instructions:instructions,p_cues:cues});if(error)throw error;await onSaved();}catch{setError("Approval could not be saved. Check the fields, reload, and try again.");}finally{setBusy(false);}}
   return <form className="form" onSubmit={save}>
     <PrivateVideoPlayer key={asset.id} path={asset.object_path} title="Draft demonstration" onViewed={()=>setViewed(true)}/>
-    <label className="field">Exercise name<input required maxLength={200} value={title} onChange={e=>{setTitle(e.target.value);setApproved(false);}}/></label>
-    <label className="field">Instructions<textarea required maxLength={4000} value={instructions} onChange={e=>{setInstructions(e.target.value);setApproved(false);}}/></label>
-    <label className="field">Key cues<textarea maxLength={2000} value={cues} onChange={e=>{setCues(e.target.value);setApproved(false);}}/></label>
+    <label className="field" htmlFor={`name-${asset.id}`}>Exercise name<input id={`name-${asset.id}`} required maxLength={200} value={title} onChange={e=>{setTitle(e.target.value);setApproved(false);}}/></label>
+    <label className="field" htmlFor={`instructions-${asset.id}`}>Instructions<textarea aria-label="Instructions" id={`instructions-${asset.id}`} required maxLength={4000} value={instructions} onChange={e=>{setInstructions(e.target.value);setApproved(false);}}/></label>
+    <label className="field" htmlFor={`cues-${asset.id}`}>Key cues<textarea aria-label="Key cues" id={`cues-${asset.id}`} maxLength={2000} value={cues} onChange={e=>{setCues(e.target.value);setApproved(false);}}/></label>
     <label><input type="checkbox" checked={approved} disabled={!viewed} onChange={e=>setApproved(e.target.checked)}/> I watched this video and approve these instructions for this patient.</label>
     <p className="muted">Approval replaces any previous personalized demonstration for this assigned exercise. It does not change prescribed dosage or the shared library.</p>
     <button className="button" disabled={busy||!viewed||!approved||!title.trim()||!instructions.trim()}>{busy?"Saving…":"Approve for patient"}</button>{error?<p role="alert">{error}</p>:null}

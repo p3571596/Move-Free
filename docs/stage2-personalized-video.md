@@ -19,7 +19,7 @@ Migration `20260922090316_stage2_private_exercise_video.sql` adds a dedicated ta
 
 Local PostgreSQL tests replay the existing authorization schema and test the actual new migration: drafts, approval publication, consent, file constraints, missing/mismatched uploads, overwrite denial, replacement, withdrawal, unrelated clinician/admin isolation, relationship revocation and owner cleanup. CI runs these alongside Stage 1 regression tests, lint, type checking and build.
 
-Hosted mobile/browser results are recorded separately after preview deployment. Physical iOS/Android camera capture, codec compatibility, interrupted cellular uploads, backgrounding and Home Screen behavior require device testing; browser emulation is not a substitute.
+Hosted preview verification passed all 13 synthetic browser/API checks: actual Storage upload, private draft denial, clinician playback/approval, patient program playback and instructions, public/overwrite denial, consented patient submission, clinician playback of the submission, unrelated clinician/admin isolation, 390px mobile layout, withdrawal and actual Storage API cleanup. GitHub Pilot readiness run 35708410281 passed. The browser test is reproducible via `tests/video-e2e.mjs` with a synthetic fixture and `TEST_BASE_URL`; credentials are never committed. Physical iOS/Android camera capture, codec compatibility, interrupted cellular uploads, backgrounding and Home Screen behavior require device testing; browser emulation is not a substitute.
 
 ## Next increments (not implemented)
 
