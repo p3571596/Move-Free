@@ -1,0 +1,1650 @@
+{
+  "columns": [
+    {
+      "type": "int8",
+      "table": "analytics_events",
+      "column": "id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "analytics_events",
+      "column": "event_name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "analytics_events",
+      "column": "actor_id",
+      "default": "auth.uid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "analytics_events",
+      "column": "patient_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "analytics_events",
+      "column": "home_program_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "int4",
+      "table": "analytics_events",
+      "column": "duration_ms",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "analytics_events",
+      "column": "client_event_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "analytics_events",
+      "column": "occurred_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "analytics_events",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "barriers",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "barriers",
+      "column": "patient_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "barriers",
+      "column": "episode_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "barriers",
+      "column": "barrier_type",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "barriers",
+      "column": "description",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "barriers",
+      "column": "status",
+      "default": "'active'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "barriers",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "barriers",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "clinical_decisions",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "clinical_decisions",
+      "column": "patient_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "clinical_decisions",
+      "column": "episode_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "clinical_decisions",
+      "column": "clinician_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "clinical_decisions",
+      "column": "decision_type",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "clinical_decisions",
+      "column": "rationale",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "clinical_decisions",
+      "column": "action_items",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "clinical_decisions",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "daily_checkins",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "daily_checkins",
+      "column": "patient_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "daily_checkins",
+      "column": "episode_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "date",
+      "table": "daily_checkins",
+      "column": "checkin_date",
+      "default": "CURRENT_DATE",
+      "nullable": "NO"
+    },
+    {
+      "type": "int4",
+      "table": "daily_checkins",
+      "column": "pain_score",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "daily_checkins",
+      "column": "pain_location",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "daily_checkins",
+      "column": "symptom_behavior",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "daily_checkins",
+      "column": "activity_context",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "daily_checkins",
+      "column": "aggravating_factors",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "daily_checkins",
+      "column": "easing_factors",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "int4",
+      "table": "daily_checkins",
+      "column": "confidence_score",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "daily_checkins",
+      "column": "patient_comment",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "daily_checkins",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "daily_checkins",
+      "column": "symptom_direction",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "daily_checkins",
+      "column": "client_submission_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "episodes",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "episodes",
+      "column": "patient_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "episodes",
+      "column": "title",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "episodes",
+      "column": "body_region",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "date",
+      "table": "episodes",
+      "column": "start_date",
+      "default": "CURRENT_DATE",
+      "nullable": "NO"
+    },
+    {
+      "type": "date",
+      "table": "episodes",
+      "column": "target_discharge_date",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "episodes",
+      "column": "status",
+      "default": "'active'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "episodes",
+      "column": "clinical_summary",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "episodes",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "episodes",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "exercise_adherence_logs",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "exercise_adherence_logs",
+      "column": "patient_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "exercise_adherence_logs",
+      "column": "home_program_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "exercise_adherence_logs",
+      "column": "home_program_exercise_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "exercise_adherence_logs",
+      "column": "performed_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "exercise_adherence_logs",
+      "column": "completion_status",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "exercise_adherence_logs",
+      "column": "difficulty",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "int4",
+      "table": "exercise_adherence_logs",
+      "column": "pain_during",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "int4",
+      "table": "exercise_adherence_logs",
+      "column": "pain_after",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "exercise_adherence_logs",
+      "column": "notes",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "exercise_adherence_logs",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "exercise_adherence_logs",
+      "column": "session_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "int4",
+      "table": "exercise_adherence_logs",
+      "column": "actual_sets",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "int4",
+      "table": "exercise_adherence_logs",
+      "column": "actual_reps",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "exercise_adherence_logs",
+      "column": "actual_duration_minutes",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "exercise_adherence_logs",
+      "column": "client_submission_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "exercises",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "exercises",
+      "column": "clinician_id",
+      "default": "auth.uid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "exercises",
+      "column": "name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "exercises",
+      "column": "category",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "_text",
+      "table": "exercises",
+      "column": "tags",
+      "default": "'{}'::text[]",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "exercises",
+      "column": "clinical_purpose",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "exercises",
+      "column": "patient_instructions",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "exercises",
+      "column": "default_dosage",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "exercises",
+      "column": "video_url",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "bool",
+      "table": "exercises",
+      "column": "is_active",
+      "default": "true",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "exercises",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "exercises",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "exercises",
+      "column": "normalized_name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "feedback",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "feedback",
+      "column": "profile_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "feedback",
+      "column": "role",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "feedback",
+      "column": "screen",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "feedback",
+      "column": "trying_to_do",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "feedback",
+      "column": "issue_or_missing",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "feedback",
+      "column": "severity",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "feedback",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "goals",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "goals",
+      "column": "episode_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "goals",
+      "column": "title",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "goals",
+      "column": "description",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "goals",
+      "column": "outcome_measure",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "goals",
+      "column": "baseline_value",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "goals",
+      "column": "current_value",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "goals",
+      "column": "target_value",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "int4",
+      "table": "goals",
+      "column": "progress_percent",
+      "default": "0",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "goals",
+      "column": "status",
+      "default": "'active'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "date",
+      "table": "goals",
+      "column": "due_date",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "goals",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "goals",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "home_program_exercises",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "home_program_exercises",
+      "column": "home_program_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "home_program_exercises",
+      "column": "exercise_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "int4",
+      "table": "home_program_exercises",
+      "column": "sort_order",
+      "default": "0",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "home_program_exercises",
+      "column": "dosage_sets",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "home_program_exercises",
+      "column": "dosage_reps",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "home_program_exercises",
+      "column": "frequency",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "home_program_exercises",
+      "column": "notes",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "home_program_exercises",
+      "column": "category",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "home_program_exercises",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "home_programs",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "home_programs",
+      "column": "episode_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "home_programs",
+      "column": "name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "home_programs",
+      "column": "patient_explanation",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "home_programs",
+      "column": "status",
+      "default": "'active'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "home_programs",
+      "column": "assigned_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "home_programs",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "home_programs",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "patients",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "patients",
+      "column": "clinician_id",
+      "default": "auth.uid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "patients",
+      "column": "patient_profile_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "display_name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "date",
+      "table": "patients",
+      "column": "date_of_birth",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "diagnosis",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "primary_complaint",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "current_focus",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "status",
+      "default": "'active'::text",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "patients",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "patients",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "name",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "age",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "goal",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "primary_outcome",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "baseline_value",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "current_value",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "target_value",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "int4",
+      "table": "patients",
+      "column": "progress_percent",
+      "default": "0",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "patients",
+      "column": "patient_invite_token_hash",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "patients",
+      "column": "patient_invite_expires_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "profiles",
+      "column": "id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "profiles",
+      "column": "role",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "profiles",
+      "column": "email",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "profiles",
+      "column": "full_name",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "profiles",
+      "column": "clinic_name",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "profiles",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "profiles",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "progress_metrics",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "progress_metrics",
+      "column": "episode_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "progress_metrics",
+      "column": "metric_name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "numeric",
+      "table": "progress_metrics",
+      "column": "metric_value",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "progress_metrics",
+      "column": "metric_text_value",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "date",
+      "table": "progress_metrics",
+      "column": "measured_at",
+      "default": "CURRENT_DATE",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "progress_metrics",
+      "column": "notes",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "progress_metrics",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "visit_notes",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "visit_notes",
+      "column": "patient_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "visit_notes",
+      "column": "episode_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "visit_notes",
+      "column": "clinician_id",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "date",
+      "table": "visit_notes",
+      "column": "visit_date",
+      "default": "CURRENT_DATE",
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "visit_notes",
+      "column": "subjective",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "visit_notes",
+      "column": "objective",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "visit_notes",
+      "column": "assessment",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "visit_notes",
+      "column": "plan",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "visit_notes",
+      "column": "next_steps",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamptz",
+      "table": "visit_notes",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamptz",
+      "table": "visit_notes",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "NO"
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "SELECT",
+      "qual": "((( SELECT auth.uid() AS uid) = id) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "profiles_select_own_or_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(( SELECT auth.uid() AS uid) = id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "profiles_update_own",
+      "schemaname": "public",
+      "with_check": "(( SELECT auth.uid() AS uid) = id)"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "profiles_insert_own",
+      "schemaname": "public",
+      "with_check": "(( SELECT auth.uid() AS uid) = id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_patient(id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "patients",
+      "permissive": "PERMISSIVE",
+      "policyname": "patients_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_patient(patient_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "daily_checkins",
+      "permissive": "PERMISSIVE",
+      "policyname": "daily_checkins_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((clinician_id = ( SELECT auth.uid() AS uid)) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "patients",
+      "permissive": "PERMISSIVE",
+      "policyname": "patients_update_clinician_owner",
+      "schemaname": "public",
+      "with_check": "((clinician_id = ( SELECT auth.uid() AS uid)) OR is_admin())"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "((clinician_id = ( SELECT auth.uid() AS uid)) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "patients",
+      "permissive": "PERMISSIVE",
+      "policyname": "patients_delete_clinician_owner",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_patient(patient_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "episodes",
+      "permissive": "PERMISSIVE",
+      "policyname": "episodes_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "episodes",
+      "permissive": "PERMISSIVE",
+      "policyname": "episodes_insert_clinician",
+      "schemaname": "public",
+      "with_check": "(is_clinician_for_patient(patient_id) OR is_admin())"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(is_clinician_for_patient(patient_id) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "episodes",
+      "permissive": "PERMISSIVE",
+      "policyname": "episodes_update_clinician",
+      "schemaname": "public",
+      "with_check": "(is_clinician_for_patient(patient_id) OR is_admin())"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(is_clinician_for_patient(patient_id) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "episodes",
+      "permissive": "PERMISSIVE",
+      "policyname": "episodes_delete_clinician",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_episode(episode_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "goals",
+      "permissive": "PERMISSIVE",
+      "policyname": "goals_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(is_clinician_for_episode(episode_id) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "goals",
+      "permissive": "PERMISSIVE",
+      "policyname": "goals_write_clinician",
+      "schemaname": "public",
+      "with_check": "(is_clinician_for_episode(episode_id) OR is_admin())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_episode(episode_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "home_programs",
+      "permissive": "PERMISSIVE",
+      "policyname": "home_programs_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(is_clinician_for_episode(episode_id) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "home_programs",
+      "permissive": "PERMISSIVE",
+      "policyname": "home_programs_write_clinician",
+      "schemaname": "public",
+      "with_check": "(is_clinician_for_episode(episode_id) OR is_admin())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM home_programs hp\n  WHERE ((hp.id = home_program_exercises.home_program_id) AND can_access_episode(hp.episode_id))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "home_program_exercises",
+      "permissive": "PERMISSIVE",
+      "policyname": "home_program_exercises_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(EXISTS ( SELECT 1\n   FROM home_programs hp\n  WHERE ((hp.id = home_program_exercises.home_program_id) AND (is_clinician_for_episode(hp.episode_id) OR is_admin()))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "home_program_exercises",
+      "permissive": "PERMISSIVE",
+      "policyname": "home_program_exercises_write_clinician",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM home_programs hp\n  WHERE ((hp.id = home_program_exercises.home_program_id) AND (is_clinician_for_episode(hp.episode_id) OR is_admin()))))"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "can_access_patient(patient_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "daily_checkins",
+      "permissive": "PERMISSIVE",
+      "policyname": "daily_checkins_update_accessible",
+      "schemaname": "public",
+      "with_check": "can_access_patient(patient_id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_patient(patient_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "exercise_adherence_logs",
+      "permissive": "PERMISSIVE",
+      "policyname": "exercise_adherence_logs_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "can_access_patient(patient_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "exercise_adherence_logs",
+      "permissive": "PERMISSIVE",
+      "policyname": "exercise_adherence_logs_update_accessible",
+      "schemaname": "public",
+      "with_check": "can_access_patient(patient_id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_patient(patient_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "barriers",
+      "permissive": "PERMISSIVE",
+      "policyname": "barriers_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "can_access_patient(patient_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "barriers",
+      "permissive": "PERMISSIVE",
+      "policyname": "barriers_write_accessible",
+      "schemaname": "public",
+      "with_check": "can_access_patient(patient_id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_patient(patient_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "visit_notes",
+      "permissive": "PERMISSIVE",
+      "policyname": "visit_notes_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(((clinician_id = ( SELECT auth.uid() AS uid)) AND is_clinician_for_patient(patient_id)) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "visit_notes",
+      "permissive": "PERMISSIVE",
+      "policyname": "visit_notes_write_clinician",
+      "schemaname": "public",
+      "with_check": "(((clinician_id = ( SELECT auth.uid() AS uid)) AND is_clinician_for_patient(patient_id)) OR is_admin())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_patient(patient_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "clinical_decisions",
+      "permissive": "PERMISSIVE",
+      "policyname": "clinical_decisions_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(((clinician_id = ( SELECT auth.uid() AS uid)) AND is_clinician_for_patient(patient_id)) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "clinical_decisions",
+      "permissive": "PERMISSIVE",
+      "policyname": "clinical_decisions_write_clinician",
+      "schemaname": "public",
+      "with_check": "(((clinician_id = ( SELECT auth.uid() AS uid)) AND is_clinician_for_patient(patient_id)) OR is_admin())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_episode(episode_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "progress_metrics",
+      "permissive": "PERMISSIVE",
+      "policyname": "progress_metrics_select_accessible",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(is_clinician_for_episode(episode_id) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "progress_metrics",
+      "permissive": "PERMISSIVE",
+      "policyname": "progress_metrics_write_clinician",
+      "schemaname": "public",
+      "with_check": "(is_clinician_for_episode(episode_id) OR is_admin())"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "feedback",
+      "permissive": "PERMISSIVE",
+      "policyname": "feedback_insert_authenticated",
+      "schemaname": "public",
+      "with_check": "((profile_id = ( SELECT auth.uid() AS uid)) OR (profile_id IS NULL) OR is_admin())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((profile_id = ( SELECT auth.uid() AS uid)) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "feedback",
+      "permissive": "PERMISSIVE",
+      "policyname": "feedback_select_own_or_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(( SELECT auth.uid() AS uid) = clinician_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "patients",
+      "permissive": "PERMISSIVE",
+      "policyname": "patients_select_clinician_owner",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "patients",
+      "permissive": "PERMISSIVE",
+      "policyname": "patients_insert_clinician_owner",
+      "schemaname": "public",
+      "with_check": "((( SELECT auth.uid() AS uid) IS NOT NULL) AND (( SELECT auth.uid() AS uid) = clinician_id))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((( SELECT auth.uid() AS uid) = clinician_id) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "exercises",
+      "permissive": "PERMISSIVE",
+      "policyname": "exercises_select_own_clinician",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((( SELECT auth.uid() AS uid) = clinician_id) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "exercises",
+      "permissive": "PERMISSIVE",
+      "policyname": "exercises_write_own_clinician",
+      "schemaname": "public",
+      "with_check": "((( SELECT auth.uid() AS uid) = clinician_id) OR is_admin())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM (home_program_exercises hpe\n     JOIN home_programs hp ON ((hp.id = hpe.home_program_id)))\n  WHERE ((hpe.exercise_id = exercises.id) AND can_access_episode(hp.episode_id))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "exercises",
+      "permissive": "PERMISSIVE",
+      "policyname": "exercises_select_assigned_to_patient",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "exercise_adherence_logs",
+      "permissive": "PERMISSIVE",
+      "policyname": "exercise_adherence_logs_insert_patient_or_clinician",
+      "schemaname": "public",
+      "with_check": "(can_access_patient(patient_id) AND ((home_program_id IS NULL) OR (EXISTS ( SELECT 1\n   FROM (home_programs hp\n     JOIN episodes e ON ((e.id = hp.episode_id)))\n  WHERE ((hp.id = exercise_adherence_logs.home_program_id) AND (e.patient_id = exercise_adherence_logs.patient_id))))) AND ((home_program_exercise_id IS NULL) OR (EXISTS ( SELECT 1\n   FROM ((home_program_exercises hpe\n     JOIN home_programs hp ON ((hp.id = hpe.home_program_id)))\n     JOIN episodes e ON ((e.id = hp.episode_id)))\n  WHERE ((hpe.id = exercise_adherence_logs.home_program_exercise_id) AND (e.patient_id = exercise_adherence_logs.patient_id) AND ((exercise_adherence_logs.home_program_id IS NULL) OR (hp.id = exercise_adherence_logs.home_program_id)))))))"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "daily_checkins",
+      "permissive": "PERMISSIVE",
+      "policyname": "daily_checkins_insert_patient_or_clinician",
+      "schemaname": "public",
+      "with_check": "(can_access_patient(patient_id) AND ((episode_id IS NULL) OR (EXISTS ( SELECT 1\n   FROM episodes e\n  WHERE ((e.id = daily_checkins.episode_id) AND (e.patient_id = daily_checkins.patient_id))))))"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "analytics_events",
+      "permissive": "PERMISSIVE",
+      "policyname": "analytics_events_insert_owned",
+      "schemaname": "public",
+      "with_check": "((actor_id = ( SELECT auth.uid() AS uid)) AND (patient_id IS NOT NULL) AND (((event_name = ANY (ARRAY['patient_review_opened'::text, 'program_created'::text, 'program_updated'::text])) AND ( SELECT is_clinician_for_patient(analytics_events.patient_id) AS is_clinician_for_patient)) OR ((event_name = ANY (ARRAY['patient_checkin_submitted'::text, 'exercise_session_submitted'::text])) AND ( SELECT is_patient_self(analytics_events.patient_id) AS is_patient_self))) AND ((home_program_id IS NULL) OR (EXISTS ( SELECT 1\n   FROM (home_programs hp\n     JOIN episodes e ON ((e.id = hp.episode_id)))\n  WHERE ((hp.id = analytics_events.home_program_id) AND (e.patient_id = analytics_events.patient_id))))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "( SELECT is_admin() AS is_admin)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "analytics_events",
+      "permissive": "PERMISSIVE",
+      "policyname": "analytics_events_select_admin",
+      "schemaname": "public",
+      "with_check": null
+    }
+  ],
+  "functions": [
+    "CREATE OR REPLACE FUNCTION public.can_access_episode(target_episode_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE\n SET search_path TO ''\nAS $function$ select private.can_access_episode(target_episode_id); $function$\n",
+    "CREATE OR REPLACE FUNCTION private.can_access_episode(target_episode_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select exists (\n    select 1\n    from public.episodes e\n    join public.patients p on p.id = e.patient_id\n    left join public.profiles profile on profile.id = (select auth.uid())\n    where e.id = target_episode_id\n      and (\n        p.clinician_id = (select auth.uid())\n        or p.patient_profile_id = (select auth.uid())\n        or profile.role = 'admin'\n      )\n  );\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.can_access_patient(target_patient_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE\n SET search_path TO ''\nAS $function$ select private.can_access_patient(target_patient_id); $function$\n",
+    "CREATE OR REPLACE FUNCTION private.can_access_patient(target_patient_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select exists (\n    select 1\n    from public.patients p\n    left join public.profiles profile on profile.id = (select auth.uid())\n    where p.id = target_patient_id\n      and (\n        p.clinician_id = (select auth.uid())\n        or p.patient_profile_id = (select auth.uid())\n        or profile.role = 'admin'\n      )\n  );\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.is_admin()\n RETURNS boolean\n LANGUAGE sql\n STABLE\n SET search_path TO ''\nAS $function$ select private.is_admin(); $function$\n",
+    "CREATE OR REPLACE FUNCTION private.is_admin()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select exists (\n    select 1 from public.profiles p\n    where p.id = (select auth.uid()) and p.role = 'admin'\n  );\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.is_clinician_for_episode(target_episode_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE\n SET search_path TO ''\nAS $function$ select private.is_clinician_for_episode(target_episode_id); $function$\n",
+    "CREATE OR REPLACE FUNCTION private.is_clinician_for_episode(target_episode_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select exists (\n    select 1\n    from public.episodes e\n    join public.patients p on p.id = e.patient_id\n    where e.id = target_episode_id\n      and p.clinician_id = (select auth.uid())\n  );\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.is_clinician_for_patient(target_patient_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE\n SET search_path TO ''\nAS $function$ select private.is_clinician_for_patient(target_patient_id); $function$\n",
+    "CREATE OR REPLACE FUNCTION private.is_clinician_for_patient(target_patient_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select exists (\n    select 1 from public.patients p\n    where p.id = target_patient_id\n      and p.clinician_id = (select auth.uid())\n  );\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.is_patient_self(target_patient_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE\n SET search_path TO ''\nAS $function$ select private.is_patient_self(target_patient_id); $function$\n",
+    "CREATE OR REPLACE FUNCTION private.is_patient_self(target_patient_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select exists (\n    select 1 from public.patients p\n    where p.id = target_patient_id\n      and p.patient_profile_id = (select auth.uid())\n  );\n$function$\n"
+  ]
+}

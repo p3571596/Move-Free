@@ -1,6 +1,6 @@
 # Stage 1: video-guided pilot candidate
 
-This branch builds on the reviewed PWA branch (`869259e`) and includes the recovered v0.1 rules unchanged. Main and the existing open PRs are preserved. No live schema or RLS changes are part of this stage, following the user's explicit choice.
+This branch builds on the reviewed PWA branch (`869259e`) and includes the recovered v0.1 rules unchanged. Main and the existing open PRs are preserved. The original preview deferred schema changes. The subsequently authorized release gate applies the reviewed storage and authorization migrations; see `pilot-release-gate.md` for current release status.
 
 ## Video behavior
 
@@ -20,9 +20,7 @@ Repetition and duration prescriptions use the existing text dosage field (for ex
 
 ## Current release boundaries
 
-The user has explicitly declined live schema changes. New engine-evaluation persistence, authored Messages replies/history, program-change audit, and founder engine metrics therefore remain labeled Preview. Existing check-in history, approved current guidance, manual review, program updates, and patient feedback work against existing storage. The recovered rule engine can be evaluated but does not claim unsaved comparisons were recorded.
-
-Older live clinical tables retain administrator exceptions that violate the universal explicit-care-relationship principle. The application filters treating relationships, but client filters do not replace RLS. This is a real-patient release blocker. The new prepared migration does not fix older policies and must not be treated as doing so. Do not merge or roll out to real patients until this is resolved and tested in an approved environment.
+The release-gate work enables saved engine evaluations, authored Messages replies/history, program-change audit and aggregate founder engine metrics using the prepared migration. The authorization migration removes administrator clinical-access exceptions and prevents users from changing their own authorization role. Both migrations have been applied to the shared Supabase project, with filenames aligned to the recorded deployment versions. Follow `pilot-release-gate.md` for the validation evidence and remaining gates.
 
 ## Final clinician manual test before real patients
 
@@ -35,6 +33,6 @@ Older live clinical tables retain administrator exceptions that violate the univ
 7. Complete one exercise, partly complete another, skip another, and submit a comment. Omit optional symptom/pain ratings once and verify no normal finding is invented.
 8. Review Today → Since Last Visit and exercise-specific comments. Evaluate the recovered engine using explicit assessed inputs; inspect missing data and explanations. Confirm no output reaches the patient automatically.
 9. Write and approve patient guidance, update dosage, and confirm the patient sees the update in Today/Messages/Program. Submit a subsequent patient response.
-10. Confirm two-way Messages and saved engine comparisons are enabled and tested in the eventual approved pilot environment. They are NOT enabled in this preview.
+10. Confirm two-way Messages and saved engine comparisons are enabled and tested in the eventual approved pilot environment. They are enabled in the release candidate database.
 11. Test an unrelated clinician and an unrelated administrator against every clinical record type, including direct API requests. Both must be denied before real-patient release.
 12. Agree on clinic response expectations and an urgent-contact route; do not present the app as continuously monitored. Verify invitation email delivery and an extended idle-session return on real devices.

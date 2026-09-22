@@ -12,7 +12,7 @@ create table clinical_decisions(id uuid primary key,patient_id uuid,episode_id u
 create table home_programs(id uuid primary key,episode_id uuid,status text,patient_explanation text,updated_at timestamptz default now());create table home_program_exercises(id uuid primary key,home_program_id uuid,sort_order integer);
 create table daily_checkins(id uuid primary key,patient_id uuid,created_at timestamptz default now());
 grant select,insert on all tables in schema public to authenticated;`);
-await db.exec(fs.readFileSync('supabase/migrations/20260920190303_clinical_engine_pilot.sql','utf8'));
+await db.exec(fs.readFileSync('supabase/migrations/20260921235847_clinical_engine_pilot.sql','utf8'));
 for(const [name,id]of Object.entries(ids).slice(0,4))await db.query('insert into profiles values($1,$2)',[id,name==='outsider'?'clinician':name]);
 await db.query('insert into patients values($1,$2,$3)',[ids.record,ids.clinician,ids.patient]);await db.query('insert into episodes values($1,$2)',[ids.episode,ids.record]);
 const as=async id=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');};
