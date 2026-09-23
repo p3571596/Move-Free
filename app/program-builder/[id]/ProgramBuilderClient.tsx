@@ -53,7 +53,6 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       }
 
       return [
-        ...items,
         {
           id: `draft-${exercise.id}-${Date.now()}`,
           exercise_id: exercise.id,
@@ -64,6 +63,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
           notes: "",
           exercise,
         },
+        ...items,
       ];
     });
   }
@@ -72,7 +72,6 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
     const exerciseId = `custom-${Date.now()}`;
 
     setDraft((items) => [
-      ...items,
       {
         id: `draft-${exerciseId}`,
         exercise_id: null,
@@ -90,6 +89,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
           tags: [],
         },
       },
+      ...items,
     ]);
     setStatus("Program draft started. Add exercises, dosage, and notes.");
   }
