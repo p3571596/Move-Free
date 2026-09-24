@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Play } from "lucide-react";
-import { ExerciseVideo } from "@/components/ExerciseVideo";
+import { AssignedExerciseVideo } from "@/components/AssignedExerciseVideo";
 import { formatRepsOrTime } from "@/lib/exercise-media";
 import { PatientShell } from "@/components/PatientShell";
 import { RoleGate } from "@/components/RoleGate";
@@ -104,6 +104,7 @@ export default function TodayProgramPage() {
             <h1>{workspace?.program?.title ?? "Today&apos;s plan"}</h1>
             <p>{workspace?.programExercises.length ?? 0} exercises assigned by your therapist.</p>
           </header>
+          <Link className="secondary-button" href="/patient/videos">Optional video sharing</Link>
 
           {!workspace && !error ? <div className="empty">Loading today&apos;s program…</div> : null}
           {error && !workspace ? <div className="empty form-error" role="alert">{error}</div> : null}
@@ -117,6 +118,7 @@ export default function TodayProgramPage() {
               <h3>{workspace.programExercises.length} exercises in today&apos;s plan</h3>
               <p className="muted">Record what you complete. Add pain, difficulty, or a note only when it helps your therapist understand the session.</p>
               <button className="button" type="button" onClick={() => setStarted(true)}><Play size={18} /> Start today&apos;s program</button>
+              <details><summary>View exercise videos and instructions</summary><div className="form">{orderedExercises.map(item=><article className="panel" key={item.id}><h3>{item.exercise?.name??"Exercise"}</h3><AssignedExerciseVideo item={item}/></article>)}</div></details>
             </section>
           ) : null}
 
@@ -160,11 +162,9 @@ function ExerciseEntryCard({ item, value, onChange }: { item: HomeProgramExercis
         <div><h4>{item.exercise?.name ?? "Exercise"}</h4></div>
         <span className="pill">{formatCategory(item.category ?? item.exercise?.category ?? "other")}</span>
       </div>
-      <ExerciseVideo key={item.id} url={item.exercise?.video_url} name={item.exercise?.name??"Exercise"}/>
+      <AssignedExerciseVideo key={item.id} item={item}/>
       <p><strong>{formatDosage(item)}</strong></p>
-      {item.exercise?.patient_instructions ? <p>{item.exercise.patient_instructions}</p> : null}
 
-      {item.notes ? <p className="therapist-note"><strong>Key cues:</strong> {item.notes}</p> : null}
       <fieldset className="segmented-field">
         <legend>What did you complete?</legend>
         <div className="segment-options">
