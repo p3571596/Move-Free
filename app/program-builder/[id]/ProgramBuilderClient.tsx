@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { ProgramExerciseRecording } from "@/components/ProgramExerciseRecording";
 import { ExerciseVideoField } from "@/components/ExerciseVideoField";
 import { approvedVideoFromForm } from "@/lib/exercise-media";
 import { ExerciseVideo } from "@/components/ExerciseVideo";
@@ -53,7 +54,6 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       }
 
       return [
-        ...items,
         {
           id: `draft-${exercise.id}-${Date.now()}`,
           exercise_id: exercise.id,
@@ -64,6 +64,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
           notes: "",
           exercise,
         },
+        ...items,
       ];
     });
   }
@@ -72,7 +73,6 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
     const exerciseId = `custom-${Date.now()}`;
 
     setDraft((items) => [
-      ...items,
       {
         id: `draft-${exerciseId}`,
         exercise_id: null,
@@ -90,6 +90,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
           tags: [],
         },
       },
+      ...items,
     ]);
     setStatus("Program draft started. Add exercises, dosage, and notes.");
   }
@@ -224,6 +225,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                   <label htmlFor={`exercise-${item.id}`}>Exercise</label>
                   <input id={`exercise-${item.id}`} value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
                 </div>
+                <ProgramExerciseRecording item={item} patientId={patientId}/>
                 <ExerciseVideoField initialUrl={item.exercise?.video_url} name={item.exercise?.name ?? "Exercise"} inputId={`video-url-${item.id}`} fieldName={`video-${item.id}`} approvalName={`video-approved-${item.id}`} />
                 <div className="grid three">
                   <div className="field">

@@ -24,3 +24,7 @@ Hosted preview verification passed all 13 synthetic browser/API checks: actual S
 ## Next increments (not implemented)
 
 AI-assisted exercise drafts with clinician editing/approval; optional desired-versus-patient comparison; explicit unable-to-assess outcomes; structured observation/clinician agreement, disagreement and correction; only clinician-validated movement observations entering decision support. No AI provider calls or autonomous clinical decisions exist in this increment. Define evaluation criteria and consent/retention before adding analysis.
+
+## Video visibility correction
+
+Recorded demonstrations now appear with draft/approved status in Program Builder, and approved demonstrations appear in the clinician's patient preview and a patient Program disclosure before the session starts. Patient video data refreshes while the page is visible and when returning to it. Upload and approval confirmations distinguish a private draft from publication. Saving a program updates retained assignment rows instead of deleting/recreating them, preserving video IDs and adherence links. Removing an assignment with recordings is blocked with an explanation to avoid losing its media association. This correction is preview-only; production Stage 1 still uses its prior program-save implementation, so do not edit a Stage 2 test program through production.

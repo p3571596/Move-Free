@@ -11,10 +11,15 @@ export function AssignedExerciseVideo({item}:{item:HomeProgramExercise}) {
   const [error,setError]=useState(false);
   useEffect(()=>{
     let active=true;
+    const refresh=()=>{if(document.visibilityState==="hidden")return;
     createSupabaseBrowserClient().from("exercise_video_assets").select("*").eq("program_exercise_id",item.id).eq("kind","demonstration").eq("state","approved").maybeSingle().then(({data,error})=>{
       if(active){setAsset(data);setError(Boolean(error));setLoaded(true);}
-    });
-    return()=>{active=false;};
+    });};
+    refresh();
+    const timer=setInterval(refresh,15000);
+    window.addEventListener("focus",refresh);
+    document.addEventListener("visibilitychange",refresh);
+    return()=>{active=false;clearInterval(timer);window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);};
   },[item.id]);
   if(!loaded)return <p role="status">Loading exercise demonstration…</p>;
   if(error)return <p role="alert">Your demonstration could not be loaded. Reconnect and reload this page before starting.</p>;

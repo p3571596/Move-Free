@@ -431,37 +431,44 @@ export async function saveProgramDraft(
   }));
   const savedItems: HomeProgramExercise[] = [];
 
-  const { error: deleteError } = await client
-    .from("home_program_exercises")
-    .delete()
-    .eq("home_program_id", program.id);
-
-  if (deleteError) {
-    throw deleteError;
+  // Keep assignment IDs stable: private videos and adherence history reference them.
+  const { data: existing, error: existingError } = await client
+    .from("home_program_exercises").select("id").eq("home_program_id", program.id);
+  if (existingError) throw existingError;
+  const existingIds = new Set((existing ?? []).map(row => row.id));
+  const retainedIds = new Set(items.map(item => item.id));
+  const removedIds = [...existingIds].filter(id => !retainedIds.has(id));
+  if (removedIds.length) {
+    const { data: attached, error: videoError } = await client.from("exercise_video_assets")
+      .select("id").in("program_exercise_id", removedIds).limit(1);
+    if (videoError) throw videoError;
+    if (attached?.length) throw new Error("An exercise with recorded videos cannot be removed here. Keep it in the program so its recordings remain available.");
   }
 
   for (const [index, item] of items.entries()) {
     const exercise = exercises[index];
-    const { data, error } = await client
-      .from("home_program_exercises")
-      .insert({
-        home_program_id: program.id,
-        exercise_id: exercise.id,
-        sort_order: index,
-        dosage_sets: String(item.sets ?? item.dosage_sets ?? ""),
-        dosage_reps: String(item.dosage_reps ?? item.reps ?? ""),
-        frequency: item.frequency ?? null,
-        notes: item.notes ?? null,
-        category: normalizeExerciseCategory(item.category ?? item.exercise?.category),
-      })
-      .select("*, exercise:exercises(*)")
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
+    const values = {
+      home_program_id: program.id,
+      exercise_id: exercise.id,
+      sort_order: index,
+      dosage_sets: String(item.sets ?? item.dosage_sets ?? ""),
+      dosage_reps: String(item.dosage_reps ?? item.reps ?? ""),
+      frequency: item.frequency ?? null,
+      notes: item.notes ?? null,
+      category: normalizeExerciseCategory(item.category ?? item.exercise?.category),
+    };
+    const query = existingIds.has(item.id)
+      ? client.from("home_program_exercises").update(values).eq("id", item.id).eq("home_program_id", program.id)
+      : client.from("home_program_exercises").insert(values);
+    const { data, error } = await query.select("*, exercise:exercises(*)").single();
+    if (error) throw error;
     savedItems.push(normalizeProgramExercise(data));
+  }
+  // Remove only explicitly removed assignments, after all retained/new items save.
+  if (removedIds.length) {
+    const { error } = await client.from("home_program_exercises").delete()
+      .eq("home_program_id", program.id).in("id", removedIds);
+    if (error) throw error;
   }
 
   await trackAnalyticsEvent(client, {

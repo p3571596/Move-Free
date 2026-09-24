@@ -118,6 +118,7 @@ export default function TodayProgramPage() {
               <h3>{workspace.programExercises.length} exercises in today&apos;s plan</h3>
               <p className="muted">Record what you complete. Add pain, difficulty, or a note only when it helps your therapist understand the session.</p>
               <button className="button" type="button" onClick={() => setStarted(true)}><Play size={18} /> Start today&apos;s program</button>
+              <details><summary>View exercise videos and instructions</summary><div className="form">{orderedExercises.map(item=><article className="panel" key={item.id}><h3>{item.exercise?.name??"Exercise"}</h3><AssignedExerciseVideo item={item}/></article>)}</div></details>
             </section>
           ) : null}
 
