@@ -4,7 +4,7 @@ import type { NextConfig } from "next";
 // Production and other branches continue to require their configured env vars.
 // No service-role key or mail credential is embedded in the preview.
 const pilotPreview = process.env.VERCEL_ENV === "preview"
-  && ["feature/pwa-feedback-pilot", "feature/stage1-video-pwa"].includes(process.env.VERCEL_GIT_COMMIT_REF ?? "");
+  && ["feature/pwa-feedback-pilot", "feature/stage1-video-pwa", "feature/stage2-personalized-video"].includes(process.env.VERCEL_GIT_COMMIT_REF ?? "");
 
 const nextConfig: NextConfig = {
   env: pilotPreview ? {
