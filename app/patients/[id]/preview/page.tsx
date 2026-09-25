@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Activity, ArrowLeft, CheckCircle2, HeartPulse, Home, TrendingUp } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { AssignedExerciseVideo } from "@/components/AssignedExerciseVideo";
 import { GoalProgress } from "@/components/GoalProgress";
 import { ProgressBars } from "@/components/ProgressBars";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -97,7 +98,7 @@ export default function PatientPreviewPage() {
                         <div className="section-header"><h3>{formatCategory(category)}</h3><span className="pill">{items.length}</span></div>
                         <div className="exercise-card-list">{items.map((item) => {
                           const checked = completedIds.has(item.id);
-                          return <button className={`patient-exercise-card${checked ? " is-complete" : ""}`} type="button" key={item.id} onClick={() => toggleCompleted(item.id, setCompletedIds)}><span className="exercise-check">{checked ? "✓" : ""}</span><span className="exercise-copy"><strong>{item.exercise?.name ?? "Exercise"}</strong><span>{formatDosage(item)}</span>{item.exercise?.patient_instructions ? <small>{item.exercise.patient_instructions}</small> : null}{item.notes ? <small>PT note: {item.notes}</small> : null}</span></button>;
+                          return <article key={item.id}><button className={`patient-exercise-card${checked ? " is-complete" : ""}`} type="button" key={item.id} onClick={() => toggleCompleted(item.id, setCompletedIds)}><span className="exercise-check">{checked ? "✓" : ""}</span><span className="exercise-copy"><strong>{item.exercise?.name ?? "Exercise"}</strong><span>{formatDosage(item)}</span>{item.exercise?.patient_instructions ? <small>{item.exercise.patient_instructions}</small> : null}{item.notes ? <small>PT note: {item.notes}</small> : null}</span></button><AssignedExerciseVideo item={item}/></article>;
                         })}</div>
                       </section>
                     ))}

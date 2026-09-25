@@ -10,7 +10,10 @@ import { AppShell } from "@/components/AppShell";
 import { TagInput } from "@/components/TagInput";
 import { RequireAuth } from "@/components/RequireAuth";
 import { createExercise } from "@/lib/data";
-import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
+import {
+  createSupabaseBrowserClient,
+  isSupabaseConfigured,
+} from "@/lib/supabase";
 
 export default function NewExercisePage() {
   const router = useRouter();
@@ -33,21 +36,32 @@ export default function NewExercisePage() {
       const result = await createExercise(supabase, {
         name: String(form.get("name") ?? ""),
         category: String(form.get("category") ?? "other"),
+        equipment: String(form.get("equipment") ?? ""),
+        library_scope:
+          form.get("standard_confirmed") === "on" ? "standard" : "needs_review",
         clinical_purpose: String(form.get("clinical_purpose") ?? ""),
         patient_instructions: String(form.get("patient_instructions") ?? ""),
-        default_dosage: String(form.get("default_dosage") ?? ""),
         video_url: approvedVideoFromForm(form),
         tags,
         is_active: true,
       });
       if (result.wasDuplicate) {
-        setStatus(`“${result.exercise.name}” already exists. Opening the existing exercise instead.`);
-        setTimeout(() => router.push(`/exercise-studio/${result.exercise.id}/edit`), 900);
+        setStatus(
+          `“${result.exercise.name}” already exists. Opening the existing exercise instead.`,
+        );
+        setTimeout(
+          () => router.push(`/exercise-studio/${result.exercise.id}/edit`),
+          900,
+        );
       } else {
         router.push("/exercise-studio");
       }
     } catch (caught) {
-      setStatus(caught instanceof Error ? caught.message : "Exercise could not be created.");
+      setStatus(
+        caught instanceof Error
+          ? caught.message
+          : "Exercise could not be created.",
+      );
     }
   }
 
@@ -58,9 +72,14 @@ export default function NewExercisePage() {
           <div>
             <p className="eyebrow">Exercise Studio</p>
             <h2>Create Exercise</h2>
-            <p className="muted">Save a reusable exercise to your clinician library.</p>
+            <p className="muted">
+              Save a standard reusable exercise. Patient-specific dosage, cues
+              and videos belong in Program Builder.
+            </p>
           </div>
-          <Link className="secondary-button" href="/exercise-studio">Back to Studio</Link>
+          <Link className="secondary-button" href="/exercise-studio">
+            Back to Studio
+          </Link>
         </div>
         <form className="panel form patient-form" onSubmit={submit}>
           <div className="field">
@@ -85,14 +104,22 @@ export default function NewExercisePage() {
             <textarea id="clinical_purpose" name="clinical_purpose" />
           </div>
           <div className="field">
-            <label htmlFor="patient_instructions">Patient instructions</label>
+            <label htmlFor="patient_instructions">
+              Basic movement description
+            </label>
             <textarea id="patient_instructions" name="patient_instructions" />
           </div>
-          <div className="field">
-            <label htmlFor="default_dosage">Default dosage</label>
-            <input id="default_dosage" name="default_dosage" placeholder="2 sets of 10, 3x/week" />
-          </div>
-          <ExerciseVideoField/>
+
+          <label className="field">
+            Reusable equipment
+            <input name="equipment" maxLength={300} />
+          </label>
+          <label>
+            <input name="standard_confirmed" type="checkbox" required /> This is
+            a standard reusable exercise with no patient-specific instructions
+            or dosage.
+          </label>
+          <ExerciseVideoField />
           <button className="button" type="submit">
             <Save size={18} />
             Save Exercise
