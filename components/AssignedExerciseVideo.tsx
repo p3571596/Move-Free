@@ -49,6 +49,16 @@ export function AssignedExerciseVideo({ item }: { item: HomeProgramExercise }) {
             id={item.prescription.media_id}
             title={item.prescription.name}
           />
+        ) : !loaded ? (
+          <p role="status">Loading exercise demonstration…</p>
+        ) : error ? (
+          <p role="alert">Your demonstration could not be loaded. Reconnect and reload this page before starting.</p>
+        ) : asset ? (
+          <PrivateVideoPlayer
+            key={asset.id}
+            path={asset.object_path}
+            title={item.prescription.name}
+          />
         ) : (
           <ExerciseVideo
             url={item.exercise?.video_url}
