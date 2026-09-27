@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import Module from 'node:module';
+import ts from 'typescript';
+function load(file,deps={}){const m=new Module(file);m.require=n=>deps[n];m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);return m.exports;}
+const p=load('lib/prescription.ts');
+test('standard exercise snapshot does not alias or modify template',()=>{const item={id:'a',exercise:{id:'template',name:'Squat',patient_instructions:'Stand tall'},dosage_sets:'2'};const snapshot=p.prescriptionFromItem(item);snapshot.name='Patient variation';snapshot.sets='3';assert.equal(item.exercise.name,'Squat');assert.equal(item.dosage_sets,'2');});
+test('FITT dosage requires quoted speech/context; visual demonstration counts are blank',()=>{const content={...p.emptyPrescription(),name:'Squat',reps:'5',hold:'3 seconds',frequency:'twice daily'};const evidence=[{field:'name',source:'visual',quote:'Standing squat',certainty:'supported'},{field:'reps',source:'visual',quote:'Five repetitions shown',certainty:'supported'},{field:'hold',source:'speech',quote:'hold three seconds',certainty:'uncertain'},{field:'frequency',source:'context',quote:'twice daily',certainty:'supported'}];assert.deepEqual(p.supportedDraft(content,evidence,'Do this twice daily.','hold three seconds'),{...p.emptyPrescription(),name:'Squat',frequency:'twice daily'});});
+test('explicit spoken parameters populate only supported fields',()=>{const transcript='Do two sets of eight, twice a day, hold five seconds.';const values={sets:'2',reps:'8',frequency:'twice a day',hold:'5 seconds'};const evidence=Object.keys(values).map(field=>({field,source:'speech',quote:transcript,certainty:'supported'}));const result=p.supportedDraft({...p.emptyPrescription(),...values},evidence,'',transcript);for(const [k,v] of Object.entries(values))assert.equal(result[k],v);assert.equal(result.intensity,'');assert.equal(result.rest,'');});
+test('fabricated source quotations cannot fill FITT',()=>{assert.equal(p.supportedDraft({...p.emptyPrescription(),reps:'10'},[{field:'reps',source:'speech',quote:'Ten reps',certainty:'supported'}],'','No instructions given.').reps,'');});
+test('malformed and oversized drafts are rejected',()=>{assert.throws(()=>p.validatePrescription({name:'x'}));assert.throws(()=>p.validatePrescription({...p.emptyPrescription(),instructions:'x'.repeat(4001)}));});

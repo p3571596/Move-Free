@@ -1,6 +1,13 @@
+import type { Prescription } from "./prescription";
 import type { EngineResult } from "./clinical-engine";
 
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
 
 export type Role = "clinician" | "patient" | "admin" | string;
 
@@ -69,6 +76,8 @@ export type Goal = {
 };
 
 export type Exercise = {
+  library_scope?: "standard" | "needs_review";
+  equipment?: string | null;
   id: string;
   clinician_id?: string | null;
   name?: string | null;
@@ -103,6 +112,8 @@ export type HomeProgram = {
 };
 
 export type HomeProgramExercise = {
+  prescription?: (Prescription & { media_id?: string }) | null;
+  prescription_version?: number;
   id: string;
   home_program_id?: string | null;
   exercise_id?: string | null;
@@ -162,18 +173,43 @@ export type ClinicalDecision = {
   created_at?: string | null;
 };
 
-export type CareMessage = {id: string; patient_id: string; author_id: string; body: string; program_id: string | null; kind: "patient_message" | "clinician_message" | "approved_guidance"; created_at: string};
+export type CareMessage = {
+  id: string;
+  patient_id: string;
+  author_id: string;
+  body: string;
+  program_id: string | null;
+  kind: "patient_message" | "clinician_message" | "approved_guidance";
+  created_at: string;
+};
 
 export type EngineReviewRecord = {
-  id: string; patient_id: string; clinician_id: string; engine_version: string;
-  engine_result: EngineResult; source_snapshot: Json; program_snapshot: Json;
+  id: string;
+  patient_id: string;
+  clinician_id: string;
+  engine_version: string;
+  engine_result: EngineResult;
+  source_snapshot: Json;
+  program_snapshot: Json;
   disposition: "accepted" | "modified" | "rejected" | "not_evaluated";
-  disagreement_reason: string | null; clinician_modification: string | null; created_at: string;
+  disagreement_reason: string | null;
+  clinician_modification: string | null;
+  created_at: string;
 };
 export type EngineAnalytics = {
-  reviews: number; accepted: number; modified: number; rejected: number; notEvaluated: number;
+  reviews: number;
+  accepted: number;
+  modified: number;
+  rejected: number;
+  notEvaluated: number;
   withSubsequentResponse: number;
-  rules: Array<{rule: string; reviews: number; accepted: number; modified: number; rejected: number}>;
+  rules: Array<{
+    rule: string;
+    reviews: number;
+    accepted: number;
+    modified: number;
+    rejected: number;
+  }>;
 };
 
 export type VisitNote = {
@@ -298,6 +334,10 @@ export type Database = {
       clinical_decisions: Table<ClinicalDecision>;
       clinical_engine_reviews: Table<EngineReviewRecord>;
       care_messages: Table<CareMessage>;
+      exercise_video_assets: Table<ExerciseVideoAsset>;
+      exercise_creation_drafts: Table<CreationDraft>;
+      exercise_creation_media: Table<CreationMedia>;
+      exercise_ai_runs: Table<AIRun>;
       visit_notes: Table<VisitNote>;
       barriers: Table<Barrier>;
       feedback: Table<Feedback>;
@@ -305,12 +345,85 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
-      create_patient_invite: { Args: { p_patient_id: string }; Returns: string };
+      stage2_draft: {
+        Args: {
+          p_action: string;
+          p_id: string;
+          p_patient: string;
+          p_program: string;
+          p_content?: Json;
+          p_revision?: number;
+        };
+        Returns: string;
+      };
+      stage2_media: {
+        Args: {
+          p_action: string;
+          p_id: string;
+          p_draft: string;
+          p_size?: number;
+          p_mime?: string;
+        };
+        Returns: undefined;
+      };
+      stage2_begin_ai: {
+        Args: { p_draft: string; p_media?: string | null };
+        Returns: string;
+      };
+      stage2_video_played: { Args: { p_media: string }; Returns: undefined };
+      stage2_save_program: {
+        Args: { p_program: string; p_patient: string; p_items: Json };
+        Returns: undefined;
+      };
+      finish_exercise_video: { Args: { p_id: string }; Returns: undefined };
+      approve_exercise_video: {
+        Args: {
+          p_id: string;
+          p_title: string;
+          p_instructions: string;
+          p_cues: string;
+        };
+        Returns: undefined;
+      };
+      withdraw_exercise_video: { Args: { p_id: string }; Returns: undefined };
+      create_patient_invite: {
+        Args: { p_patient_id: string };
+        Returns: string;
+      };
       claim_patient_invite: { Args: { p_token: string }; Returns: string };
-      publish_care_guidance: {Args: {p_patient_id: string; p_program_id: string; p_expected_version: string; p_body: string; p_message_id: string}; Returns: string};
-      record_engine_review: { Args: {p_id: string; p_patient_id: string; p_episode_id: string; p_decision: string; p_rationale: string; p_engine: Json; p_source: Json; p_disposition: string; p_disagreement: string; p_modification: string}; Returns: undefined };
-      get_engine_pilot_analytics: {Args: {p_days?: number}; Returns: EngineAnalytics};
-      get_founder_analytics: { Args: { p_days?: number }; Returns: FounderAnalytics };
+      publish_care_guidance: {
+        Args: {
+          p_patient_id: string;
+          p_program_id: string;
+          p_expected_version: string;
+          p_body: string;
+          p_message_id: string;
+        };
+        Returns: string;
+      };
+      record_engine_review: {
+        Args: {
+          p_id: string;
+          p_patient_id: string;
+          p_episode_id: string;
+          p_decision: string;
+          p_rationale: string;
+          p_engine: Json;
+          p_source: Json;
+          p_disposition: string;
+          p_disagreement: string;
+          p_modification: string;
+        };
+        Returns: undefined;
+      };
+      get_engine_pilot_analytics: {
+        Args: { p_days?: number };
+        Returns: EngineAnalytics;
+      };
+      get_founder_analytics: {
+        Args: { p_days?: number };
+        Returns: FounderAnalytics;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -347,4 +460,62 @@ export type PatientWorkspace = {
   program: HomeProgram | null;
   programExercises: HomeProgramExercise[];
   adherenceLogs: ExerciseAdherenceLog[];
+};
+
+export type ExerciseVideoAsset = {
+  id: string;
+  patient_id: string;
+  program_exercise_id: string;
+  owner_id: string;
+  kind: "demonstration" | "performance";
+  state: "uploading" | "ready" | "approved" | "withdrawn";
+  object_path: string;
+  mime_type: string;
+  byte_size: number;
+  title: string;
+  instructions: string;
+  cues: string;
+  consented_at: string | null;
+  consent_notice_version: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+};
+
+export type CreationDraft = {
+  id: string;
+  patient_id: string;
+  program_id: string;
+  assignment_id: string | null;
+  owner_id: string;
+  content: Prescription;
+  revision: number;
+  state: "draft" | "approved" | "discarded";
+  created_at: string;
+  updated_at: string;
+};
+export type CreationMedia = {
+  id: string;
+  draft_id: string;
+  object_path: string;
+  mime_type: string;
+  byte_size: number;
+  state: "uploading" | "ready" | "withdrawn";
+  created_at: string;
+};
+export type AIRun = {
+  id: string;
+  draft_id: string;
+  media_id: string | null;
+  draft_revision: number;
+  status: "pending" | "success" | "failed";
+  original_draft: Prescription | null;
+  raw_draft?: Json;
+  evidence: Json;
+  limitations: string[];
+  model: string;
+  populated_fields: string[];
+  error_code: string | null;
+  duration_ms: number;
+  created_at: string;
 };

@@ -6,7 +6,10 @@ import { Plus, Search } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
 import { loadExerciseLibrary } from "@/lib/data";
-import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
+import {
+  createSupabaseBrowserClient,
+  isSupabaseConfigured,
+} from "@/lib/supabase";
 import type { Exercise } from "@/lib/types";
 
 export default function ExerciseStudioPage() {
@@ -24,7 +27,7 @@ export default function ExerciseStudioPage() {
     }
 
     const supabase = createSupabaseBrowserClient();
-    loadExerciseLibrary(supabase)
+    loadExerciseLibrary(supabase, true)
       .then((loadedExercises) => {
         setExercises(loadedExercises);
         setStatus("");
@@ -36,30 +39,50 @@ export default function ExerciseStudioPage() {
   }, []);
 
   const categories = useMemo(
-    () => Array.from(new Set(exercises.map((exercise) => exercise.category).filter((item): item is string => Boolean(item)))).sort(),
+    () =>
+      Array.from(
+        new Set(
+          exercises
+            .map((exercise) => exercise.category)
+            .filter((item): item is string => Boolean(item)),
+        ),
+      ).sort(),
     [exercises],
   );
   const tags = useMemo(
-    () => Array.from(new Set(exercises.flatMap((exercise) => exercise.tags ?? []))).sort(),
+    () =>
+      Array.from(
+        new Set(exercises.flatMap((exercise) => exercise.tags ?? [])),
+      ).sort(),
     [exercises],
   );
+  const [showLegacy, setShowLegacy] = useState(false);
   const visibleExercises = useMemo(() => {
     const query = search.trim().toLowerCase();
     return exercises.filter((exercise) => {
-      const matchesCategory = category === "all" || exercise.category === category;
+      if (!showLegacy && exercise.library_scope !== "standard") return false;
+      const matchesCategory =
+        category === "all" || exercise.category === category;
       const matchesTag = tag === "all" || exercise.tags?.includes(tag);
       const searchableText = [
         exercise.name,
         exercise.category,
         exercise.clinical_purpose,
         exercise.patient_instructions,
-        exercise.default_dosage,
-        ...(exercise.tags ?? []),
-      ].filter(Boolean).join(" ").toLowerCase();
 
-      return matchesCategory && matchesTag && (!query || searchableText.includes(query));
+        ...(exercise.tags ?? []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return (
+        matchesCategory &&
+        matchesTag &&
+        (!query || searchableText.includes(query))
+      );
     });
-  }, [category, exercises, search, tag]);
+  }, [category, exercises, search, tag, showLegacy]);
 
   return (
     <AppShell>
@@ -68,9 +91,15 @@ export default function ExerciseStudioPage() {
           <div>
             <p className="eyebrow">Exercise Studio</p>
             <h2>Exercise Studio</h2>
-            <p className="muted">Real exercises saved to your clinician library.</p>
+            <p className="muted">
+              Real exercises saved to your clinician library.
+            </p>
           </div>
-          <Link className="button" href="/exercise-studio/new" aria-label="Create exercise">
+          <Link
+            className="button"
+            href="/exercise-studio/new"
+            aria-label="Create exercise"
+          >
             <Plus size={18} />
             Create Exercise
           </Link>
@@ -81,32 +110,55 @@ export default function ExerciseStudioPage() {
               <span>Search</span>
               <span className="input-with-icon">
                 <Search size={18} />
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search exercises" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search exercises"
+                />
               </span>
             </label>
             <label className="field">
               <span>Category</span>
-              <select value={category} onChange={(event) => setCategory(event.target.value)}>
+              <select
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+              >
                 <option value="all">All categories</option>
                 {categories.map((item) => (
-                  <option key={item} value={item}>{labelize(item)}</option>
+                  <option key={item} value={item}>
+                    {labelize(item)}
+                  </option>
                 ))}
               </select>
             </label>
             <label className="field">
               <span>Tag</span>
-              <select value={tag} onChange={(event) => setTag(event.target.value)}>
+              <select
+                value={tag}
+                onChange={(event) => setTag(event.target.value)}
+              >
                 <option value="all">All tags</option>
-                {tags.map((item) => <option key={item} value={item}>{labelize(item)}</option>)}
+                {tags.map((item) => (
+                  <option key={item} value={item}>
+                    {labelize(item)}
+                  </option>
+                ))}
               </select>
             </label>
           </div>
         </section>
-        {status ? <div className="empty" style={{ marginTop: 18 }}>{status}</div> : null}
+        {status ? (
+          <div className="empty" style={{ marginTop: 18 }}>
+            {status}
+          </div>
+        ) : null}
         {!status && !exercises.length ? (
           <div className="empty" style={{ marginTop: 18 }}>
             <strong>No exercises yet.</strong>
-            <p>Create an exercise or save a custom exercise while building a patient program.</p>
+            <p>
+              Create an exercise or save a custom exercise while building a
+              patient program.
+            </p>
           </div>
         ) : null}
         {!status && exercises.length && !visibleExercises.length ? (
@@ -115,6 +167,18 @@ export default function ExerciseStudioPage() {
             <p>Adjust the search or category filter.</p>
           </div>
         ) : null}
+        <label>
+          <input
+            type="checkbox"
+            checked={showLegacy}
+            onChange={(e) => setShowLegacy(e.target.checked)}
+          />{" "}
+          Include preserved legacy entries for review
+        </label>
+        <p className="muted">
+          Legacy entries remain attached to existing programs. Review and
+          confirm reusable content before adding them to the standard library.
+        </p>
         <section className="exercise-card-list" style={{ marginTop: 18 }}>
           {visibleExercises.map((exercise) => (
             <Link
@@ -125,31 +189,53 @@ export default function ExerciseStudioPage() {
             >
               <div className="section-header">
                 <div>
-                  <p className="eyebrow">{labelize(exercise.category ?? "Uncategorized")}</p>
+                  <p className="eyebrow">
+                    {labelize(exercise.category ?? "Uncategorized")}
+                  </p>
                   <h3>{exercise.name ?? "Exercise"}</h3>
                 </div>
-                <span className="pill">{exercise.is_active === false ? "Inactive" : "Active"}</span>
+                <span className="pill">
+                  {exercise.library_scope === "standard"
+                    ? "Standard"
+                    : "Legacy · needs review"}
+                </span>
               </div>
               <div className="exercise-detail-grid">
                 <div>
                   <p className="eyebrow">Clinical Purpose</p>
-                  <p>{exercise.clinical_purpose ?? exercise.description ?? "Not documented"}</p>
+                  <p>
+                    {exercise.clinical_purpose ??
+                      exercise.description ??
+                      "Not documented"}
+                  </p>
                 </div>
                 <div>
-                  <p className="eyebrow">Patient Instructions</p>
-                  <p>{exercise.patient_instructions ?? exercise.instructions ?? "Not documented"}</p>
+                  <p className="eyebrow">Basic movement description</p>
+                  <p>
+                    {exercise.patient_instructions ??
+                      exercise.instructions ??
+                      "Not documented"}
+                  </p>
                 </div>
                 <div>
-                  <p className="eyebrow">Default Dosage</p>
-                  <p>{exercise.default_dosage ?? "Not set"}</p>
+                  <p className="eyebrow">Equipment</p>
+                  <p>{exercise.equipment ?? "Not set"}</p>
                 </div>
                 <div>
                   <p className="eyebrow">Body Region</p>
-                  <p>{exercise.body_region ? labelize(exercise.body_region) : "Not set"}</p>
+                  <p>
+                    {exercise.body_region
+                      ? labelize(exercise.body_region)
+                      : "Not set"}
+                  </p>
                 </div>
               </div>
               <div className="tag-list">
-                {(exercise.tags ?? []).map((item) => <span className="tag-chip" key={item}>{item}</span>)}
+                {(exercise.tags ?? []).map((item) => (
+                  <span className="tag-chip" key={item}>
+                    {item}
+                  </span>
+                ))}
               </div>
               <span className="exercise-card-hint">Open exercise</span>
             </Link>
@@ -161,5 +247,7 @@ export default function ExerciseStudioPage() {
 }
 
 function labelize(value: string) {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

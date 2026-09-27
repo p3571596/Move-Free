@@ -22,6 +22,8 @@ jobs:
       - run: npm test
       - run: node tests/relationship-authorization.mjs
       - run: node tests/clinical-storage.mjs
+      - run: node tests/private-video-storage.mjs
+      - run: node tests/stage2-prescriptions.mjs
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm run build
