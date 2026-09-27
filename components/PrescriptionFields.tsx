@@ -75,8 +75,8 @@ export function PrescriptionFields({
 }
 export function PrescriptionSummary({ value }: { value: Prescription }) {
   const time = [
-    value.sets && `${value.sets} sets`,
-    value.reps && `${value.reps} reps`,
+    value.sets && (/\bsets?\b/i.test(value.sets) ? value.sets : `${value.sets} sets`),
+    value.reps && (/\b(rep(etition)?s?)\b/i.test(value.reps) ? value.reps : `${value.reps} reps`),
     value.hold && `Hold: ${value.hold}`,
     value.duration && `Duration: ${value.duration}`,
     value.rest && `Rest: ${value.rest}`,

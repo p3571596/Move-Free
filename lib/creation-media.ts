@@ -24,17 +24,20 @@ export async function uploadCreationMedia(
     data: { session },
   } = await db.auth.getSession();
   if (!session) throw new Error("Sign in again.");
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const endpoint = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
+  if (/^[a-z0-9]+\.supabase\.co$/.test(endpoint.hostname)) {
+    endpoint.hostname = endpoint.hostname.replace(".supabase.co", ".storage.supabase.co");
+  }
+  endpoint.pathname = "/storage/v1/upload/resumable";
   await new Promise<void>((resolve, reject) => {
     const upload = new Upload(file, {
-      endpoint: `${base}/storage/v1/upload/resumable`,
+      endpoint: endpoint.toString(),
       chunkSize: 6 * 1024 * 1024,
       retryDelays: [0, 1000, 3000, 5000, 10000],
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
       fingerprint: async () =>
         `move-free-${id}-${file.size}-${file.lastModified}`,
-      headers: { authorization: `Bearer ${session.access_token}` },
       metadata: {
         bucketName: CREATION_BUCKET,
         objectName: `${id}/source`,
@@ -49,11 +52,11 @@ export async function uploadCreationMedia(
         req.setHeader("authorization", `Bearer ${current.access_token}`);
       },
       onProgress: (sent, total) => onProgress(Math.round((sent / total) * 100)),
-      onError: () => {
+      onError: (error) => {
         cleanup();
         reject(
           new Error(
-            "Upload paused after connection retries. Keep the original file selected and retry to resume.",
+            `Upload paused after connection retries${"originalResponse" in error && error.originalResponse ? ` (HTTP ${error.originalResponse.getStatus()})` : ""}. Keep the original file selected and retry to resume.`,
           ),
         );
       },
