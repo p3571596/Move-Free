@@ -41,3 +41,16 @@ Only clinician demonstration recordings/context should be used here. The app doe
 ## Rollout gate
 
 Do not merge or promote. Review the PR, preview, automated results and physical-device checklist. The isolated branch incurs its separately approved recurring cost until paused/deleted by an authorized action. Production uses a different database and is unchanged.
+
+
+## Verification completed September 27
+
+Preview: https://move-free-9rt9rj4xl-phmhhcynk5-2739s-projects.vercel.app
+
+Browser verification caught and fixed duplicate authorization headers on resumable uploads and a lazy playback-report RPC that was never executed. Regression tests cover both. FITT summaries no longer repeat units such as “2 sets sets.” No schema changes were needed for these fixes.
+
+Passed: 30 unit tests, lint, TypeScript via production build, local and Vercel production builds, Stage 1 relationship/clinical/private-video suites, Stage 2 RLS/approval/replacement/isolation suite, and Supabase security advisor (no notices). Live AI tests cover supported speech/context, missing dosage, and no prescription from demonstrated repetitions. Actual MP4 transcription and patient signed playback pass.
+
+Browser flow passed on the preview: resume original upload → AI draft from video/audio → edit 8 reps to 10 → play private recording → preview → explicit approval → patient login → approved instructions/FITT → private video playback. Playback reporting was confirmed in the database. Standard prescription editing saved 12 reps without changing its library definition. Phone-width layout at 390 pixels has no horizontal overflow.
+
+Ready for clinician testing with synthetic data. Real iPhone/Android camera capture, backgrounding, cellular interruption/resume, and device-specific codecs remain physical-device acceptance checks. They cannot be established by desktop browser emulation. Keep Stage 2 separate from the Stage 1 patient pilot; do not merge or promote without approval.

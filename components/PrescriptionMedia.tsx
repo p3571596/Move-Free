@@ -52,12 +52,13 @@ export function PrescriptionMedia({
       bucket={CREATION_BUCKET}
       path={media.object_path}
       title={title}
-      onViewed={() => {
+      onViewed={async () => {
         if (!reported.current) {
           reported.current = true;
-          void createSupabaseBrowserClient().rpc("stage2_video_played", {
+          const { error } = await createSupabaseBrowserClient().rpc("stage2_video_played", {
             p_media: id,
           });
+          if (error) reported.current = false;
         }
       }}
     />
