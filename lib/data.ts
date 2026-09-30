@@ -1,5 +1,7 @@
 "use client";
 
+import type { AutomaticReview } from "./automatic-clinical-review";
+
 import {validatedVideoUrl, formatRepsOrTime} from "./exercise-media";
 import type { EngineResult } from "./clinical-engine";
 
@@ -252,7 +254,7 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
   ] = await Promise.all([
     episodeId ? client.from("goals").select("*").eq("episode_id", episodeId).limit(8) : emptyResult(),
     client.from("daily_checkins").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(30),
-    episodeId ? client.from("progress_metrics").select("*").eq("episode_id", episodeId).order("measured_at", { ascending: true }).limit(12) : emptyResult(),
+    episodeId ? client.from("progress_metrics").select("*").eq("episode_id", episodeId).order("measured_at", { ascending: false }).limit(50) : emptyResult(),
     access === "patient" ? emptyResult() : client.from("clinical_decisions").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(1),
     access === "patient" ? emptyResult() : client.from("visit_notes").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(1),
     access === "patient" ? emptyResult() : client.from("barriers").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(5),
@@ -292,7 +294,7 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     episode,
     goals: withPatientGoalFallback(goalsResult.data ?? [], patient),
     checkins: normalizeCheckins(checkinsResult.data ?? []),
-    progressMetrics: normalizeProgressMetrics(metricsResult.data ?? []),
+    progressMetrics: normalizeProgressMetrics([...(metricsResult.data ?? [])].reverse()),
     decision: (decisionsResult.data?.[0] as ClinicalDecision | undefined) ?? null,
     visitNote: notesResult.data?.[0] ?? null,
     barriers: barriersResult.data ?? [],
@@ -357,22 +359,23 @@ export async function publishPatientGuidance(client: Client, patientId: string, 
   return data.updated_at!;
 }
 
-export async function recordClinicalReview(client: Client, workspace: PatientWorkspace, decisionType: string, rationale: string, id: string, evaluation?: {result: EngineResult; disposition: string; disagreementReason: string; modification: string}) {
+export async function recordClinicalReview(client: Client, workspace: PatientWorkspace, decisionType: string, rationale: string, id: string, evaluation?: {mapped: AutomaticReview; result: EngineResult; disposition: string; disagreementReason: string; modification: string}) {
   const user = await getCurrentUser(client);
   if (!user || !workspace.patient || workspace.patient.clinician_id !== user.id) throw new Error("An authorized treating relationship is required.");
   if (!["continue", "progress", "modify", "regress", "reassess", "contact", "other", "refer_out", "discharge"].includes(decisionType) || !rationale.trim()) throw new Error("Choose a decision and document your review.");
   const storedDecision = ["contact", "other"].includes(decisionType) ? "modify" : decisionType;
   const decisionRationale = ["contact", "other"].includes(decisionType) ? `${decisionType === "contact" ? "Contact patient" : "Other action"}: ${rationale.trim()}` : rationale.trim();
   const current = await loadPatientWorkspace(client, workspace.patient.id);
-  const latestActivity = (value: PatientWorkspace) => [...value.checkins.map(x => x.id), ...value.adherenceLogs.map(x => x.id)].sort().join(",");
-  if (latestActivity(current) !== latestActivity(workspace)) throw new Error("New patient feedback arrived. Reload and review it before marking reviewed.");
+  const latestActivity = (value: PatientWorkspace) => JSON.stringify({checkins:value.checkins,logs:value.adherenceLogs,goals:value.goals,metrics:value.progressMetrics,program:value.program,exercises:value.programExercises,decision:value.decision});
+  if (latestActivity(current) !== latestActivity(workspace)) throw new Error("Patient data or the program changed. Reload and review the latest information before saving.");
   if (evaluation) {
     if (!workspace.episode || !evaluation.disposition) throw new Error("Complete the engine comparison before saving.");
+    if (evaluation.disposition === "modified" && !evaluation.modification.trim()) throw new Error("Describe your modification before saving.");
     const {error} = await client.rpc("record_engine_review", {
       p_id: id, p_patient_id: workspace.patient.id, p_episode_id: workspace.episode.id,
       p_decision: storedDecision, p_rationale: decisionRationale,
       p_engine: JSON.parse(JSON.stringify(evaluation.result)),
-      p_source: JSON.parse(JSON.stringify({ capturedAt: new Date().toISOString(), clinicianFinalAction: decisionType, patientGoal: workspace.patient.goal, goals: workspace.goals, checkins: workspace.checkins, adherenceLogs: workspace.adherenceLogs, progressMetrics: workspace.progressMetrics, programBeforeReview: workspace.program, exercisesBeforeReview: workspace.programExercises, inputProvenance: "Clinician assessment; initial pain trend from latest patient report when available. No uncollected fields inferred." })),
+      p_source: JSON.parse(JSON.stringify({ capturedAt: new Date().toISOString(), clinicianFinalAction: decisionType, patientGoal: workspace.patient.goal, goals: workspace.goals, checkins: workspace.checkins, adherenceLogs: workspace.adherenceLogs, progressMetrics: workspace.progressMetrics, programBeforeReview: workspace.program, exercisesBeforeReview: workspace.programExercises, inputProvenance: evaluation.mapped.provenance, analysisWindow: evaluation.mapped.window, normalizedInputs: evaluation.mapped.inputs, reviewContext: evaluation.mapped.context })),
       p_disposition: evaluation.disposition, p_disagreement: evaluation.disagreementReason, p_modification: evaluation.modification,
     });
     if (error) throw new Error(error.message);

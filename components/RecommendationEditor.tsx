@@ -7,10 +7,11 @@ import { publishPatientGuidance, recordClinicalReview } from "@/lib/data";
 import { ClinicalReviewBrief } from "./ClinicalReviewBrief";
 import { EngineReviewHistory } from "./EngineReviewHistory";
 import { ClinicalEngineReview, type EngineReviewDraft } from "./ClinicalEngineReview";
+import { mapClinicalInputs, evaluateAutomaticReview } from "@/lib/automatic-clinical-review";
 import type { PatientWorkspace } from "@/lib/types";
 
 export function RecommendationEditor({ workspace }: { workspace: PatientWorkspace }) {
-  const [evaluation, setEvaluation] = useState<EngineReviewDraft | null>(null);
+  const [evaluation, setEvaluation] = useState<EngineReviewDraft | null>(() => { const mapped=mapClinicalInputs(workspace); return {mapped,observations:{},result:evaluateAutomaticReview(mapped),disposition:"",disagreementReason:"",modification:""}; });
   const [storageReady, setStorageReady] = useState(false);
   useEffect(() => { let active=true; createSupabaseBrowserClient().from("clinical_engine_reviews").select("id").limit(0).then(({error})=>{if(active)setStorageReady(!error);}); return ()=>{active=false;}; }, []);
   const [text, setText] = useState(workspace.program?.patient_explanation ?? "");
@@ -38,8 +39,16 @@ export function RecommendationEditor({ workspace }: { workspace: PatientWorkspac
   return <section className="panel form" style={{ marginTop: 20 }}>
     <div><p className="eyebrow">Clinician review</p><h3>Recommendation for your patient</h3></div>
     <ClinicalReviewBrief workspace={workspace}/>
-    <ClinicalEngineReview workspace={workspace} value={evaluation} onChange={setEvaluation} storageReady={storageReady}/>
+    <ClinicalEngineReview workspace={workspace} value={evaluation} onChange={next=>{
+      setEvaluation(next);
+      if(next?.disposition==='accepted') {
+        const actions:Record<string,string>={'v0.1.safety':'refer_out','v0.1.changed_pattern':'reassess','v0.1.adverse_response':'regress','v0.1.progress_repetitions':'progress','v0.1.maintain':'continue','v0.1.unexplained_plateau':'reassess','integration.review_missing':'reassess'};
+        setDecisionType(actions[next.result.ruleId] ?? 'modify');
+        setRationale(`${next.result.recommendation}: ${next.result.reasons.join(' ')}`);
+      }
+    }} storageReady={storageReady}/>
 
+    <p className="muted">Record the review before saving program changes to associate the change with this decision.</p>
     <Link className="secondary-button" href={`/program-builder/${workspace.patient.id}`}>Review or update exercises and dosage</Link>
     {workspace.program ? <form onSubmit={submit} className="form">
       <p className="muted">This replaces the guidance shown with the current program. Exercise and dosage changes are saved in the program builder.</p>
@@ -63,6 +72,7 @@ export function RecommendationEditor({ workspace }: { workspace: PatientWorkspac
       <button className="secondary-button" disabled={busy || reviewed || !rationale.trim() || !!(evaluation && (!storageReady || !evaluation.disposition))}>{reviewed ? "Review recorded" : "Mark feedback reviewed"}</button>
       {reviewed ? <p role="status">Review recorded. Return to Today to see the updated inbox.</p> : null}
     </form>
+    {error ? <p role="alert" className="form-error">{error}</p> : null}
     <EngineReviewHistory workspace={workspace} refresh={reviewed}/>
   </section>;
 }

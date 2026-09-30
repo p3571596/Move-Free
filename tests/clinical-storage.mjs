@@ -55,4 +55,12 @@ await db.query('select publish_care_guidance($1,$2,$3,$4,gen_random_uuid())',[id
 await db.query("insert into care_messages(patient_id,author_id,body,kind) values($1,$2,'Legacy clinician reply','clinician_message')",[ids.record,legacy]);
 assert((await db.query('select * from engine_program_changes')).rows.some(r=>r.clinician_id===legacy));
 console.log('PASS: legacy treating auth account without profile can save engine review, publish guidance, send message and record program audit.');
+await as(legacy);
+for(const [offset,disposition] of ['accepted','modified','rejected'].entries()) {
+  const reviewId='40000000-0000-0000-0000-00000000001'+offset;
+  await db.query('select record_engine_review($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[reviewId,ids.record,ids.episode,'modify','Synthetic final decision',{version:'0.1-integration.2',status:'evaluated',assessmentScope:'partial_evidence',ruleId:'integration.execution_review'}, {inputProvenance:{adherence:{state:'UNKNOWN'},painTrend:{state:'AUTO',recordIds:['synthetic-checkin']},movement:{state:'CLINICIAN-ADDED'}}},disposition,'Optional disagreement',disposition==='modified'?'Modified dosage':'']);
+  const stored=(await db.query('select * from clinical_engine_reviews where id=$1',[reviewId])).rows[0];
+  assert.equal(stored.disposition,disposition);assert.equal(stored.source_snapshot.inputProvenance.adherence.state,'UNKNOWN');assert.equal(stored.engine_result.assessmentScope,'partial_evidence');
+}
+console.log('PASS: accepted/modified/rejected automatic review snapshots preserve provenance and partial assessment scope.');
 await db.close();
