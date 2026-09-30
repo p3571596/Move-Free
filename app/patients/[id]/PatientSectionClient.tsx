@@ -65,7 +65,7 @@ export function PatientSectionClient({ patientId, section }: { patientId: string
         </div>
         {section === "progress" ? <ProgressSection workspace={workspace} /> : null}
         {section === "logs" ? <LogsSection workspace={workspace} /> : null}
-        {section === "decision" ? <><DecisionSection workspace={workspace} /><RecommendationEditor workspace={workspace}/></> : null}
+        {section === "decision" ? <><DecisionSection workspace={workspace} /><RecommendationEditor key={workspace.patient?.id} workspace={workspace}/></> : null}
       </RequireAuth>
     </AppShell>
   );
