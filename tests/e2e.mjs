@@ -35,6 +35,7 @@ async function login(page,role){const u=fixture.users.find(u=>u.role===role);awa
  await clinician.screenshot({path:'work/clinician-workspace-mobile.png',fullPage:true});
  await patient.goto(base+'/patient/messages');await clinician.goto(base+'/patients/'+fixture.patientId+'/decision');await clinician.getByLabel('Patient-facing guidance').fill(guidance);assert.equal(await clinician.getByRole('button',{name:'Approve and publish guidance'}).isEnabled(),false);await clinician.getByRole('checkbox',{name:'I reviewed this guidance and approve showing it to the patient.'}).check();await clinician.getByRole('button',{name:'Approve and publish guidance'}).click();await clinician.getByText('Approved guidance saved',{exact:false}).waitFor({timeout:60000});pass('Explicit clinician approval required before publishing guidance');
  await patient.getByText(guidance,{exact:true}).first().waitFor({timeout:60000});pass('Patient sees approved guidance through automatic Messages refresh without reload');
+ await clinician.reload();
  await clinician.getByRole('heading',{name:'Automatically analyzed data',exact:true}).waitFor();
  await clinician.getByText('Review execution / improve adherence',{exact:true}).waitFor();
  assert.equal(await clinician.locator('#engine-painTrend').count(),0);pass('Engine automatically analyzes submitted feedback and protects AUTO inputs from duplicate entry');

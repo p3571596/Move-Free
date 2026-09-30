@@ -67,7 +67,7 @@ export function evaluateAutomaticReview(mapped: AutomaticReview): EngineResult {
   const i=mapped.inputs;
   const reasons:string[]=[];
   let ruleId='integration.review_missing', recommendation='Review missing clinical information', bottleneck='Assessment is incomplete';
-  if(i.patternChange===true && (i.painTrend==='worsening'||i.function==='worsening'||i.expected==='no'||i.expected==='slower')) {
+  if(i.patternChange===true && (i.painTrend==='worsening'||i.function==='worsening'||i.function==='stable'||i.objective==='stable'||i.objective==='worsening'||i.expected==='no'||i.expected==='slower')) {
     ruleId='v0.1.changed_pattern';recommendation='Reassess diagnosis';bottleneck='Changed symptom pattern with unexpected response';reasons.push('A clinician identified a changed symptom pattern alongside worsening or slower-than-expected progress.');
   } else if((typeof i.exercisePain==='number'&&i.exercisePain>5)||(typeof i.painIncrease==='number'&&i.painIncrease>2)||(typeof i.recoveryHours==='number'&&i.recoveryHours>=48)||i.swelling===true||i.fatigue===true||i.otherAdverse===true) {
     ruleId='v0.1.adverse_response';recommendation='Regress or reduce load';bottleneck='Reported load tolerance / recovery concern';
