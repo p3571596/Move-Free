@@ -298,6 +298,7 @@ export type Database = {
       clinical_decisions: Table<ClinicalDecision>;
       clinical_engine_reviews: Table<EngineReviewRecord>;
       care_messages: Table<CareMessage>;
+      exercise_video_assets: Table<ExerciseVideoAsset>;
       visit_notes: Table<VisitNote>;
       barriers: Table<Barrier>;
       feedback: Table<Feedback>;
@@ -305,6 +306,9 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      finish_exercise_video: {Args: {p_id: string}; Returns: undefined};
+      approve_exercise_video: {Args: {p_id: string; p_title: string; p_instructions: string; p_cues: string}; Returns: undefined};
+      withdraw_exercise_video: {Args: {p_id: string}; Returns: undefined};
       create_patient_invite: { Args: { p_patient_id: string }; Returns: string };
       claim_patient_invite: { Args: { p_token: string }; Returns: string };
       publish_care_guidance: {Args: {p_patient_id: string; p_program_id: string; p_expected_version: string; p_body: string; p_message_id: string}; Returns: string};
@@ -347,4 +351,14 @@ export type PatientWorkspace = {
   program: HomeProgram | null;
   programExercises: HomeProgramExercise[];
   adherenceLogs: ExerciseAdherenceLog[];
+};
+
+export type ExerciseVideoAsset = {
+  id: string; patient_id: string; program_exercise_id: string; owner_id: string;
+  kind: "demonstration" | "performance";
+  state: "uploading" | "ready" | "approved" | "withdrawn";
+  object_path: string; mime_type: string; byte_size: number;
+  title: string; instructions: string; cues: string;
+  consented_at: string | null; consent_notice_version: string | null;
+  approved_by: string | null; approved_at: string | null; created_at: string;
 };

@@ -1,6 +1,6 @@
 # Stage 1 release gate — 2026-09-21
 
-Status: AUTOMATED RELEASE GATE PASSED. Promotion is authorized by the user. Production deployment and synthetic smoke verification are still required before Stage 2 begins.
+Status: RELEASED AND PRODUCTION VERIFIED on 2026-09-22. PR #4 merged as `810d250fe867eb492d63cfbd086e8972e410b745` (pilot-v1 release identity; no Git tag created). Vercel deployment `dpl_7spD9L6AuLGQ9x791zsgSSRUPwMk` is READY at https://move-free.vercel.app. All 29 synthetic browser/API checks passed on production before Stage 2 began. Remote rollback branch: `rollback/pre-pilot-v1`. Physical-device installation and delivered email checks below remain manual follow-ups before real-patient invitations.
 
 Candidate: PR #4, `feature/stage1-video-pwa`, starting commit `99ce53fd6eaf939536d52519c0137f0ac30cb86c`.
 
