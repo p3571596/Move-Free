@@ -373,6 +373,14 @@ export async function recordClinicalReview(client: Client, workspace: PatientWor
   if (current.patient?.status === "discharged" || current.episode?.status === "discharged") throw new Error("Reactivate Case before recording a new treatment decision.");
   const latestActivity = (value: PatientWorkspace) => JSON.stringify({patient:value.patient,episode:value.episode,checkins:value.checkins,logs:value.adherenceLogs,goals:value.goals,metrics:value.progressMetrics,program:value.program,exercises:value.programExercises,decision:value.decision});
   if (latestActivity(current) !== latestActivity(workspace)) throw new Error("Patient data or the program changed. Reload and review the latest information before saving.");
+  const clearReviewedMarker = async () => {
+    if (current.patient?.status !== "needs_review") return;
+    let query = client.from("patients").update({status: "active"}).eq("id", workspace.patient!.id).eq("status", "needs_review");
+    // Do not clear a newer flag if another clinician action changed the patient during save.
+    if (current.patient.updated_at) query = query.eq("updated_at", current.patient.updated_at);
+    const {error} = await query;
+    if (error) throw new Error("Review saved, but the case review marker could not be cleared. Refresh the workspace.");
+  };
   if (evaluation) {
     if (!workspace.episode || !evaluation.disposition) throw new Error("Complete the engine comparison before saving.");
     if (evaluation.disposition === "modified" && !evaluation.modification.trim()) throw new Error("Describe your modification before saving.");
@@ -384,10 +392,12 @@ export async function recordClinicalReview(client: Client, workspace: PatientWor
       p_disposition: evaluation.disposition, p_disagreement: evaluation.disagreementReason, p_modification: evaluation.modification,
     });
     if (error) throw new Error(error.message);
+    await clearReviewedMarker();
     return;
   }
   const { error } = await client.from("clinical_decisions").insert({ id, patient_id: workspace.patient.id, episode_id: workspace.episode?.id, clinician_id: user.id, decision_type: storedDecision, rationale: decisionRationale, action_items: decisionType });
   if (error) throw new Error(error.message);
+  await clearReviewedMarker();
 }
 
 export async function loadCurrentPatientAppWorkspace(client: Client): Promise<PatientWorkspace> {
