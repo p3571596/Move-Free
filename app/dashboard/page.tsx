@@ -2,18 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Activity, AlertTriangle, ChevronRight, RefreshCw } from "lucide-react";
+import { AlertTriangle, ChevronRight, RefreshCw } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RequireAuth";
 import {
   buildPatientSummaries,
-  buildRecentActivity,
   getGoalTitle,
+  getPatientDiagnosis,
   getPatientName,
   type PatientSummary,
 } from "@/lib/clinician-overview";
 import { loadClinicianSnapshot } from "@/lib/data";
-import { formatDate, initials } from "@/lib/format";
+import { initials } from "@/lib/format";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { ClinicianSnapshot } from "@/lib/types";
 
@@ -43,9 +43,9 @@ export default function DashboardPage() {
   }, []);
 
   const summaries = useMemo(() => buildPatientSummaries(snapshot), [snapshot]);
-  const activities = useMemo(() => buildRecentActivity(snapshot), [snapshot]);
-  const milestones = summaries.filter((summary) => summary.milestone).slice(0, 4);
-  const reviewCount = summaries.filter((summary) => summary.needsReview).length;
+  const alerts = summaries.filter(s => s.queue === "alert");
+  const reviews = summaries.filter(s => s.queue === "review");
+  const onTrack = summaries.filter(s => s.queue === "on_track").length;
 
   return (
     <AppShell>
@@ -67,23 +67,20 @@ export default function DashboardPage() {
 
         {!loading && !error ? (
           <>
-            <p className="muted">{reviewCount} need review · {milestones.length} recent goal milestones</p>
-
-            {!summaries.length ? (
-              <div className="empty dashboard-empty">
-                <strong>No patient activity to review yet.</strong>
-                <p>Your dashboard will become a daily priority feed after patients and programs are active.</p>
-                <Link className="button" href="/patients">Open Patients</Link>
-              </div>
-            ) : (
-              <div className="form">
-                <section className="panel"><div className="section-header"><h3>Clinical inbox</h3><span className="pill">{reviewCount} to review</span></div>
-                  {reviewCount ? <ul className="priority-list">{summaries.filter(s=>s.needsReview).map(summary=><PriorityPatient key={summary.patient.id} summary={summary}/>)}</ul> : <p>No new feedback needs review.</p>}
-                </section>
-                {milestones.length ? <section className="panel"><h3>Progress toward meaningful goals</h3><ul className="priority-list">{milestones.map(summary=><PriorityPatient key={summary.patient.id} summary={summary}/>)}</ul></section> : null}
-                <details className="panel"><summary>Recent patient activity</summary><ul className="priority-list">{activities.slice(0,8).map(event=><li key={event.id}><Link className="compact-activity-link" href={`/patients/${event.patientId}`}><Activity size={16}/><span><strong>{event.patientName}</strong><small>{event.label} · {event.detail} · {formatDate(event.occurredAt)}</small></span><ChevronRight size={16}/></Link></li>)}</ul></details>
-              </div>
-            )}
+            <div className="today-counts" aria-label="Today summary">
+              <div><strong>{alerts.length}</strong><span>Alerts / Need Attention</span></div>
+              <div><strong>{reviews.length}</strong><span>Review Recommendations</span></div>
+              <div><strong>{onTrack}</strong><span>On Track</span></div>
+            </div>
+            <p className="muted">On Track means no outstanding review signal in available reports; it is not a safety clearance.</p>
+            <div className="form">
+              <section className="panel"><h3>Alerts / Needs Attention</h3>
+                {alerts.length ? <ul className="priority-list">{alerts.map(summary => <PriorityPatient key={summary.patient.id} summary={summary}/>)}</ul> : <p className="muted">No alerts in available reports.</p>}
+              </section>
+              <section className="panel"><h3>Recommendations to Review</h3>
+                {reviews.length ? <ul className="priority-list">{reviews.map(summary => <PriorityPatient key={summary.patient.id} summary={summary}/>)}</ul> : <p className="muted">No recommendations awaiting review.</p>}
+              </section>
+            </div>
           </>
         ) : null}
       </RequireAuth>
@@ -95,18 +92,15 @@ function PriorityPatient({ summary }: { summary: PatientSummary }) {
   const name = getPatientName(summary.patient);
   return (
     <li>
-      <Link className="priority-patient-link" href={`/patients/${summary.patient.id}`} aria-label={`Open workspace for ${name}`}>
+      <Link className="priority-patient-link" href={`/patients/${summary.patient.id}`} aria-label={`Review ${name}`}>
         <span className="avatar small-avatar">{initials(name)}</span>
         <span className="priority-patient-copy">
           <strong>{name}</strong>
-          <small>{getGoalTitle(summary)}</small>
-          <small>{summary.latestCheckin?.symptom_direction ? `Symptoms: ${summary.latestCheckin.symptom_direction}` : "No symptom update"}{summary.latestCheckin?.pain_score != null ? ` · Pain ${summary.latestCheckin.pain_score}/10` : ""} · {summary.adherencePercent == null ? "Participation not recorded" : `${summary.adherencePercent}% of logged exercises completed or partial`}</small>
-          {summary.latestCheckin?.patient_comment ? <small>“{summary.latestCheckin.patient_comment}”</small> : null}
-          <span className="reason-chip-row">
-            {summary.reviewReasons.slice(0, 2).map((reason) => <em key={reason}>{reason}</em>)}
-          </span>
+          <small>{getPatientDiagnosis(summary)}</small>
+          <span>{summary.queue === "alert" ? summary.reviewReasons.filter(r => r !== "Patient feedback to review").slice(0, 2).join(" · ") || summary.recommendation : summary.recommendation}</span>
+          <small>{summary.queue === "review" ? summary.reviewReasons.slice(0, 2).join(" · ") : getGoalTitle(summary)}</small>
         </span>
-        <ChevronRight size={18} />
+        <span className="review-action">Review <ChevronRight size={18} /></span>
       </Link>
     </li>
   );

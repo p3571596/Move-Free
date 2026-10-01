@@ -66,7 +66,6 @@ export default function EditPatientPage() {
           current_value: nullableValue(form.get("current_value")),
           target_value: nullableValue(form.get("target_value")),
           progress_percent: clampPercent(form.get("progress_percent")),
-          status: String(form.get("status") ?? "active"),
         })
         .eq("id", patient.id)
         .eq("clinician_id", authData.user.id)
@@ -107,9 +106,7 @@ export default function EditPatientPage() {
               <div className="field"><label htmlFor="target_value">Target</label><input id="target_value" name="target_value" placeholder="30 minutes" defaultValue={patient.target_value ?? ""} /></div>
             </div>
             <div className="field"><label htmlFor="progress_percent">Goal progress (%)</label><input id="progress_percent" name="progress_percent" type="number" min={0} max={100} defaultValue={patient.progress_percent ?? 0} /></div>
-            <div className="field"><label htmlFor="status">Status</label><select id="status" name="status" defaultValue={patient.status ?? "active"}>
-              <option value="active">Active</option><option value="needs_review">Needs Review</option><option value="paused">Paused</option><option value="discharged">Discharged</option><option value="inactive">Inactive</option>
-            </select></div>
+            <p className="muted">Case status: {patient.status ?? "active"}. Use Case management in Summary to discharge or reactivate with a preserved clinical snapshot.</p>
             <button className="button" type="submit" disabled={isSaving}><Save size={18} />{isSaving ? "Saving..." : "Save Profile"}</button>
             {status ? <p className="form-error">{status}</p> : null}
           </form>

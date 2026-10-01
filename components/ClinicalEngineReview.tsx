@@ -15,7 +15,7 @@ export type EngineReviewDraft = {
 
 export function ClinicalEngineReview({ workspace, value, onChange, storageReady }: {
   workspace: PatientWorkspace; value: EngineReviewDraft | null;
-  onChange: (value: EngineReviewDraft | null) => void; storageReady: boolean;
+  onChange: (value: EngineReviewDraft | null) => void; storageReady: boolean | null;
 }) {
   const observations = value?.observations ?? {};
   const mapped = value?.mapped ?? mapClinicalInputs(workspace);
@@ -27,9 +27,10 @@ export function ClinicalEngineReview({ workspace, value, onChange, storageReady 
     onChange({mapped:refreshed, observations:edited, result:evaluateAutomaticReview(refreshed), disposition:"", disagreementReason:"", modification:""});
   };
   return <section className="form" aria-label="Clinical Decision Engine v0.1">
-    <div><p className="eyebrow">Recovered rule-based prototype · v0.1</p><h3>Clinical decision support</h3>
+    <div><p className="eyebrow">Move Free</p><h3>Clinical decision support</h3>
       <p className="muted">Unvalidated pilot rules. Review the evidence and make your own decision. Nothing here is sent to the patient.</p></div>
-    {!storageReady ? <p className="empty" role="status">Evaluation storage · Preview. The new clinician-only database storage is not available here yet. You can inspect the rules, but engine comparisons cannot be saved in this environment.</p> : null}
+    {storageReady === false ? <p className="empty" role="status">Evaluation storage · Preview. The new clinician-only database storage is not available here yet. You can inspect the rules, but engine comparisons cannot be saved in this environment.</p> : null}
+    <details><summary>Automatically analyzed data</summary>
     <h4>Automatically analyzed data</h4>
     <p>Review window: {new Date(mapped.window.from).toLocaleDateString()} – {new Date(mapped.window.to).toLocaleDateString()}</p>
     <p>{mapped.context.counts.completed} completed · {mapped.context.counts.partial} partial · {mapped.context.counts.skipped} skipped. Completion among reported exercises: {mapped.context.completionRate == null ? "unknown" : `${mapped.context.completionRate}%`}. Prescribed adherence remains separate.</p>
@@ -43,6 +44,7 @@ export function ClinicalEngineReview({ workspace, value, onChange, storageReady 
       {mapped.context.goals.map(g=><p key={g.id}>{g.title}: {g.baseline_value ?? 'Unknown baseline'} → {g.current_value ?? 'Unknown current'}; target {g.target_value ?? 'unknown'} {g.unit}</p>)}
       <p>Previous decision: {mapped.context.previousDecision?.decision_type ?? 'None recorded'} — {mapped.context.previousDecision?.rationale ?? ''}</p>
       {mapped.context.limitations.map(text=><p key={text}>{text}</p>)}
+    </details>
     </details>
     <details><summary>Add clinical observation / inspect unavailable information</summary>
       <p>Observations supplement unavailable fields. Editing an observation recalculates the review and clears the previous approval.</p>
@@ -61,9 +63,9 @@ export function ClinicalEngineReview({ workspace, value, onChange, storageReady 
     <button type="button" className="secondary-button" onClick={()=>{const next=mapClinicalInputs(workspace,observations,mapped.window.to);onChange({mapped:next,observations,result:evaluateAutomaticReview(next),disposition:"",disagreementReason:"",modification:""});}}>Recalculate with available data</button>
     {result && value ? <div className="panel form" aria-live="polite">
       <strong>{result.recommendation}</strong><p>{result.bottleneck}</p>
-      <p className="eyebrow">Why · {result.ruleId}</p><ul>{result.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
+      <p className="eyebrow">Why this needs review</p><ul>{result.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
       {result.missing.length ? <details><summary>Information unavailable / not assessed ({result.missing.length})</summary><ul>{result.missing.map(key=><li key={key}>{engineFields[key].label}: not assessed</li>)}</ul><p>Unknowns have not been converted to normal findings.</p></details> : null}
-      <ul>{result.flags.map(flag=><li key={flag}>{flag}</li>)}</ul>
+      <details><summary>Review limitations</summary><ul>{result.flags.map(flag=><li key={flag}>{flag}</li>)}</ul></details>
       {result.status === "evaluated" ? <>
         <div className="field"><label htmlFor="engine-agreement">Your assessment of this suggestion</label><select id="engine-agreement" value={value.disposition} onChange={e=>onChange({...value,disposition:e.target.value as EngineReviewDraft["disposition"]})}><option value="">Choose after your review</option><option value="accepted">Approve</option><option value="modified">Modify</option><option value="rejected">Reject</option></select></div>
         {value.disposition === "modified" ? <div className="field"><label htmlFor="engine-modification">Your modification</label><textarea id="engine-modification" maxLength={4000} value={value.modification} onChange={e=>onChange({...value,modification:e.target.value})}/></div> : null}

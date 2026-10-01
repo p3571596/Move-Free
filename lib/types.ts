@@ -37,6 +37,8 @@ export type Patient = {
   updated_at?: string | null;
 };
 
+export type CaseLifecycleEvent = { id: string; patient_id: string; episode_id: string; action: "discharge" | "reactivate"; reason: string; effective_date: string; program_plan: string; note: string; snapshot: Json; created_at: string };
+
 export type Episode = {
   id: string;
   patient_id?: string | null;
@@ -187,6 +189,7 @@ export type VisitNote = {
 
 export type Barrier = {
   id: string;
+  episode_id?: string | null;
   patient_id?: string | null;
   type?: string | null;
   description?: string | null;
@@ -285,6 +288,7 @@ type AnalyticsTrendSummary = {
 export type Database = {
   public: {
     Tables: {
+      case_lifecycle_events: Table<CaseLifecycleEvent>;
       profiles: Table<Profile>;
       patients: Table<Patient>;
       episodes: Table<Episode>;
@@ -305,6 +309,7 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      transition_case: { Args: {p_patient_id: string; p_episode_id: string; p_action: string; p_reason: string; p_date: string; p_program_plan: string; p_note: string}; Returns: string };
       create_patient_invite: { Args: { p_patient_id: string }; Returns: string };
       claim_patient_invite: { Args: { p_token: string }; Returns: string };
       publish_care_guidance: {Args: {p_patient_id: string; p_program_id: string; p_expected_version: string; p_body: string; p_message_id: string}; Returns: string};

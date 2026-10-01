@@ -1,3 +1,4 @@
+import { mapClinicalInputs, evaluateAutomaticReview } from "./automatic-clinical-review";
 import type {
   ClinicianSnapshot,
   DailyCheckin,
@@ -30,6 +31,8 @@ export type PatientSummary = {
   reviewReasons: string[];
   goalProgress: number;
   milestone: boolean;
+  queue: "alert" | "review" | "on_track" | "discharged";
+  recommendation: string;
 };
 
 export type ActivityEvent = {
@@ -49,8 +52,8 @@ export function buildPatientSummaries(snapshot: ClinicianSnapshot | null): Patie
     const patientEpisodes = snapshot.episodes
       .filter((episode) => episode.patient_id === patient.id)
       .sort((a, b) => timestamp(b.updated_at ?? b.start_date) - timestamp(a.updated_at ?? a.start_date));
-    const episode = patientEpisodes[0] ?? null;
-    const episodeIds = patientEpisodes.map((item) => item.id);
+    const episode = patientEpisodes.find(e => e.status === "active") ?? patientEpisodes[0] ?? null;
+    const episodeIds = episode ? [episode.id] : [];
     const goals = snapshot.goals
       .filter((goal) => goal.episode_id && episodeIds.includes(goal.episode_id))
       .sort((a, b) => timestamp(b.updated_at ?? b.created_at) - timestamp(a.updated_at ?? a.created_at));
@@ -60,10 +63,10 @@ export function buildPatientSummaries(snapshot: ClinicianSnapshot | null): Patie
       .sort((a, b) => timestamp(b.updated_at ?? b.assigned_at) - timestamp(a.updated_at ?? a.assigned_at));
     const program = programs.find((item) => item.status === "active") ?? programs[0] ?? null;
     const checkins = snapshot.recentCheckins
-      .filter((checkin) => checkin.patient_id === patient.id)
+      .filter((checkin) => checkin.patient_id === patient.id && (checkin.episode_id === episode?.id || (!checkin.episode_id && patientEpisodes.length <= 1)))
       .sort((a, b) => timestamp(b.created_at ?? b.checkin_date) - timestamp(a.created_at ?? a.checkin_date));
     const adherenceLogs = snapshot.adherenceLogs
-      .filter((log) => log.patient_id === patient.id)
+      .filter((log) => log.patient_id === patient.id && log.home_program_id === program?.id)
       .sort((a, b) => timestamp(b.performed_at ?? b.created_at) - timestamp(a.performed_at ?? a.created_at));
     const latestCheckin = checkins[0] ?? null;
     const lastActivity = latestActivity(checkins, adherenceLogs);
@@ -81,8 +84,16 @@ export function buildPatientSummaries(snapshot: ClinicianSnapshot | null): Patie
     const skippedCount = recentAdherence.filter((log) => log.completion_status === "skipped").length;
     const hardExerciseAlert = recentAdherence.filter((log) => ["too_hard", "painful"].includes(log.difficulty ?? "")).length >= 2;
     const reviewReasons = reviewReasonsFor({ patient, lastActivity, program, adherencePercent, painAlert, repeatedWorsening, skippedCount, hardExerciseAlert, recentLogCount: recentAdherence.length });
-    const lastReview = snapshot.openDecisions.find(item => item.patient_id === patient.id)?.created_at;
+    const decision = snapshot.openDecisions.find(item => item.patient_id === patient.id && (item.episode_id === episode?.id || (!item.episode_id && patientEpisodes.length <= 1))) ?? null;
+    const lastReview = decision?.created_at;
     if (lastActivity && (!lastReview || timestamp(lastActivity) > timestamp(lastReview))) reviewReasons.unshift("Patient feedback to review");
+    const mapped = mapClinicalInputs({patient, episode, goals, program, programExercises: [], checkins, adherenceLogs, decision, visitNote: null, barriers: [], progressMetrics: []});
+    const analysis = evaluateAutomaticReview(mapped);
+    const discharged = patient.status === "discharged" || episode?.status === "discharged";
+    const alert = painAlert || hardExerciseAlert || skippedCount >= 2 || patient.status === "needs_review" || analysis.ruleId === "v0.1.adverse_response";
+    const hasSymptomReport = typeof latestCheckin?.pain_score === "number" || !!latestCheckin?.symptom_direction;
+    const queue = discharged ? "discharged" : alert ? "alert" : reviewReasons.length || !lastReview || !hasSymptomReport || !latestGoal ? "review" : "on_track";
+    if (queue === "review" && !reviewReasons.length) reviewReasons.push("Clinical information needs review");
     const progress = getGoalProgress(latestGoal, patient);
     const milestone = !reviewReasons.length && isWithinDays(latestGoal?.updated_at ?? latestGoal?.created_at, 7) && (
       latestGoal?.status === "met" ||
@@ -104,7 +115,9 @@ export function buildPatientSummaries(snapshot: ClinicianSnapshot | null): Patie
       hardExerciseAlert,
       skippedCount,
       inactivityAlert,
-      needsReview: reviewReasons.length > 0,
+      needsReview: queue === "alert" || queue === "review",
+      queue,
+      recommendation: analysis.recommendation,
       reviewCategory: painAlert ? "pain" : (inactivityAlert || skippedCount >= 2 || (adherencePercent != null && recentAdherence.length >= 3 && adherencePercent < 60)) ? "adherence" : reviewReasons.length ? "review" : null,
       reviewReasons,
       goalProgress: progress,
@@ -194,8 +207,9 @@ function reviewReasonsFor({
 
   if (patient.status === "needs_review") reasons.push("Marked for review");
   if (painAlert) reasons.push(repeatedWorsening ? "Symptoms worsening twice in a row" : "Pain increased or remains high");
-  if (!program) reasons.push("No program assigned");
-  if (!lastActivity || daysSince(lastActivity) >= 3) reasons.push("No activity in 3+ days");
+  if (!program || program.status !== "active") reasons.push("No active program assigned");
+  if (!lastActivity) reasons.push("No patient activity recorded");
+  else if (daysSince(lastActivity) >= 3) reasons.push("No activity in 3+ days");
   if (recentLogCount >= 3 && adherencePercent != null && adherencePercent < 60) reasons.push("Participation below 60%");
   if (skippedCount >= 2) reasons.push("2+ exercises skipped this week");
   if (hardExerciseAlert) reasons.push("2+ exercises rated hard");

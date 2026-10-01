@@ -1,222 +1,44 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { GoalProgress } from "@/components/GoalProgress";
-import { MetricCard } from "@/components/MetricCard";
-import { ProgressBars } from "@/components/ProgressBars";
-import { PilotTrendCharts } from "@/components/PilotTrendCharts";
 import { RequireAuth } from "@/components/RequireAuth";
-import { PatientInviteButton } from "@/components/PatientInviteButton";
-import { emptyWorkspace, loadPatientWorkspace, trackAnalyticsEvent } from "@/lib/data";
+import { PatientCaseHeader } from "@/components/PatientCaseHeader";
+import { CaseLifecycle } from "@/components/CaseLifecycle";
+import { RecommendationEditor } from "@/components/RecommendationEditor";
+import { PilotTrendCharts } from "@/components/PilotTrendCharts";
+import { ProgressBars } from "@/components/ProgressBars";
 import { formatRepsOrTime } from "@/lib/exercise-media";
-import { formatDate } from "@/lib/format";
-import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
-import type { PatientWorkspace } from "@/lib/types";
-import { summarizePatientActivity } from "@/lib/pilot-insights";
+import { loadPatientWorkspace } from "@/lib/data";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
+import type { PatientWorkspace, CareMessage } from "@/lib/types";
 
-export function PatientWorkspaceClient({ patientId }: { patientId: string }) {
-  const searchParams = useSearchParams();
-  const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
-  const [status, setStatus] = useState("");
-  const trackedPatientRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setStatus("Connect Supabase to load patient workspaces.");
-      setWorkspace(emptyWorkspace());
-      return;
-    }
-
-    const supabase = createSupabaseBrowserClient();
-    const startedAt = performance.now();
-    loadPatientWorkspace(supabase, patientId)
-      .then((loadedWorkspace) => {
-        setWorkspace(loadedWorkspace);
-        setStatus(loadedWorkspace.patient ? "" : "Patient not found for the current clinician.");
-        if (loadedWorkspace.patient && trackedPatientRef.current !== patientId) {
-          trackedPatientRef.current = patientId;
-          void trackAnalyticsEvent(supabase, {
-            eventName: "patient_review_opened",
-            patientId,
-            durationMs: performance.now() - startedAt,
-          });
-        }
-      })
-      .catch(() => {
-        setWorkspace(emptyWorkspace());
-        setStatus("Patient workspace could not be loaded.");
-      });
-  }, [patientId]);
-
-  if (!workspace) {
-    return (
-      <AppShell>
-        <RequireAuth>
-          <div className="empty">Loading patient workspace...</div>
-        </RequireAuth>
-      </AppShell>
-    );
-  }
-
-  if (!workspace.patient) {
-    return (
-      <AppShell>
-        <RequireAuth>
-          <div className="topbar">
-            <div>
-              <p className="eyebrow">Patient workspace</p>
-              <h2>Select a patient first</h2>
-              <p className="muted">{status || "Open a real patient before reviewing the workspace."}</p>
-            </div>
-            <Link className="button" href="/patients/new">Add Patient</Link>
-          </div>
-          <div className="empty">
-            <strong>No patient workspace is open.</strong>
-            <p>Return to the dashboard and choose a patient card, or create a new patient.</p>
-            <Link className="secondary-button" href="/dashboard" style={{ marginTop: 14 }}>
-              Back to Dashboard
-            </Link>
-          </div>
-        </RequireAuth>
-      </AppShell>
-    );
-  }
-
-  const patientName = workspace.patient.display_name ?? workspace.patient.full_name ?? "Patient context";
-  const latestCheckin = workspace.checkins[0];
-  const latestMetric = workspace.progressMetrics.at(-1);
-  const episodeLabel = [
-    workspace.episode?.title,
-    workspace.episode?.body_region,
-    workspace.episode?.status,
-  ].filter(Boolean).join(" · ") || workspace.patient.primary_complaint || "Active care";
-  const programTitle = workspace.program?.name ?? workspace.program?.title ?? "Current program";
-  const assignedDate = workspace.program?.assigned_at ?? workspace.program?.start_date;
-  const activitySummary = summarizePatientActivity(workspace.checkins, workspace.adherenceLogs, workspace.visitNote?.created_at);
-
-  return (
-    <AppShell>
-      <RequireAuth>
-        {searchParams.get("programSaved") === "1" ? (
-          <div className="success-banner" role="status">
-            Program saved. {searchParams.get("librarySaved") ?? "All"} exercise{searchParams.get("librarySaved") === "1" ? "" : "s"} saved in Exercise Studio.
-          </div>
-        ) : null}
-        <div className="topbar">
-          <div>
-            <p className="eyebrow">Patient workspace</p>
-            <h2>{patientName}</h2>
-            <p className="muted">{episodeLabel}</p>
-          </div>
-          <div className="builder-actions">
-            <PatientInviteButton patientId={workspace.patient.id} isLinked={Boolean(workspace.patient.patient_profile_id)} />
-            <Link className="secondary-button" href={`/patients/${workspace.patient.id}/preview`} aria-label={`Preview the patient app for ${patientName}`}>Preview Patient App</Link>
-            <Link className="secondary-button" href={`/patients/${workspace.patient.id}/edit`} aria-label={`Edit profile for ${patientName}`}>Edit Profile</Link>
-            <Link className="button" href={`/program-builder/${workspace.patient.id}`} aria-label={`Update program for ${patientName}`}>Update Program</Link>
-          </div>
-        </div>
-        <div className="grid three">
-          <Link className="workspace-link-card" href={`/patients/${workspace.patient.id}/logs`} aria-label={`Open logs for ${patientName}`}>
-            <MetricCard label="Pain today" value={latestCheckin?.pain_score ?? "n/a"} detail={latestCheckin?.notes ?? "No daily check-in note"} />
-          </Link>
-          <Link className="workspace-link-card" href={`/patients/${workspace.patient.id}/progress`} aria-label={`Open progress for ${patientName}`}>
-            <MetricCard label="Progress signal" value={latestMetric?.value ?? "n/a"} detail={`${latestMetric?.metric_name ?? "No metric"} ${latestMetric?.unit ?? ""}`} />
-          </Link>
-          <Link className="workspace-link-card" href={`/program-builder/${workspace.patient.id}`} aria-label={`Open current program for ${patientName}`}>
-            <MetricCard label="Program items" value={workspace.programExercises.length} detail={workspace.program ? programTitle : "No program assigned yet"} />
-          </Link>
-        </div>
-        <section className="grid two" style={{ marginTop: 18 }}>
-          <div className="panel">
-            <div className="section-header"><div><p className="eyebrow">Patient-reported activity</p><h3>Since Last Visit</h3><p className="muted">{workspace.visitNote?.created_at ? `Since the recorded visit on ${formatDate(workspace.visitNote.created_at)}` : "No visit recorded: showing the last 14 days"}</p></div><Link className="secondary-button" href={`/patients/${workspace.patient.id}/logs`} aria-label={`Open all logs for ${patientName}`}>View logs</Link></div>
-            <div className="since-review-grid" style={{ marginTop: 14 }}>
-              <SummarySignal label="Participation" value={activitySummary.completionRate == null ? "No data" : `${activitySummary.completionRate}%`} />
-              <SummarySignal label="Sessions" value={String(activitySummary.completedSessions)} />
-              <SummarySignal label="Skipped" value={String(activitySummary.skippedExercises)} />
-              <SummarySignal label="Latest pain" value={activitySummary.latestPain == null ? "No data" : `${activitySummary.latestPain}/10`} />
-              <SummarySignal label="Average pain" value={activitySummary.averagePain == null ? "No data" : `${activitySummary.averagePain}/10`} />
-              <SummarySignal label="Symptoms" value={activitySummary.symptomDirection} />
-              <SummarySignal label="Difficulty" value={activitySummary.difficultyTrend} />
-              <SummarySignal label="Latest entry" value={formatDate(activitySummary.latestSubmissionAt)} />
-            </div>
-            {activitySummary.comments.length ? <ul className="list" style={{ marginTop: 14 }}>{activitySummary.comments.map((comment) => <li className="list-item" key={`${comment.date}-${comment.text}`}><p>{comment.text}</p><small className="muted">{formatDate(comment.date)}</small></li>)}</ul> : <p className="muted" style={{ marginTop: 14 }}>No patient comments in this period.</p>}
-          </div>
-          <div className="panel">
-            <p className="eyebrow">Clinical Summary</p>
-            <h3>{workspace.episode?.clinical_summary ?? workspace.visitNote?.summary ?? "No visit summary recorded"}</h3>
-            <p className="muted">{workspace.visitNote?.plan ?? workspace.patient.current_focus ?? "Add a visit note to summarize the plan."}</p>
-            <div style={{ marginTop: 16 }}>
-              <p className="eyebrow">Barriers</p>
-              <ul className="list" style={{ marginTop: 10 }}>
-                {workspace.barriers.map((barrier) => (
-                  <li className="list-item" key={barrier.id}>
-                    <strong>{barrier.type ?? "Barrier"}</strong>
-                    <p className="muted">{barrier.description ?? "No description"} · {barrier.status ?? "Open"}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </section>
-        <section className="grid two" style={{ marginTop: 18 }}>
-          <Link className="panel workspace-link-panel" href={`/patients/${workspace.patient.id}/decision`} aria-label={`Open decision support for ${patientName}`}>
-            <p className="eyebrow">Today&apos;s Decision</p>
-            <h3>{workspace.decision?.decision_type ?? workspace.decision?.decision ?? "Review patient response before changing the plan"}</h3>
-            <p className="muted">{workspace.decision?.rationale ?? workspace.decision?.action_items ?? "No decision rationale recorded."}</p>
-          </Link>
-          <Link className="workspace-link-panel" href={`/patients/${workspace.patient.id}/progress`} aria-label={`Open goal progress for ${patientName}`}>
-            <GoalProgress goals={workspace.goals} />
-          </Link>
-        </section>
-        <section className="grid two" style={{ marginTop: 18 }}>
-          <div className="panel">
-            <div className="section-header"><div><p className="eyebrow">Progress trend</p><h3>Patient feedback over time</h3></div><Link className="secondary-button" href={`/patients/${workspace.patient.id}/progress`} aria-label={`Open full progress trend for ${patientName}`}>View details</Link></div>
-            <PilotTrendCharts checkins={workspace.checkins} logs={workspace.adherenceLogs} compact />
-            {workspace.progressMetrics.length ? <div style={{ marginTop: 18 }}><p className="eyebrow">Clinical measures</p><ProgressBars metrics={workspace.progressMetrics} /></div> : null}
-          </div>
-          {workspace.program ? (
-            <Link className="panel workspace-link-panel" href={`/program-builder/${workspace.patient.id}`} aria-label={`Open current program for ${patientName}`}>
-              <div className="section-header">
-                <div>
-                  <p className="eyebrow">Current Program</p>
-                  <h3>{programTitle}</h3>
-                </div>
-                <span className="pill">{workspace.program.status ?? "draft"}</span>
-              </div>
-              <p className="muted" style={{ marginTop: 8 }}>Assigned {formatDate(assignedDate)}</p>
-              <ul className="list" style={{ marginTop: 12 }}>
-                {workspace.programExercises.map((item) => (
-                  <li className="list-item" key={item.id}>
-                    <strong>{item.exercise?.name ?? "Exercise"}</strong>
-                    <p className="muted">{item.exercise?.category ?? item.category ?? "Category not set"}</p>
-                    <p className="muted">
-                      {item.dosage_sets ?? item.sets ?? 0} sets · {formatRepsOrTime(item.dosage_reps ?? item.reps) || "Repetitions/time not set"} · {item.frequency ?? "Frequency not set"}
-                    </p>
-                    <p>{item.notes ?? "No notes"}</p>
-                  </li>
-                ))}
-              </ul>
-              {!workspace.programExercises.length ? <p className="muted" style={{ marginTop: 12 }}>No exercises are linked to this program yet.</p> : null}
-            </Link>
-          ) : (
-            <div className="panel">
-              <p className="eyebrow">Current Program</p>
-              <h3>No program assigned yet.</h3>
-              <p className="muted">Create a home program for this patient.</p>
-              <Link className="button" href={`/program-builder/${workspace.patient.id}`} style={{ marginTop: 14 }} aria-label={`Build program for ${patientName}`}>
-                Build Program
-              </Link>
-            </div>
-          )}
-        </section>
-      </RequireAuth>
-    </AppShell>
-  );
+export function PatientWorkspaceClient({patientId,section='summary'}:{patientId:string;section?:'summary'|'progress'|'logs'|'program'}) {
+ const [workspace,setWorkspace]=useState<PatientWorkspace|null>(null),[error,setError]=useState(''),[revision,setRevision]=useState(0);
+ const params=useSearchParams();
+ useEffect(()=>{let live=true;loadPatientWorkspace(createSupabaseBrowserClient(),patientId).then(w=>{if(live){setWorkspace(w);setError(w.patient?'':'Patient not found for the current clinician.');}}).catch(()=>{if(live)setError('Patient workspace could not be loaded.');});return()=>{live=false;};},[patientId,revision]);
+ const discharged=workspace?.patient?.status==='discharged'||workspace?.episode?.status==='discharged';
+ return <AppShell><RequireAuth>
+  {error?<p className="panel" role="alert">{error}</p>:!workspace?<p>Loading patient workspace…</p>:workspace.patient?<>
+   <PatientCaseHeader workspace={workspace} section={section}/>
+   {params.get('programSaved')==='1'?<p role="status" className="success-banner">Program saved.</p>:null}
+   {discharged?<p className="case-notice">Discharged case. Clinical history remains available. Reactivate the same case before changing treatment.</p>:null}
+   {section==='summary'?<><CaseLifecycle key={revision} workspace={workspace} onChanged={()=>setRevision(r=>r+1)}/>{discharged?<section className="panel"><h3>Last clinical decision</h3><p>{workspace.decision?.rationale??'No clinical review recorded.'}</p><p>Use Progress, Patient Log, and Program to inspect the preserved record.</p></section>:<RecommendationEditor key={`${patientId}-${revision}`} workspace={workspace}/>}</>:null}
+   {section==='progress'?<div className="form"><section className="panel"><p className="eyebrow">Evaluation to current</p><h3>Goal and function progress</h3>{workspace.goals.length?workspace.goals.map(g=><article className="goal-trend" key={g.id}><strong>{g.title??'Goal'}</strong><p>{g.baseline_value??'Baseline not recorded'} → {g.current_value??'Current not recorded'} {g.unit??''}</p><small>Target: {g.target_value??'Not recorded'} · {g.status??'Status not recorded'}</small></article>):<p>No goals recorded.</p>}</section><details className="panel"><summary>Patient feedback and clinical measures</summary><PilotTrendCharts checkins={workspace.checkins} logs={workspace.adherenceLogs}/><ProgressBars metrics={workspace.progressMetrics}/></details></div>:null}
+   {section==='logs'?<PatientLog workspace={workspace}/>:null}
+   {section==='program'?<section className="panel"><div className="section-header"><div><p className="eyebrow">Prescription</p><h3>{workspace.program?.name??workspace.program?.title??'No program assigned'}</h3><p>{workspace.program?.status??''}</p></div>{!discharged?<Link className="button" href={`/program-builder/${patientId}`}>{workspace.program?'Modify Program':'Build Program'}</Link>:null}</div>{workspace.program?.patient_explanation?<p>{workspace.program.patient_explanation}</p>:null}<ul className="list">{workspace.programExercises.map(e=><li className="list-item" key={e.id}><strong>{e.exercise?.name??'Exercise'}</strong><p>{e.dosage_sets??e.sets??'Sets not recorded'} sets · {formatRepsOrTime(e.dosage_reps??e.reps)||'Reps/time not recorded'} · {e.frequency??'Frequency not recorded'}</p>{e.notes?<p>{e.notes}</p>:null}</li>)}</ul></section>:null}
+  </>:null}
+ </RequireAuth></AppShell>;
 }
-
-function SummarySignal({ label, value }: { label: string; value: string }) {
-  return <div className="summary-signal"><small>{label}</small><strong>{value}</strong></div>;
+function PatientLog({workspace}:{workspace:PatientWorkspace}) {
+ const [filter,setFilter]=useState('all'),[messages,setMessages]=useState<CareMessage[]>([]),[messageError,setMessageError]=useState('');
+ useEffect(()=>{let live=true;createSupabaseBrowserClient().from('care_messages').select('*').eq('patient_id',workspace.patient!.id).order('created_at',{ascending:false}).limit(100).then(({data,error})=>{if(live){setMessages(data??[]);setMessageError(error?'Messages could not be loaded.':'');}});return()=>{live=false;};},[workspace.patient]);
+ const entries=[
+  ...workspace.checkins.map(c=>({id:`c-${c.id}`,kind:'symptoms',date:c.created_at??c.checkin_date??'',title:`Symptoms ${c.symptom_direction??'not reported'} · Pain ${c.pain_score??'not reported'}`,body:[c.activity_context,c.patient_comment??c.notes].filter(Boolean).join(' · ')})),
+  ...workspace.adherenceLogs.map(l=>({id:`l-${l.id}`,kind:'exercise',date:l.performed_at??l.created_at??'',title:`${workspace.programExercises.find(e=>e.id===l.home_program_exercise_id)?.exercise?.name??'Previously assigned exercise'} · ${l.completion_status??(l.completed?'completed':'Status not recorded')}`,body:[l.difficulty?`Difficulty: ${l.difficulty.replaceAll('_',' ')}`:null,l.pain_during!=null?`Pain during: ${l.pain_during}/10`:null,l.notes].filter(Boolean).join(' · ')})),
+  ...workspace.progressMetrics.map(m=>({id:`m-${m.id}`,kind:'function',date:m.measured_at??m.recorded_at??'',title:m.metric_name??'Function measure',body:`${m.value??m.metric_value??m.metric_text_value??'Not recorded'} ${m.unit??''}`})),
+  ...messages.map(m=>({id:`msg-${m.id}`,kind:'messages',date:m.created_at,title:m.kind.replaceAll('_',' '),body:m.body})),
+ ].filter(e=>filter==='all'||e.kind===filter).sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
+ return <section className="panel"><div className="section-header"><h3>Patient Log</h3><div className="field"><label htmlFor="log-filter">Show</label><select id="log-filter" value={filter} onChange={e=>setFilter(e.target.value)}>{[['all','All entries'],['exercise','Exercise activity'],['symptoms','Symptoms and comments'],['function','Function'],['messages','Messages']].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div></div><p className="muted">Latest available records, newest first. Messages belong to the patient across their care history.</p>{messageError?<p role="alert">{messageError}</p>:null}<ul className="list">{entries.map(e=><li className="list-item" key={e.id}><small>{e.date?new Date(e.date).toLocaleString():'Date not recorded'}</small><p><strong>{e.title}</strong></p>{e.body?<p>{e.body}</p>:null}</li>)}</ul>{!entries.length?<p>No entries in this filter.</p>:null}</section>;
 }
