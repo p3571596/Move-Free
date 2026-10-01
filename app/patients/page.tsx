@@ -32,7 +32,7 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("active");
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -142,7 +142,7 @@ function CaseloadRow({ summary }: { summary: PatientSummary }) {
         <span className="caseload-primary">
           <span className="row-between">
             <strong>{name}</strong>
-            <span className={`status-badge ${summary.needsReview ? "status-review" : ""}`}>{summary.needsReview ? "Needs review" : formatStatus(summary.patient.status)}</span>
+            <span className={`status-badge ${summary.needsReview ? "status-review" : ""}`}>{summary.queue === "discharged" ? "Discharged" : summary.needsReview ? "Needs review" : formatStatus(summary.patient.status)}</span>
           </span>
           <small>{getPatientDiagnosis(summary)}</small>
           <span className="caseload-goal">{getGoalTitle(summary)}</span>
@@ -166,8 +166,8 @@ function matchesFilter(summary: PatientSummary, filter: Filter) {
   const status = summary.patient.status ?? "active";
   if (filter === "all") return true;
   if (filter === "review") return summary.needsReview;
-  if (filter === "discharged") return status === "discharged";
-  return ["active", "needs_review", "paused"].includes(status) && status !== "discharged";
+  if (filter === "discharged") return summary.queue === "discharged";
+  return summary.queue !== "discharged" && ["active", "needs_review", "paused"].includes(status);
 }
 
 function countForFilter(summaries: PatientSummary[], filter: Filter) {

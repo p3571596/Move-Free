@@ -22,6 +22,7 @@ try {
  for(const disposition of ['accepted','modified','rejected']) {
   // Client-side navigation retains the intercepted auth session; no live auth is bypassed or modified.
   await page.goto(base+`/patients/${patient}/decision`);
+  await page.getByText('Automatically analyzed data',{exact:true}).first().click();
   await page.getByRole('heading',{name:'Automatically analyzed data',exact:true}).waitFor();
   await page.getByText('Regress or reduce load',{exact:true}).waitFor();
   assert.equal(await page.locator('#engine-exercisePain').count(),0);

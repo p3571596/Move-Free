@@ -241,6 +241,10 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
 
   const episode = latestEpisodeResult.data as Episode | null;
   const episodeId = episode?.id;
+  const episodeCountResult = await client.from("episodes").select("id").eq("patient_id", resolvedPatientId);
+  if (episodeCountResult.error) throw episodeCountResult.error;
+  const allowLegacy = (episodeCountResult.data?.length ?? 0) <= 1;
+  const belongsToEpisode = (item: {episode_id?: string | null}) => item.episode_id === episodeId || (!item.episode_id && allowLegacy);
 
   const [
     goalsResult,
@@ -255,8 +259,8 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     episodeId ? client.from("goals").select("*").eq("episode_id", episodeId).limit(8) : emptyResult(),
     client.from("daily_checkins").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(30),
     episodeId ? client.from("progress_metrics").select("*").eq("episode_id", episodeId).order("measured_at", { ascending: false }).limit(50) : emptyResult(),
-    access === "patient" ? emptyResult() : client.from("clinical_decisions").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(1),
-    access === "patient" ? emptyResult() : client.from("visit_notes").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(1),
+    access === "patient" ? emptyResult() : client.from("clinical_decisions").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(30),
+    access === "patient" ? emptyResult() : client.from("visit_notes").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(30),
     access === "patient" ? emptyResult() : client.from("barriers").select("*").eq("patient_id", resolvedPatientId).order("created_at", { ascending: false }).limit(5),
     episodeId ? client
       .from("home_programs")
@@ -292,15 +296,15 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
   return {
     patient,
     episode,
-    goals: withPatientGoalFallback(goalsResult.data ?? [], patient),
-    checkins: normalizeCheckins(checkinsResult.data ?? []),
+    goals: allowLegacy ? withPatientGoalFallback(goalsResult.data ?? [], patient) : goalsResult.data ?? [],
+    checkins: normalizeCheckins((checkinsResult.data ?? []).filter(belongsToEpisode)),
     progressMetrics: normalizeProgressMetrics([...(metricsResult.data ?? [])].reverse()),
-    decision: (decisionsResult.data?.[0] as ClinicalDecision | undefined) ?? null,
-    visitNote: notesResult.data?.[0] ?? null,
-    barriers: barriersResult.data ?? [],
+    decision: (decisionsResult.data?.find(belongsToEpisode) as ClinicalDecision | undefined) ?? null,
+    visitNote: notesResult.data?.find(belongsToEpisode) ?? null,
+    barriers: (barriersResult.data ?? []).filter(belongsToEpisode),
     program,
     programExercises,
-    adherenceLogs: (adherenceResult.data ?? []) as ExerciseAdherenceLog[],
+    adherenceLogs: ((adherenceResult.data ?? []) as ExerciseAdherenceLog[]).filter(l => (programsResult.data ?? []).some(p => p.id === l.home_program_id) || (!l.home_program_id && allowLegacy)),
   };
 }
 
@@ -338,7 +342,7 @@ export async function loadExerciseLibrary(client: Client) {
 export async function publishPatientGuidance(client: Client, patientId: string, programId: string, guidance: string, expectedUpdatedAt: string) {
   if (!guidance.trim() || guidance.length > 4000) throw new Error("Enter guidance of up to 4,000 characters.");
   const workspace = await loadPatientWorkspace(client, patientId);
-  if (!workspace.patient || workspace.program?.id !== programId || !workspace.episode) {
+  if (!workspace.patient || workspace.patient.status === "discharged" || workspace.episode?.status === "discharged" || workspace.program?.id !== programId || !workspace.episode) {
     throw new Error("This program is no longer current or you do not have an authorized care relationship. Reload before publishing.");
   }
   const available = await client.from("care_messages").select("id").limit(0);
@@ -366,8 +370,17 @@ export async function recordClinicalReview(client: Client, workspace: PatientWor
   const storedDecision = ["contact", "other"].includes(decisionType) ? "modify" : decisionType;
   const decisionRationale = ["contact", "other"].includes(decisionType) ? `${decisionType === "contact" ? "Contact patient" : "Other action"}: ${rationale.trim()}` : rationale.trim();
   const current = await loadPatientWorkspace(client, workspace.patient.id);
-  const latestActivity = (value: PatientWorkspace) => JSON.stringify({checkins:value.checkins,logs:value.adherenceLogs,goals:value.goals,metrics:value.progressMetrics,program:value.program,exercises:value.programExercises,decision:value.decision});
+  if (current.patient?.status === "discharged" || current.episode?.status === "discharged") throw new Error("Reactivate Case before recording a new treatment decision.");
+  const latestActivity = (value: PatientWorkspace) => JSON.stringify({patient:value.patient,episode:value.episode,checkins:value.checkins,logs:value.adherenceLogs,goals:value.goals,metrics:value.progressMetrics,program:value.program,exercises:value.programExercises,decision:value.decision});
   if (latestActivity(current) !== latestActivity(workspace)) throw new Error("Patient data or the program changed. Reload and review the latest information before saving.");
+  const clearReviewedMarker = async () => {
+    if (current.patient?.status !== "needs_review") return;
+    let query = client.from("patients").update({status: "active"}).eq("id", workspace.patient!.id).eq("status", "needs_review");
+    // Do not clear a newer flag if another clinician action changed the patient during save.
+    if (current.patient.updated_at) query = query.eq("updated_at", current.patient.updated_at);
+    const {error} = await query;
+    if (error) throw new Error("Review saved, but the case review marker could not be cleared. Refresh the workspace.");
+  };
   if (evaluation) {
     if (!workspace.episode || !evaluation.disposition) throw new Error("Complete the engine comparison before saving.");
     if (evaluation.disposition === "modified" && !evaluation.modification.trim()) throw new Error("Describe your modification before saving.");
@@ -379,10 +392,12 @@ export async function recordClinicalReview(client: Client, workspace: PatientWor
       p_disposition: evaluation.disposition, p_disagreement: evaluation.disagreementReason, p_modification: evaluation.modification,
     });
     if (error) throw new Error(error.message);
+    await clearReviewedMarker();
     return;
   }
   const { error } = await client.from("clinical_decisions").insert({ id, patient_id: workspace.patient.id, episode_id: workspace.episode?.id, clinician_id: user.id, decision_type: storedDecision, rationale: decisionRationale, action_items: decisionType });
   if (error) throw new Error(error.message);
+  await clearReviewedMarker();
 }
 
 export async function loadCurrentPatientAppWorkspace(client: Client): Promise<PatientWorkspace> {
@@ -718,6 +733,10 @@ export async function loadFounderAnalytics(client: Client, days = 30): Promise<F
 }
 
 async function ensureActiveEpisode(client: Client, patientId: string) {
+  const patient = await client.from("patients").select("status").eq("id", patientId).single();
+  if (patient.error) throw patient.error;
+  if (patient.data.status === "discharged") throw new Error("Reactivate Case before modifying the program. A new problem needs a separate episode.");
+
   const existing = await client
     .from("episodes")
     .select("*")
@@ -727,9 +746,14 @@ async function ensureActiveEpisode(client: Client, patientId: string) {
     .limit(1)
     .maybeSingle();
 
+  if (existing.error) throw existing.error;
   if (existing.data) {
     return existing.data as Episode;
   }
+
+  const previous = await client.from("episodes").select("id").eq("patient_id", patientId).limit(1);
+  if (previous.error) throw previous.error;
+  if (previous.data?.length) throw new Error("This patient has a closed episode. Reopen the same case from Summary; Start New Episode is not available yet.");
 
   const { data, error } = await client
     .from("episodes")
