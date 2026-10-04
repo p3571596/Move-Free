@@ -18,6 +18,7 @@ await db.exec(fs.readFileSync('supabase/migrations/20260921235753_enforce_pilot_
 await db.exec(`create table public.clinical_engine_reviews(id uuid primary key,patient_id uuid,engine_result jsonb,disposition text);`);
 await db.exec(fs.readFileSync('supabase/migrations/20261004115925_stage1_adaptive_followups.sql','utf8'));
 await db.exec(fs.readFileSync('supabase/migrations/20261004121415_stage1_followup_schedule.sql','utf8').split('-- Activate after application deployment.')[0]);
+await db.exec(fs.readFileSync('supabase/migrations/20261004174821_preserve_followup_switch_cooldown.sql','utf8'));
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const now=new Date(), ago=h=>new Date(+now-h*3600000).toISOString();
 for(const [n,role] of [[1,'clinician'],[2,'patient'],[3,'clinician']])await db.query('insert into profiles(id,role) values($1,$2)',[id(n),role]);
@@ -46,6 +47,14 @@ await assert.rejects(db.query('select private.run_stage1_followups()'));console.
 await as(2);await assert.rejects(db.query('update patient_followups set status=\'answered\''));await assert.rejects(db.query('select answer_patient_followup($1,$2)',[f.id,{symptoms:'improving',function:'improving',newNeuro:'false'}]));
 await db.query('select answer_patient_followup($1,$2)',[f.id,{symptoms:'improving',function:'improving'}]);
 await db.exec('reset role');assert.equal((await state()).state,'RESPONSE_AVAILABLE');assert.equal((await all())[0].status,'answered');assert.equal((await db.query("select * from daily_checkins where function_direction='improving'")).rows.length,1);console.log('H: answer saved structurally and reevaluated atomically');
+await db.exec('begin');
+await db.exec('delete from patient_followups; delete from daily_checkins');
+await db.query("insert into patient_followups(patient_id,episode_id,home_program_id,kind,questions,status,reason,created_at,answered_at,answers) values($1,$2,$3,'inactivity',array['barrier'],'answered','synthetic',$4,$5,'{\"barrier\":\"offline\"}')",[id(10),id(11),id(12),ago(1),now.toISOString()]);
+await db.query("insert into patient_followups(patient_id,episode_id,home_program_id,kind,questions,reason,created_at) values($1,$2,$3,'response',array['function'],'synthetic',$4)",[id(10),id(11),id(12),now.toISOString()]);
+await run(new Date(+now+72*3600000).toISOString());
+assert.equal((await db.query("select count(*)::int n from patient_followups where kind='inactivity'")).rows[0].n,1,'switching question types must not bypass the seven-day inactivity cooldown');
+console.log('C: switching from response follow-up retains inactivity cooldown');
+await db.exec('rollback');
 await db.exec('delete from patient_followups');
 await db.query("insert into clinical_decisions(id,patient_id,episode_id,created_at) values($1,$2,$3,$4)",[id(20),id(10),id(11),ago(0)]);
 await db.query("insert into clinical_engine_reviews values($1,$2,$3,'accepted')",[id(20),id(10),{ruleId:'v0.1.safety'}]);
