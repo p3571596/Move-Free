@@ -43,3 +43,18 @@ test('assessed low adherence cannot bypass exposure review even when outcomes im
  const i={redFlag:false,newNeuro:false,fracture:false,systemic:false,patternChange:false,adherence:50,sleep:'good',dailyLoad:'neutral',technique:'yes',exercisePain:3,painIncrease:1,recoveryHours:24,swelling:false,fatigue:false,otherAdverse:false,rpe:6,movement:'good',objective:'improving',function:'improving',painTrend:'improving',expected:'yes',psych:false};
  assert.equal(run(map(workspace(),i,now)).ruleId,'integration.execution_before_progression');
 });
+
+test('F: sufficient v0.1 inputs give an explainable recommendation',()=>{
+ const i={redFlag:false,newNeuro:false,fracture:false,systemic:false,patternChange:false,adherence:95,sleep:'good',dailyLoad:'neutral',technique:'yes',exercisePain:3,painIncrease:1,recoveryHours:24,swelling:false,fatigue:false,otherAdverse:false,rpe:6,movement:'good',objective:'improving',function:'improving',painTrend:'improving',expected:'yes',psych:false};
+ const r=run(map(workspace(),i,now));assert.equal(r.status,'evaluated');assert.equal(r.ruleId,'v0.1.progress_repetitions');assert(r.reasons.length>0);
+});
+test('G: high adherence alone is explicitly insufficient and requests minimal patient response',()=>{
+ const r=run(map(workspace(),{adherence:100},now));assert.equal(r.status,'missing_information');assert.equal(r.decisionState,'NEEDS_CHECK_IN');assert.deepEqual(r.patientQuestions,['symptoms','function']);
+});
+test('H/I: structured patient response maps provenance but never supplies clinician examination',()=>{
+ const w=workspace();w.checkins=[{id:'answer',patient_id:'p',episode_id:'e',created_at:date,symptom_direction:'improving',function_direction:'improving'}];
+ const m=map(w,{},now),r=run(m);assert.equal(m.inputs.function,'improving');assert.equal(m.provenance.function.recordIds[0],'answer');assert.equal(r.status,'missing_information');assert.equal(r.decisionState,'CLINICIAN_REVIEW');assert.deepEqual(r.patientQuestions,[]);assert.equal(m.inputs.newNeuro,undefined);assert.equal(m.inputs.movement,undefined);
+});
+test('J: structured unresolved symptoms never generate a treatment suggestion from insufficient data',()=>{
+ const w=workspace();w.adherenceLogs=[log({symptom_response:'lot',symptom_recovery:'still_increased'})];const r=run(map(w,{},now));assert.equal(r.status,'missing_information');assert.equal(r.decisionState,'CLINICIAN_REVIEW');assert.deepEqual(r.patientQuestions,[]);
+});

@@ -60,7 +60,7 @@ export function RecommendationEditor({ workspace }: { workspace: PatientWorkspac
     </details>
     <form className="form" onSubmit={async event => {
       event.preventDefault(); setBusy(true); setError("");
-      try { await recordClinicalReview(createSupabaseBrowserClient(), workspace, decisionType, rationale, reviewId, evaluation ?? undefined); setReviewed(true); }
+      try { await recordClinicalReview(createSupabaseBrowserClient(), workspace, decisionType, rationale, reviewId, evaluation ? {...evaluation, disposition:evaluation.result.status === "missing_information" ? "not_evaluated" : evaluation.disposition} : undefined); setReviewed(true); }
       catch (cause) { setError(cause instanceof Error ? cause.message : "Review could not be saved."); }
       finally { setBusy(false); }
     }}>
@@ -69,7 +69,7 @@ export function RecommendationEditor({ workspace }: { workspace: PatientWorkspac
       <p className="muted">This records your decision and clears the new-feedback indicator. Clinical alerts may remain. It does not send patient guidance or change exercises.</p>
       <div className="field"><label htmlFor="review-decision">Decision</label><select id="review-decision" value={decisionType} onChange={event => setDecisionType(event.target.value)}>{["continue", "modify", "progress", "regress", "reassess", "contact", "other", "refer_out"].map(value => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select></div>
       <div className="field"><label htmlFor="review-rationale">Review rationale</label><textarea id="review-rationale" required maxLength={4000} value={rationale} onChange={event => setRationale(event.target.value)}/></div>
-      <button className="secondary-button" disabled={busy || reviewed || !rationale.trim() || !!(evaluation && (!storageReady || !evaluation.disposition))}>{reviewed ? "Review recorded" : "Mark feedback reviewed"}</button>
+      <button className="secondary-button" disabled={busy || reviewed || !rationale.trim() || !!(evaluation && (!storageReady || (evaluation.result.status === "evaluated" && !evaluation.disposition)))}>{reviewed ? "Review recorded" : "Mark feedback reviewed"}</button>
       {reviewed ? <p role="status">Review recorded. Return to Today to see the updated inbox.</p> : null}
     </form>
     {error ? <p role="alert" className="form-error">{error}</p> : null}

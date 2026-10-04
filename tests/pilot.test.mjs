@@ -43,7 +43,7 @@ test('Today partitions alerts, review and on-track counts while excluding discha
   s.episodes.push({id:'e'+id,patient_id:id,status:kind==='discharged'?'discharged':'active'});
   s.goals.push({id:'g'+id,episode_id:'e'+id,title:'Walk',current_value:'20',baseline_value:'10',target_value:'30'});
   s.programs.push({id:'h'+id,episode_id:'e'+id,status:'active'});
-  s.recentCheckins.push({id:'c'+id,patient_id:id,episode_id:'e'+id,created_at:now,pain_score:kind==='alert'?8:2});
+  s.recentCheckins.push({id:'c'+id,patient_id:id,episode_id:'e'+id,created_at:now,symptom_direction:'unchanged',function_direction:'stable',pain_score:kind==='alert'?8:2});
   if(kind==='on_track')s.openDecisions.push({id:'x',patient_id:id,episode_id:'e'+id,created_at:new Date(Date.now()+1000).toISOString()});
  }
  const result=buildPatientSummaries(s);assert.deepEqual(result.map(p=>p.queue),['alert','review','on_track','discharged']);assert.equal(result[3].needsReview,false);

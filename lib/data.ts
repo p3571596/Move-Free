@@ -119,7 +119,7 @@ export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSn
     };
   }
 
-  const [episodesResult, checkinsResult, adherenceResult, decisionsResult] = await Promise.all([
+  const [episodesResult, checkinsResult, adherenceResult, decisionsResult, followupStatesResult] = await Promise.all([
     client
       .from("episodes")
       .select("*")
@@ -140,9 +140,10 @@ export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSn
       .select("*")
       .in("patient_id", patientIds)
       .order("created_at", { ascending: false }),
+    client.from("patient_followup_state").select("*").in("patient_id", patientIds),
   ]);
 
-  for (const result of [episodesResult, checkinsResult, adherenceResult, decisionsResult]) {
+  for (const result of [episodesResult, checkinsResult, adherenceResult, decisionsResult, followupStatesResult]) {
     if (result.error) throw result.error;
   }
 
@@ -175,6 +176,7 @@ export async function loadClinicianSnapshot(client: Client): Promise<ClinicianSn
     adherenceLogs: (adherenceResult.data ?? []) as ExerciseAdherenceLog[],
     recentCheckins: normalizeCheckins(checkinsResult.data ?? []),
     openDecisions: decisionsResult.data ?? [],
+    followupStates: followupStatesResult.data ?? [],
   };
 }
 
@@ -287,6 +289,11 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     adherenceResult,
   ]);
 
+  const [followupsResult, followupStatesResult] = await Promise.all([
+    client.from("patient_followups").select("*").eq("patient_id", resolvedPatientId).order("created_at", {ascending:false}).limit(100),
+    access === "patient" ? emptyResult() : client.from("patient_followup_state").select("*").eq("patient_id", resolvedPatientId),
+  ]);
+  throwFirstQueryError([followupsResult, followupStatesResult]);
   const selectedProgram = selectVisibleProgram((programsResult.data ?? []) as HomeProgram[], access === "patient");
   const program = normalizeProgram(selectedProgram, patient.id);
   const programExercises = program
@@ -296,6 +303,8 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
   return {
     patient,
     episode,
+    followups: (followupsResult.data ?? []).filter(belongsToEpisode),
+    followupStates: followupStatesResult.data ?? [],
     goals: allowLegacy ? withPatientGoalFallback(goalsResult.data ?? [], patient) : goalsResult.data ?? [],
     checkins: normalizeCheckins((checkinsResult.data ?? []).filter(belongsToEpisode)),
     progressMetrics: normalizeProgressMetrics([...(metricsResult.data ?? [])].reverse()),
@@ -371,7 +380,7 @@ export async function recordClinicalReview(client: Client, workspace: PatientWor
   const decisionRationale = ["contact", "other"].includes(decisionType) ? `${decisionType === "contact" ? "Contact patient" : "Other action"}: ${rationale.trim()}` : rationale.trim();
   const current = await loadPatientWorkspace(client, workspace.patient.id);
   if (current.patient?.status === "discharged" || current.episode?.status === "discharged") throw new Error("Reactivate Case before recording a new treatment decision.");
-  const latestActivity = (value: PatientWorkspace) => JSON.stringify({patient:value.patient,episode:value.episode,checkins:value.checkins,logs:value.adherenceLogs,goals:value.goals,metrics:value.progressMetrics,program:value.program,exercises:value.programExercises,decision:value.decision});
+  const latestActivity = (value: PatientWorkspace) => JSON.stringify({patient:value.patient,episode:value.episode,checkins:value.checkins,logs:value.adherenceLogs,followups:value.followups,goals:value.goals,metrics:value.progressMetrics,program:value.program,exercises:value.programExercises,decision:value.decision});
   if (latestActivity(current) !== latestActivity(workspace)) throw new Error("Patient data or the program changed. Reload and review the latest information before saving.");
   const clearReviewedMarker = async () => {
     if (current.patient?.status !== "needs_review") return;
@@ -388,7 +397,7 @@ export async function recordClinicalReview(client: Client, workspace: PatientWor
       p_id: id, p_patient_id: workspace.patient.id, p_episode_id: workspace.episode.id,
       p_decision: storedDecision, p_rationale: decisionRationale,
       p_engine: JSON.parse(JSON.stringify(evaluation.result)),
-      p_source: JSON.parse(JSON.stringify({ capturedAt: new Date().toISOString(), clinicianFinalAction: decisionType, patientGoal: workspace.patient.goal, goals: workspace.goals, checkins: workspace.checkins, adherenceLogs: workspace.adherenceLogs, progressMetrics: workspace.progressMetrics, programBeforeReview: workspace.program, exercisesBeforeReview: workspace.programExercises, inputProvenance: evaluation.mapped.provenance, analysisWindow: evaluation.mapped.window, normalizedInputs: evaluation.mapped.inputs, reviewContext: evaluation.mapped.context })),
+      p_source: JSON.parse(JSON.stringify({ capturedAt: new Date().toISOString(), clinicianFinalAction: decisionType, patientGoal: workspace.patient.goal, followups: workspace.followups, followupStates: workspace.followupStates, goals: workspace.goals, checkins: workspace.checkins, adherenceLogs: workspace.adherenceLogs, progressMetrics: workspace.progressMetrics, programBeforeReview: workspace.program, exercisesBeforeReview: workspace.programExercises, inputProvenance: evaluation.mapped.provenance, analysisWindow: evaluation.mapped.window, normalizedInputs: evaluation.mapped.inputs, reviewContext: evaluation.mapped.context })),
       p_disposition: evaluation.disposition, p_disagreement: evaluation.disagreementReason, p_modification: evaluation.modification,
     });
     if (error) throw new Error(error.message);
@@ -596,6 +605,10 @@ export type ExerciseLogInput = {
   homeProgramExerciseId: string;
   completionStatus: "completed" | "partial" | "skipped";
   difficulty: "too_easy" | "appropriate" | "too_hard" | null;
+  difficultyReason?: string | null;
+  completionReason?: string | null;
+  symptomResponse?: string | null;
+  symptomRecovery?: string | null;
   painDuring: number | null;
   actualSets: number | null;
   actualReps: number | null;
@@ -624,6 +637,10 @@ export async function logExerciseSession(
     completion_status: entry.completionStatus,
     difficulty: entry.difficulty,
     pain_during: entry.painDuring,
+    difficulty_reason: entry.difficulty === "too_hard" ? entry.difficultyReason : null,
+    completion_reason: entry.completionStatus !== "completed" ? entry.completionReason : null,
+    symptom_response: entry.completionStatus !== "skipped" ? entry.symptomResponse : null,
+    symptom_recovery: entry.completionStatus !== "skipped" && ["little","lot"].includes(entry.symptomResponse ?? "") ? entry.symptomRecovery : null,
     actual_sets: entry.actualSets,
     actual_reps: entry.actualReps,
     actual_duration_minutes: entry.actualDurationMinutes,

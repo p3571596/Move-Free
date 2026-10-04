@@ -7,6 +7,7 @@ import { PatientShell } from "@/components/PatientShell";
 import { RoleGate } from "@/components/RoleGate";
 import { RequireAuth } from "@/components/RequireAuth";
 import { loadCurrentPatientAppWorkspace } from "@/lib/data";
+import { PatientFollowups } from "@/components/PatientFollowups";
 import { PatientGoalSummary } from "@/components/PatientGoalSummary";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { PatientWorkspace } from "@/lib/types";
@@ -56,6 +57,7 @@ export default function PatientAppHomePage() {
           {workspace?.patient ? (
             <>
               {workspace.program?.patient_explanation ? <section className="patient-feedback-card"><MessageSquareText size={21}/><div><p className="eyebrow">From your therapist</p><p>{workspace.program.patient_explanation}</p><Link href="/patient/messages">View messages</Link></div></section> : null}
+              <PatientFollowups items={workspace.followups ?? []} onAnswered={()=>{loadCurrentPatientAppWorkspace(createSupabaseBrowserClient()).then(setWorkspace).catch(()=>setLoadError("Could not refresh your plan."));}}/>
               <PatientGoalSummary workspace={workspace}/>
               <Link className="patient-primary-action" href="/patient/program">
                 <span className="patient-action-icon"><Activity size={22}/></span>
