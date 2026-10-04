@@ -149,6 +149,8 @@ export const engineFields = {
 export type EngineKey = keyof typeof engineFields;
 export type EngineInputs = Partial<Record<EngineKey, string | number | boolean | null>>;
 export type EngineResult = {
+  decisionState?: "NEEDS_CHECK_IN" | "CLINICIAN_REVIEW";
+  patientQuestions?: string[];
   assessmentScope?: "complete" | "partial_evidence";
   version: string; status: "evaluated" | "missing_information";
   recommendation: string; bottleneck: string; reasons: string[]; flags: string[];

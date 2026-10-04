@@ -23,6 +23,7 @@ jobs:
       - run: node tests/relationship-authorization.mjs
       - run: node tests/clinical-storage.mjs
       - run: node tests/case-lifecycle.mjs
+      - run: node tests/followups.mjs
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm run build

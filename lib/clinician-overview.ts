@@ -86,13 +86,16 @@ export function buildPatientSummaries(snapshot: ClinicianSnapshot | null): Patie
     const reviewReasons = reviewReasonsFor({ patient, lastActivity, program, adherencePercent, painAlert, repeatedWorsening, skippedCount, hardExerciseAlert, recentLogCount: recentAdherence.length });
     const decision = snapshot.openDecisions.find(item => item.patient_id === patient.id && (item.episode_id === episode?.id || (!item.episode_id && patientEpisodes.length <= 1))) ?? null;
     const lastReview = decision?.created_at;
+    const followup = snapshot.followupStates?.find(f=>f.home_program_id===program?.id && f.state!=='INACTIVE');
+    if(followup && ['CLINICIAN_REVIEW','SAFETY_REVIEW'].includes(followup.state)) reviewReasons.unshift(followup.reason);
     if (lastActivity && (!lastReview || timestamp(lastActivity) > timestamp(lastReview))) reviewReasons.unshift("Patient feedback to review");
-    const mapped = mapClinicalInputs({patient, episode, goals, program, programExercises: [], checkins, adherenceLogs, decision, visitNote: null, barriers: [], progressMetrics: []});
+    const mapped = mapClinicalInputs({patient, episode, goals, program, programExercises: [], followupStates:snapshot.followupStates, checkins, adherenceLogs, decision, visitNote: null, barriers: [], progressMetrics: []});
     const analysis = evaluateAutomaticReview(mapped);
     const discharged = patient.status === "discharged" || episode?.status === "discharged";
-    const alert = painAlert || hardExerciseAlert || skippedCount >= 2 || patient.status === "needs_review" || analysis.ruleId === "v0.1.adverse_response";
-    const hasSymptomReport = typeof latestCheckin?.pain_score === "number" || !!latestCheckin?.symptom_direction;
-    const queue = discharged ? "discharged" : alert ? "alert" : reviewReasons.length || !lastReview || !hasSymptomReport || !latestGoal ? "review" : "on_track";
+    const alert = followup?.state === 'SAFETY_REVIEW' || followup?.state === 'CLINICIAN_REVIEW' || painAlert || hardExerciseAlert || skippedCount >= 2 || patient.status === "needs_review" || analysis.ruleId === "v0.1.adverse_response";
+    const hasSymptomReport = checkins.some(c=>isWithinDays(c.created_at,14) && !!c.symptom_direction);
+    const hasFunctionReport = checkins.some(c=>isWithinDays(c.created_at,14) && c.function_direction && c.function_direction!=='unsure') || mapped.inputs.function != null;
+    const queue = discharged ? "discharged" : alert ? "alert" : reviewReasons.length || !lastReview || !hasSymptomReport || !hasFunctionReport ? "review" : "on_track";
     if (queue === "review" && !reviewReasons.length) reviewReasons.push("Clinical information needs review");
     const progress = getGoalProgress(latestGoal, patient);
     const milestone = !reviewReasons.length && isWithinDays(latestGoal?.updated_at ?? latestGoal?.created_at, 7) && (

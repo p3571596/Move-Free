@@ -19,10 +19,14 @@ export function mapClinicalInputs(workspace: PatientWorkspace, observations: Eng
   const checkins = workspace.checkins.filter(c => c.patient_id === workspace.patient?.id && (!c.episode_id || c.episode_id === workspace.episode?.id) && inWindow(c.created_at ?? c.checkin_date)).sort((a,b)=>time(b.created_at ?? b.checkin_date)-time(a.created_at ?? a.checkin_date));
   const logs = [...new Map(workspace.adherenceLogs.filter(l => l.patient_id === workspace.patient?.id && !!workspace.program && l.home_program_id === workspace.program.id && inWindow(l.performed_at ?? l.created_at)).map(l=>[l.session_id && l.home_program_exercise_id ? `${l.session_id}:${l.home_program_exercise_id}` : l.id,l])).values()];
   const auto = (key: EngineKey, value: string | number, source: string, recordIds: string[]) => {inputs[key]=value;provenance[key]={state:'AUTO',source,recordIds};};
-  const latest = checkins[0];
+  const responseCutoff = Math.max(time(now)-14*86400000, time(workspace.program?.assigned_at) || 0);
+  const responseCheckins = workspace.checkins.filter(c=>c.patient_id===workspace.patient?.id && (!c.episode_id || c.episode_id===workspace.episode?.id) && time(c.created_at ?? c.checkin_date)>=responseCutoff && time(c.created_at ?? c.checkin_date)<=time(now)).sort((a,b)=>time(b.created_at ?? b.checkin_date)-time(a.created_at ?? a.checkin_date));
+  const latest = responseCheckins.find(c=>!!c.symptom_direction);
+  const functionReport = responseCheckins.find(c => c.function_direction && c.function_direction !== 'unsure');
+  if (functionReport) auto('function', functionReport.function_direction!, 'Patient-reported daily activity/goal direction; not a clinician examination', [functionReport.id]);
   if (latest?.symptom_direction && ['improving','unchanged','worsening'].includes(latest.symptom_direction)) auto('painTrend',latest.symptom_direction === 'unchanged' ? 'stable' : latest.symptom_direction,'Latest patient-reported symptom direction',[latest.id]);
   else {
-    const pain = checkins.filter(c=>score(c.pain_score));
+    const pain = responseCheckins.filter(c=>score(c.pain_score));
     if(pain.length>=2) auto('painTrend',pain[0].pain_score! > pain[1].pain_score! ? 'worsening' : pain[0].pain_score! < pain[1].pain_score! ? 'improving':'stable','Two latest daily pain ratings (not exercise pain)',pain.slice(0,2).map(c=>c.id));
   }
   const exercisePain=logs.filter(l=>l.completion_status !== 'skipped' && score(l.pain_during));
@@ -30,12 +34,12 @@ export function mapClinicalInputs(workspace: PatientWorkspace, observations: Eng
   const paired=logs.filter(l=>l.completion_status !== 'skipped' && score(l.pain_before) && (score(l.pain_during)||score(l.pain_after)));
   if(paired.length) auto('painIncrease',Math.max(0,...paired.map(l=>Math.max(...[l.pain_during,l.pain_after].filter(score))-l.pain_before!)),'Maximum increase from paired before/during/after ratings in the same exercise record',paired.map(l=>l.id));
   // Goal direction is only comparable with an explicit numeric baseline and target.
-  const goalTrends=workspace.goals.filter(g=>g.episode_id===workspace.episode?.id && inWindow(g.updated_at)).flatMap(g=>{
+  const goalTrends=workspace.goals.filter(g=>g.episode_id===workspace.episode?.id && time(g.updated_at)>=responseCutoff && time(g.updated_at)<=time(now)).flatMap(g=>{
     const baseline=numeric(g.baseline_value), current=numeric(g.current_value), target=numeric(g.target_value);
     if(baseline===null||current===null||target===null||target===baseline) return [];
     return [{id:g.id,trend:(current-baseline)*Math.sign(target-baseline)>0?'improving':current===baseline?'stable':'worsening'}];
   });
-  if(goalTrends.length && new Set(goalTrends.map(g=>g.trend)).size===1) auto('function',goalTrends[0].trend,'Updated goal values versus baseline, oriented toward the explicit target; not change since last review',goalTrends.map(g=>g.id));
+  if(!functionReport && goalTrends.length && new Set(goalTrends.map(g=>g.trend)).size===1) auto('function',goalTrends[0].trend,'Updated goal values versus baseline, oriented toward the explicit target; not change since last review',goalTrends.map(g=>g.id));
   const statuses=['completed','partial','skipped'];
   const reported=logs.filter(l=>statuses.includes(l.completion_status??''));
   const counts=Object.fromEntries(statuses.map(s=>[s,reported.filter(l=>l.completion_status===s).length])) as Record<string,number>;
@@ -52,13 +56,17 @@ export function mapClinicalInputs(workspace: PatientWorkspace, observations: Eng
     const candidate=evaluateEngine({[key]:observations[key]});
     if(!candidate.missing.includes(key)){inputs[key]=observations[key];provenance[key]={state:'CLINICIAN-ADDED',source:'Clinician observation for this review',recordIds:[]};}
   }
-  return {inputs,provenance,window:{from:new Date(cutoff).toISOString(),to:now},context:{counts,completionRate,reportedExercises:reported.length,completionTrend:{recentRate,previousRate},repeatedDifficulty,checkins,logs,goals:workspace.goals,progressMetrics:workspace.progressMetrics,barriers:workspace.barriers,previousDecision:workspace.decision,program:workspace.program,exercises:workspace.programExercises,
+  return {inputs,provenance,followupStates:workspace.followupStates ?? [],followups:workspace.followups ?? [],window:{from:new Date(cutoff).toISOString(),to:now},context:{counts,completionRate,reportedExercises:reported.length,completionTrend:{recentRate,previousRate},repeatedDifficulty,checkins,logs,goals:workspace.goals,progressMetrics:workspace.progressMetrics,barriers:workspace.barriers,previousDecision:workspace.decision,program:workspace.program,exercises:workspace.programExercises,
     limitations:['At most 30 check-ins and 250 exercise records are loaded; summaries describe available reports only.','Daily pain is not exercise pain; difficulty is not RPE; comments are not automated red-flag assessments.','Prescribed adherence, recovery hours and examination findings remain unknown unless assessed.']}};
 }
 
 /** Keep the recovered v0.1 evaluator intact. Partial evidence permits conservative review routing only. */
 export function evaluateAutomaticReview(mapped: AutomaticReview): EngineResult {
   const base=evaluateEngine(mapped.inputs);
+  const patientQuestions = [!mapped.inputs.painTrend ? 'symptoms' : null, !mapped.inputs.function ? 'function' : null].filter((x): x is string => !!x);
+  const state = mapped.followupStates.find(s=>s.home_program_id===mapped.context.program?.id);
+  if (state?.state==='SAFETY_REVIEW' && base.ruleId!=='v0.1.safety') return {...base,status:'missing_information',decisionState:'CLINICIAN_REVIEW',recommendation:'Review unresolved safety finding',bottleneck:state.reason,reasons:[state.reason],urgency:'danger',ruleId:'integration.safety_review',patientQuestions:[]};
+  if(base.ruleId!=='v0.1.safety' && mapped.context.logs.some(l=>l.symptom_response==='lot'||l.symptom_recovery==='still_increased')) return {...base,status:'missing_information',decisionState:'CLINICIAN_REVIEW',patientQuestions:[],assessmentScope:'partial_evidence',ruleId:'integration.response_review',recommendation:'Review symptom response',bottleneck:'New reported symptoms need clinician assessment',reasons:['Patient reports a large increase or symptoms that remain increased. Review before any treatment change.'],urgency:'warn'};
   if(base.status==='evaluated') {
     if(base.ruleId==='v0.1.progress_repetitions' && typeof mapped.inputs.adherence==='number' && mapped.inputs.adherence<90) return {...base,version:'0.1-integration.2',ruleId:'integration.execution_before_progression',recommendation:'Review execution / improve adherence',bottleneck:'Verify exposure before progression',reasons:[`Assessed adherence is ${mapped.inputs.adherence}%, below the v0.1 90% exposure target.`, 'Improving outcomes do not establish that the prescribed exposure was tested.'],flags:['Review barriers and actual exposure before approving progression.'],urgency:'warn'};
     if(mapped.inputs.function==='improving' && mapped.inputs.painTrend==='worsening') base.reasons=[...base.reasons,'Mixed signals: function is improving versus goal baseline while symptoms worsen; do not infer whole-program failure.'];
@@ -80,6 +88,9 @@ export function evaluateAutomaticReview(mapped: AutomaticReview): EngineResult {
   } else if(mapped.context.repeatedDifficulty.length || i.painTrend==='worsening') {
     ruleId='integration.response_review';recommendation='Review load and exercise response';bottleneck='Symptoms or repeated difficulty warrant clinician review';reasons.push('Worsening symptoms or repeated difficult exercise reports warrant review of dosage, recovery and execution before progression.');
   } else reasons.push('Available reports do not establish the full v0.1 pathway. Add missing observations relevant to the review.');
+  const responseConcern = mapped.context.logs.some(l=>l.symptom_response==='lot'||l.symptom_recovery==='still_increased');
+  if(responseConcern) {ruleId='integration.response_review'; recommendation='Review symptom response'; reasons.unshift('Patient reports increased or unresolved symptoms.');}
+  if(ruleId==='v0.1.adverse_response') recommendation='Review reported load tolerance / recovery concern';
   if(i.function==='improving'&&i.painTrend==='worsening') reasons.push('Mixed signals: function is improving versus goal baseline while symptoms worsen. This is not proof the whole program failed.');
-  return {...base,assessmentScope:'partial_evidence',version:'0.1-integration.2',status:'evaluated',ruleId,recommendation,bottleneck,reasons,urgency:'warn',flags:['Provisional clinician review routing from available evidence; the complete v0.1 pathway has not been established.','Safety findings remain not assessed where unknown. Assess safety before any treatment action.','No automatic progression or patient-facing treatment change.']};
+  return {...base,assessmentScope:'partial_evidence',version:'0.1-integration.2',status:'missing_information',decisionState:patientQuestions.length && ruleId==='integration.review_missing' && state?.state!=='CLINICIAN_REVIEW' ? 'NEEDS_CHECK_IN':'CLINICIAN_REVIEW',patientQuestions:ruleId==='integration.review_missing' ? patientQuestions : [],ruleId,recommendation,bottleneck,reasons,urgency:'warn',flags:['Provisional clinician review routing from available evidence; the complete v0.1 pathway has not been established.','Safety findings remain not assessed where unknown. Assess safety before any treatment action.','No automatic progression or patient-facing treatment change.']};
 }

@@ -126,6 +126,7 @@ export type DailyCheckin = {
   episode_id?: string | null;
   pain_location?: string | null;
   symptom_behavior?: string | null;
+  function_direction?: "improving" | "stable" | "worsening" | "unsure" | null;
   symptom_direction?: "improving" | "unchanged" | "worsening" | null;
   activity_context?: string | null;
   aggravating_factors?: string | null;
@@ -216,6 +217,10 @@ export type ExerciseAdherenceLog = {
   completion_status?: string | null;
   difficulty?: string | null;
   performed_at?: string | null;
+  difficulty_reason?: string | null;
+  completion_reason?: string | null;
+  symptom_response?: string | null;
+  symptom_recovery?: string | null;
   pain_before?: number | null;
   pain_during?: number | null;
   pain_after?: number | null;
@@ -285,9 +290,14 @@ type AnalyticsTrendSummary = {
   change: number | null;
 };
 
+export type PatientFollowup = { id: string; patient_id: string; episode_id: string; home_program_id: string; kind: "inactivity" | "response"; questions: string[]; status: "pending" | "answered" | "cancelled"; reason: string; created_at: string; answered_at: string | null; answers: Record<string,string> | null; escalated_at: string | null };
+export type FollowupState = {home_program_id: string; patient_id: string; episode_id: string; state: string; reason: string; missing: string[]; evaluated_at: string; last_activity_at: string | null};
+
 export type Database = {
   public: {
     Tables: {
+      patient_followups: Table<PatientFollowup>;
+      patient_followup_state: Table<FollowupState>;
       case_lifecycle_events: Table<CaseLifecycleEvent>;
       profiles: Table<Profile>;
       patients: Table<Patient>;
@@ -309,6 +319,7 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      answer_patient_followup: {Args: {p_id:string; p_answers:Json}; Returns: undefined};
       transition_case: { Args: {p_patient_id: string; p_episode_id: string; p_action: string; p_reason: string; p_date: string; p_program_plan: string; p_note: string}; Returns: string };
       create_patient_invite: { Args: { p_patient_id: string }; Returns: string };
       claim_patient_invite: { Args: { p_token: string }; Returns: string };
@@ -330,6 +341,7 @@ type Table<Row> = {
 };
 
 export type ClinicianSnapshot = {
+  followupStates?: FollowupState[];
   profile: Profile | null;
   patients: Patient[];
   episodes: Episode[];
@@ -341,6 +353,8 @@ export type ClinicianSnapshot = {
 };
 
 export type PatientWorkspace = {
+  followups?: PatientFollowup[];
+  followupStates?: FollowupState[];
   patient: Patient | null;
   episode: Episode | null;
   goals: Goal[];
