@@ -1161,3 +1161,9 @@ button, input, select, textarea { font: inherit; }
 .goal-trend { padding:18px 0; border-bottom:1px solid var(--border); }
 .case-snapshot { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
 @media(max-width:600px) { .today-counts { gap:6px; } .today-counts > div { padding:12px 8px; font-size:12px; } .case-identity { flex-direction:column; gap:8px; } .case-tabs { gap:19px; font-size:14px; } .priority-patient-link { gap:10px; } .priority-patient-link > .avatar { display:none; } .review-action { font-size:13px; } }
+
+.prescription-fields { border: 1px solid var(--border, #dde4dd); border-radius: 12px; padding: 16px; min-width: 0; }
+.prescription-value { display: flex; gap: 8px; }
+.prescription-value input { width: 50%; min-width: 0; }
+.prescription-value select { width: 50%; min-width: 0; }
+.exercise-step-heading { scroll-margin-top: 100px; }

@@ -9,7 +9,7 @@ function load(file, dependencies={}) {
  return mod.exports;
 }
 const media=load('lib/exercise-media.ts');
-const {loadProgramExercises,updateExerciseVideo}=load('lib/data.ts',{'./exercise-media':media});
+const {loadProgramExercises,updateExerciseVideo}=load('lib/data.ts',{'./exercise-media':media,'./prescription':load('lib/prescription.ts')});
 test('loading a duration or repetition range preserves the prescription without inventing zero reps',async()=>{
  const rows=['30 seconds','8–10','8'].map((dosage_reps,i)=>({id:String(i),dosage_sets:'2',dosage_reps}));
  const query={select(){return this},eq(){return this},order:async()=>({data:rows,error:null})};

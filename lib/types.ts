@@ -1,3 +1,4 @@
+import type { Prescription } from "./prescription";
 import type { EngineResult } from "./clinical-engine";
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -84,6 +85,7 @@ export type Exercise = {
   clinical_purpose?: string | null;
   patient_instructions?: string | null;
   default_dosage?: string | null;
+  default_prescription?: Prescription | null;
   video_url?: string | null;
   is_active?: boolean | null;
 };
@@ -104,7 +106,16 @@ export type HomeProgram = {
   updated_at?: string | null;
 };
 
+export type LegacyPrescription = {dosage_sets?: string | null; dosage_reps?: string | null; frequency?: string | null; review_required?: boolean; reviewed?: boolean};
+export type ProgramChange = {id: string; patient_id: string; clinician_id: string; entity: string; operation: string; before_value: Json; after_value: Json; created_at: string};
+
 export type HomeProgramExercise = {
+  prescription?: Prescription | null;
+  legacy_prescription?: LegacyPrescription | null;
+  prescription_source?: string | null;
+  patient_name?: string | null;
+  patient_video_url?: string | null;
+  video_overridden?: boolean;
   id: string;
   home_program_id?: string | null;
   exercise_id?: string | null;
@@ -218,6 +229,9 @@ export type ExerciseAdherenceLog = {
   difficulty?: string | null;
   performed_at?: string | null;
   difficulty_reason?: string | null;
+  difficulty_explanation?: string | null;
+  prescription_snapshot?: Json | null;
+  feedback_provenance?: {source: "PATIENT_REPORTED" | "CLINICIAN_RECORDED"; recorded_by: string; recorded_at: string} | null;
   completion_reason?: string | null;
   symptom_response?: string | null;
   symptom_recovery?: string | null;
@@ -296,6 +310,7 @@ export type FollowupState = {home_program_id: string; patient_id: string; episod
 export type Database = {
   public: {
     Tables: {
+      engine_program_changes: Table<ProgramChange>;
       patient_followups: Table<PatientFollowup>;
       patient_followup_state: Table<FollowupState>;
       case_lifecycle_events: Table<CaseLifecycleEvent>;
@@ -319,6 +334,8 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      get_prescription_analytics: {Args: {p_days?: number}; Returns: {changes: number; numericChanges: number; notesChanges: number}};
+      save_structured_program: {Args: {p_patient: string; p_program: string | null; p_expected: string | null; p_items: Json}; Returns: string};
       answer_patient_followup: {Args: {p_id:string; p_answers:Json}; Returns: undefined};
       transition_case: { Args: {p_patient_id: string; p_episode_id: string; p_action: string; p_reason: string; p_date: string; p_program_plan: string; p_note: string}; Returns: string };
       create_patient_invite: { Args: { p_patient_id: string }; Returns: string };
@@ -353,6 +370,7 @@ export type ClinicianSnapshot = {
 };
 
 export type PatientWorkspace = {
+  prescriptionChanges?: ProgramChange[];
   followups?: PatientFollowup[];
   followupStates?: FollowupState[];
   patient: Patient | null;

@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { PrescriptionFields } from "@/components/PrescriptionFields";
+import type { Prescription } from "@/lib/prescription";
 import { ExerciseVideoField } from "@/components/ExerciseVideoField";
 import { approvedVideoFromForm } from "@/lib/exercise-media";
 import { Save } from "lucide-react";
@@ -17,6 +19,7 @@ export default function EditExercisePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [exercise, setExercise] = useState<Exercise | null>(null);
+  const [prescription, setPrescription] = useState<Prescription>({});
   const [tags, setTags] = useState<string[]>([]);
   const [status, setStatus] = useState("Loading exercise...");
 
@@ -26,6 +29,7 @@ export default function EditExercisePage() {
       .then((items) => {
         const match = items.find((item) => item.id === params.id) ?? null;
         setExercise(match);
+        setPrescription(match?.default_prescription ?? {});
         setTags(match?.tags ?? []);
         setStatus(match ? "" : "Exercise not found.");
       })
@@ -44,7 +48,8 @@ export default function EditExercisePage() {
         category: String(form.get("category") ?? "other"),
         clinical_purpose: String(form.get("clinical_purpose") ?? ""),
         patient_instructions: String(form.get("patient_instructions") ?? ""),
-        default_dosage: String(form.get("default_dosage") ?? ""),
+        default_prescription: prescription,
+        default_dosage: exercise.default_dosage,
         video_url: approvedVideoFromForm(form),
         tags,
         is_active: exercise.is_active ?? true,
@@ -77,7 +82,8 @@ export default function EditExercisePage() {
             <TagInput value={tags} onChange={setTags} />
             <div className="field"><label htmlFor="clinical_purpose">Clinical purpose</label><textarea id="clinical_purpose" name="clinical_purpose" defaultValue={exercise.clinical_purpose ?? ""} /></div>
             <div className="field"><label htmlFor="patient_instructions">Patient instructions</label><textarea id="patient_instructions" name="patient_instructions" defaultValue={exercise.patient_instructions ?? ""} /></div>
-            <div className="field"><label htmlFor="default_dosage">Default dosage</label><input id="default_dosage" name="default_dosage" defaultValue={exercise.default_dosage ?? ""} /></div>
+            <PrescriptionFields id="library" value={prescription} onChange={setPrescription}/>
+            {exercise.default_dosage ? <p className="muted">Original default instructions (retained): {exercise.default_dosage}</p> : null}
             <ExerciseVideoField initialUrl={exercise.video_url} name={exercise.name??"Exercise"}/>
             <button className="button" type="submit"><Save size={18} />Save Changes</button>
             {status ? <p className="muted">{status}</p> : null}
