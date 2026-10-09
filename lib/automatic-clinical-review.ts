@@ -57,6 +57,8 @@ export function mapClinicalInputs(workspace: PatientWorkspace, observations: Eng
     if(!candidate.missing.includes(key)){inputs[key]=observations[key];provenance[key]={state:'CLINICIAN-ADDED',source:'Clinician observation for this review',recordIds:[]};}
   }
   return {inputs,provenance,followupStates:workspace.followupStates ?? [],followups:workspace.followups ?? [],window:{from:new Date(cutoff).toISOString(),to:now},context:{counts,completionRate,reportedExercises:reported.length,completionTrend:{recentRate,previousRate},repeatedDifficulty,checkins,logs,goals:workspace.goals,progressMetrics:workspace.progressMetrics,barriers:workspace.barriers,previousDecision:workspace.decision,program:workspace.program,exercises:workspace.programExercises,
+    feedbackEvidence:logs.filter(l=>!!l.difficulty_explanation).map(l=>({recordId:l.id,reportedAt:l.performed_at??l.created_at,source:l.feedback_provenance?.source ?? 'SOURCE_NOT_RECORDED',field:'difficulty_explanation',text:l.difficulty_explanation,clinicalInterpretation:'Not inferred; clinician review required'})),
+    prescriptionChanges:(workspace.prescriptionChanges??[]).filter(c=>c.entity==='home_program_exercises' && inWindow(c.created_at)),
     limitations:['At most 30 check-ins and 250 exercise records are loaded; summaries describe available reports only.','Daily pain is not exercise pain; difficulty is not RPE; comments are not automated red-flag assessments.','Prescribed adherence, recovery hours and examination findings remain unknown unless assessed.']}};
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import {formatExercisePrescription, describePrescriptionChange} from "@/lib/prescription";
 import { engineFields, type EngineInputs, type EngineKey, type EngineResult } from "@/lib/clinical-engine";
 import { mapClinicalInputs, evaluateAutomaticReview, type AutomaticReview } from "@/lib/automatic-clinical-review";
 import type { PatientWorkspace } from "@/lib/types";
@@ -39,8 +40,9 @@ export function ClinicalEngineReview({ workspace, value, onChange, storageReady 
     {mapped.context.repeatedDifficulty.map(item=><p key={item.exerciseId}>Repeated difficulty: {workspace.programExercises.find(e=>e.id===item.exerciseId)?.exercise?.name ?? 'Previously assigned exercise'} in {item.count} reports.</p>)}
     <details><summary>Source records, comments and limitations</summary>
       {mapped.context.checkins.map(c=><p key={c.id}>{c.checkin_date}: pain {c.pain_score ?? 'unknown'}/10 · {c.patient_comment ?? c.notes ?? 'No comment'}</p>)}
-      {mapped.context.logs.map(l=><p key={l.id}>{l.performed_at?.slice(0,10)} · {l.completion_status ?? 'Unknown completion'} · {l.difficulty ?? 'Difficulty unknown'} · {l.notes ?? 'No comment'}</p>)}
-      {mapped.context.exercises.map(e=><p key={e.id}>{e.exercise?.name ?? 'Exercise'}: {e.dosage_sets ?? e.sets ?? 'Unknown sets'} × {e.dosage_reps ?? e.reps ?? 'Unknown reps/time'} · {e.frequency ?? 'Unknown frequency'}</p>)}
+      {mapped.context.logs.map(l=><p key={l.id}>{l.performed_at?.slice(0,10)} · {l.completion_status ?? 'Unknown completion'} · {l.difficulty ?? 'Difficulty unknown'} · {l.difficulty_explanation ? `Patient-reported difficulty explanation: ${l.difficulty_explanation} · ` : ''}{l.notes ?? 'No comment'}</p>)}
+      {mapped.context.exercises.map(e=><p key={e.id}>{e.exercise?.name ?? 'Exercise'}: {formatExercisePrescription(e)}</p>)}
+      {mapped.context.prescriptionChanges.map(c=><p key={c.id}>Clinician prescription change · {c.created_at.slice(0,10)}: {describePrescriptionChange(c)}</p>)}
       {mapped.context.goals.map(g=><p key={g.id}>{g.title}: {g.baseline_value ?? 'Unknown baseline'} → {g.current_value ?? 'Unknown current'}; target {g.target_value ?? 'unknown'} {g.unit}</p>)}
       <p>Previous decision: {mapped.context.previousDecision?.decision_type ?? 'None recorded'} — {mapped.context.previousDecision?.rationale ?? ''}</p>
       {mapped.context.limitations.map(text=><p key={text}>{text}</p>)}

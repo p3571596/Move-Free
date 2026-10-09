@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Activity, MessageSquareText, Home, LogOut, TrendingUp } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-export function PatientShell({ children }: { children: React.ReactNode }) {
+export function PatientShell({ children, preview = false }: { children: React.ReactNode; preview?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   async function signOut() { await createSupabaseBrowserClient().auth.signOut(); router.push("/login"); }
@@ -19,21 +19,21 @@ export function PatientShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="patient-shell">
       <header className="patient-appbar">
-        <Link href="/patient" className="patient-brand" aria-label="Move Free patient home">
+        <Link href={preview ? "/workflow-preview" : "/patient"} className="patient-brand" aria-label="Move Free patient home">
           <span className="patient-brand-mark">MF</span>
           <span><strong>Move Free</strong><small>Your recovery, between visits</small></span>
         </Link>
-        <button className="patient-signout" type="button" onClick={signOut} aria-label="Sign out">
+        {!preview ? <button className="patient-signout" type="button" onClick={signOut} aria-label="Sign out">
           <LogOut size={19} />
-        </button>
+        </button> : null}
       </header>
       <main className="patient-main">{children}</main>
-      <nav className="patient-tabbar" aria-label="Patient app navigation">
+      {!preview ? <nav className="patient-tabbar" aria-label="Patient app navigation">
         {navigation.map(({ href, label, icon: Icon, exact }) => {
           const active = exact ? pathname === href : pathname.startsWith(href);
           return <Link key={href} href={href} className={active ? "active" : ""} aria-current={active ? "page" : undefined}><Icon size={21}/><span>{label}</span></Link>;
         })}
-      </nav>
+      </nav> : null}
     </div>
   );
 }

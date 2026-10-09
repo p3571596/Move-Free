@@ -24,6 +24,16 @@ jobs:
       - run: node tests/clinical-storage.mjs
       - run: node tests/case-lifecycle.mjs
       - run: node tests/followups.mjs
+      - run: node tests/structured-prescriptions.mjs
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Synthetic mobile and desktop workflows
+        run: |
+          WORKFLOW_PREVIEW=1 npm run dev -- --port 3109 > /tmp/move-free-preview.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3109/workflow-preview > /dev/null; then break; fi
+            sleep 1
+          done
+          node tests/workflow-browser.mjs

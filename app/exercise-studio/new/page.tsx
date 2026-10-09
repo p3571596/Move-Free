@@ -3,6 +3,8 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PrescriptionFields } from "@/components/PrescriptionFields";
+import type { Prescription } from "@/lib/prescription";
 import { ExerciseVideoField } from "@/components/ExerciseVideoField";
 import { approvedVideoFromForm } from "@/lib/exercise-media";
 import { Save } from "lucide-react";
@@ -15,6 +17,7 @@ import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabas
 export default function NewExercisePage() {
   const router = useRouter();
   const [status, setStatus] = useState("");
+  const [prescription, setPrescription] = useState<Prescription>({});
   const [tags, setTags] = useState<string[]>([]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -35,7 +38,7 @@ export default function NewExercisePage() {
         category: String(form.get("category") ?? "other"),
         clinical_purpose: String(form.get("clinical_purpose") ?? ""),
         patient_instructions: String(form.get("patient_instructions") ?? ""),
-        default_dosage: String(form.get("default_dosage") ?? ""),
+        default_prescription: prescription,
         video_url: approvedVideoFromForm(form),
         tags,
         is_active: true,
@@ -88,10 +91,7 @@ export default function NewExercisePage() {
             <label htmlFor="patient_instructions">Patient instructions</label>
             <textarea id="patient_instructions" name="patient_instructions" />
           </div>
-          <div className="field">
-            <label htmlFor="default_dosage">Default dosage</label>
-            <input id="default_dosage" name="default_dosage" placeholder="2 sets of 10, 3x/week" />
-          </div>
+            <PrescriptionFields id="library" value={prescription} onChange={setPrescription}/>
           <ExerciseVideoField/>
           <button className="button" type="submit">
             <Save size={18} />

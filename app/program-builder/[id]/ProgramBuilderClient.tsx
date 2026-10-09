@@ -8,6 +8,8 @@ import { AppShell } from "@/components/AppShell";
 import { ExerciseVideoField } from "@/components/ExerciseVideoField";
 import { approvedVideoFromForm } from "@/lib/exercise-media";
 import { ExerciseVideo } from "@/components/ExerciseVideo";
+import { PrescriptionFields } from "@/components/PrescriptionFields";
+import { prescriptionFor } from "@/lib/prescription";
 import { TagInput } from "@/components/TagInput";
 import { RequireAuth } from "@/components/RequireAuth";
 import { emptyWorkspace, loadExerciseLibrary, loadPatientWorkspace, saveProgramDraft } from "@/lib/data";
@@ -57,9 +59,8 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
           id: `draft-${exercise.id}-${Date.now()}`,
           exercise_id: exercise.id,
           home_program_id: workspace?.program?.id,
-          sets: 2,
-          reps: 10,
-          frequency: "3x/week",
+          prescription: structuredClone(exercise.default_prescription ?? {}),
+          legacy_prescription: exercise.default_dosage ? {dosage_reps: exercise.default_dosage, review_required: true, reviewed: false} : {},
           notes: "",
           exercise,
         },
@@ -76,9 +77,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
         id: `draft-${exerciseId}`,
         exercise_id: null,
         home_program_id: workspace?.program?.id,
-        sets: 2,
-        reps: 10,
-        frequency: "3x/week",
+        prescription: {},
         notes: "",
         exercise: {
           id: exerciseId,
@@ -102,7 +101,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
     setDraft((items) =>
       items.map((item) =>
         item.id === id
-          ? { ...item, exercise: { ...(item.exercise ?? { id: `custom-${Date.now()}` }), name } }
+          ? { ...item, patient_name: name, exercise: { ...(item.exercise ?? { id: `custom-${Date.now()}` }), name } }
           : item,
       ),
     );
@@ -139,7 +138,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       const saved = await saveProgramDraft(supabase, workspace.patient.id, draft, {
         eventName: workspace.program ? "program_updated" : "program_created",
         durationMs: Date.now() - workflowStartedAt.current,
-      }, videoUpdates);
+      }, videoUpdates, workspace.program);
       const loadedLibrary = await loadExerciseLibrary(supabase);
       setWorkspace((current) => current ? { ...current, ...saved } : current);
       setDraft(saved.programExercises);
@@ -224,21 +223,9 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                   <label htmlFor={`exercise-${item.id}`}>Exercise</label>
                   <input id={`exercise-${item.id}`} value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
                 </div>
-                <ExerciseVideoField initialUrl={item.exercise?.video_url} name={item.exercise?.name ?? "Exercise"} inputId={`video-url-${item.id}`} fieldName={`video-${item.id}`} approvalName={`video-approved-${item.id}`} />
-                <div className="grid three">
-                  <div className="field">
-                    <label htmlFor={`sets-${item.id}`}>Sets</label>
-                    <input id={`sets-${item.id}`} type="number" min={0} value={item.sets ?? 0} onChange={(event) => updateItem(item.id, { sets: Number(event.target.value) })} />
-                  </div>
-                  <div className="field">
-                    <label htmlFor={`reps-${item.id}`}>Reps or time</label>
-                    <input id={`reps-${item.id}`} type="text" placeholder="10 reps or 30 seconds" value={item.dosage_reps ?? item.reps ?? ""} onChange={(event) => updateItem(item.id, { dosage_reps: event.target.value, reps: null })} />
-                  </div>
-                  <div className="field">
-                    <label htmlFor={`frequency-${item.id}`}>Frequency</label>
-                    <input id={`frequency-${item.id}`} value={item.frequency ?? ""} onChange={(event) => updateItem(item.id, { frequency: event.target.value })} />
-                  </div>
-                </div>
+                <ExerciseVideoField initialUrl={item.exercise?.video_url} name={item.exercise?.name ?? "Exercise"} inputId={`video-url-${item.id}`} scope="patient" fieldName={`video-${item.id}`} approvalName={`video-approved-${item.id}`} />
+                <PrescriptionFields id={item.id} value={prescriptionFor(item)} onChange={prescription => updateItem(item.id, {prescription})}/>
+                {item.legacy_prescription?.review_required && !item.legacy_prescription.reviewed ? <div className="field"><p>Original prescription: {[item.legacy_prescription.dosage_sets, item.legacy_prescription.dosage_reps, item.legacy_prescription.frequency].filter(Boolean).join(' · ')}</p><p className="muted">Confirm the numeric prescription and retain any remaining instructions in key cues. Original text stays in the record.</p><label><input type="checkbox" onChange={event => updateItem(item.id, {legacy_prescription: {...item.legacy_prescription, reviewed: event.target.checked}})}/> I reviewed the original instructions</label></div> : null}
                 {item.exercise?.id.startsWith("custom-") ? (
                   <TagInput
                     label="Exercise tags"

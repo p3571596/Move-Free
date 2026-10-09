@@ -2,7 +2,8 @@
 
 import type { AutomaticReview } from "./automatic-clinical-review";
 
-import {validatedVideoUrl, formatRepsOrTime} from "./exercise-media";
+import { prescriptionFor, legacyPrescriptionFor, validatePrescription } from "./prescription";
+import {validatedVideoUrl} from "./exercise-media";
 import type { EngineResult } from "./clinical-engine";
 
 import type { SupabaseClient, User } from "@supabase/supabase-js";
@@ -289,11 +290,12 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     adherenceResult,
   ]);
 
-  const [followupsResult, followupStatesResult] = await Promise.all([
+  const [followupsResult, followupStatesResult, changesResult] = await Promise.all([
     client.from("patient_followups").select("*").eq("patient_id", resolvedPatientId).order("created_at", {ascending:false}).limit(100),
     access === "patient" ? emptyResult() : client.from("patient_followup_state").select("*").eq("patient_id", resolvedPatientId),
+    access === "patient" ? emptyResult() : client.from("engine_program_changes").select("*").eq("patient_id", resolvedPatientId).order("created_at", {ascending: false}).limit(100),
   ]);
-  throwFirstQueryError([followupsResult, followupStatesResult]);
+  throwFirstQueryError([followupsResult, followupStatesResult, changesResult]);
   const selectedProgram = selectVisibleProgram((programsResult.data ?? []) as HomeProgram[], access === "patient");
   const program = normalizeProgram(selectedProgram, patient.id);
   const programExercises = program
@@ -305,6 +307,10 @@ export async function loadPatientWorkspace(client: Client, patientId?: string, a
     episode,
     followups: (followupsResult.data ?? []).filter(belongsToEpisode),
     followupStates: followupStatesResult.data ?? [],
+    prescriptionChanges: (changesResult.data ?? []).filter(c => {
+      const snapshot = (c.after_value ?? c.before_value) as HomeProgramExercise | null;
+      return c.entity === "home_program_exercises" && (programsResult.data ?? []).some(p => p.id === snapshot?.home_program_id);
+    }),
     goals: allowLegacy ? withPatientGoalFallback(goalsResult.data ?? [], patient) : goalsResult.data ?? [],
     checkins: normalizeCheckins((checkinsResult.data ?? []).filter(belongsToEpisode)),
     progressMetrics: normalizeProgressMetrics([...(metricsResult.data ?? [])].reverse()),
@@ -438,6 +444,7 @@ export async function saveProgramDraft(
   items: HomeProgramExercise[],
   instrumentation?: { eventName: "program_created" | "program_updated"; durationMs: number },
   videoUpdates: Record<string, string | null> = {},
+  expectedProgram?: HomeProgram | null,
 ) {
   const user = await getCurrentUser(client);
 
@@ -447,50 +454,32 @@ export async function saveProgramDraft(
 
   // Validate all proposed links before any program writes.
   const videos = Object.fromEntries(Object.entries(videoUpdates).map(([id, url]) => [id, validatedVideoUrl(url)]));
-  const episode = await ensureActiveEpisode(client, patientId);
-  const program = await ensureHomeProgram(client, episode);
-  const exercises = await Promise.all(items.map(async (item) => {
-    const exercise = await ensureExercise(client, exerciseFromProgramItem(item), user.id);
-    if (Object.prototype.hasOwnProperty.call(videos, item.id)) {
-      return updateExerciseVideo(client, exercise.id, user.id, videos[item.id]);
-    }
-    return exercise;
+  for (const item of items) validatePrescription(prescriptionFor(item));
+  const editableProgram = expectedProgram && ["draft", "active"].includes(expectedProgram.status ?? "") ? expectedProgram : null;
+  const payload = items.map((item, index) => ({
+    id: !editableProgram || item.id.startsWith("draft-") ? null : item.id,
+    exercise_id: item.exercise_id ?? null,
+    name: item.patient_name ?? item.exercise?.name ?? "New exercise",
+    tags: item.exercise?.tags ?? [],
+    patient_instructions: item.exercise?.patient_instructions ?? null,
+    prescription: prescriptionFor(item),
+    legacy_reviewed: Boolean(item.legacy_prescription?.reviewed),
+    notes: item.notes ?? null,
+    category: normalizeExerciseCategory(item.category ?? item.exercise?.category),
+    sort_order: index,
+    patient_name: item.patient_name ?? null,
+    video_overridden: Object.prototype.hasOwnProperty.call(videos, item.id) || Boolean(item.video_overridden),
+    patient_video_url: Object.prototype.hasOwnProperty.call(videos, item.id) ? videos[item.id] : item.patient_video_url ?? null,
   }));
-  const savedItems: HomeProgramExercise[] = [];
-
-  const { error: deleteError } = await client
-    .from("home_program_exercises")
-    .delete()
-    .eq("home_program_id", program.id);
-
-  if (deleteError) {
-    throw deleteError;
-  }
-
-  for (const [index, item] of items.entries()) {
-    const exercise = exercises[index];
-    const { data, error } = await client
-      .from("home_program_exercises")
-      .insert({
-        home_program_id: program.id,
-        exercise_id: exercise.id,
-        sort_order: index,
-        dosage_sets: String(item.sets ?? item.dosage_sets ?? ""),
-        dosage_reps: String(item.dosage_reps ?? item.reps ?? ""),
-        frequency: item.frequency ?? null,
-        notes: item.notes ?? null,
-        category: normalizeExerciseCategory(item.category ?? item.exercise?.category),
-      })
-      .select("*, exercise:exercises(*)")
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    savedItems.push(normalizeProgramExercise(data));
-  }
-
+  const {data: programId, error: saveError} = await client.rpc("save_structured_program", {
+    p_patient: patientId, p_program: editableProgram?.id ?? null, p_expected: editableProgram?.updated_at ?? null,
+    p_items: payload as unknown as import("./types").Json,
+  });
+  if (saveError) throw new Error(saveError.message);
+  const {data: savedProgram, error: programError} = await client.from("home_programs").select("*").eq("id", programId).single();
+  if (programError) throw programError;
+  const program = savedProgram as HomeProgram;
+  const savedItems = await loadProgramExercises(client, program.id);
   await trackAnalyticsEvent(client, {
     eventName: instrumentation?.eventName ?? "program_updated",
     patientId,
@@ -501,7 +490,7 @@ export async function saveProgramDraft(
   return {
     program: normalizeProgram(program, patientId),
     programExercises: savedItems,
-    libraryExerciseCount: new Set(exercises.map((exercise) => exercise.id)).size,
+    libraryExerciseCount: new Set(savedItems.map(item => item.exercise_id)).size,
   };
 }
 
@@ -512,6 +501,7 @@ export async function createExercise(client: Client, exercise: Partial<Exercise>
     throw new Error("Sign in before creating an exercise.");
   }
 
+  if (exercise.default_prescription) validatePrescription(exercise.default_prescription);
   const normalizedName = normalizeExerciseName(exercise.name);
   const existing = await findExerciseByNormalizedName(client, user.id, normalizedName);
 
@@ -530,6 +520,7 @@ export async function createExercise(client: Client, exercise: Partial<Exercise>
       clinical_purpose: exercise.clinical_purpose ?? exercise.description ?? null,
       patient_instructions: exercise.patient_instructions ?? exercise.instructions ?? null,
       default_dosage: exercise.default_dosage ?? null,
+      default_prescription: exercise.default_prescription ?? {},
       video_url: validatedVideoUrl(exercise.video_url),
       is_active: exercise.is_active ?? true,
     })
@@ -555,6 +546,7 @@ export async function updateExercise(client: Client, exerciseId: string, exercis
   const user = await getCurrentUser(client);
   if (!user) throw new Error("Sign in before editing an exercise.");
 
+  if (exercise.default_prescription) validatePrescription(exercise.default_prescription);
   const normalizedName = normalizeExerciseName(exercise.name);
   const existing = await findExerciseByNormalizedName(client, user.id, normalizedName, exerciseId);
   if (existing) {
@@ -570,6 +562,7 @@ export async function updateExercise(client: Client, exerciseId: string, exercis
       clinical_purpose: exercise.clinical_purpose ?? exercise.description ?? null,
       patient_instructions: exercise.patient_instructions ?? exercise.instructions ?? null,
       default_dosage: exercise.default_dosage ?? null,
+      default_prescription: exercise.default_prescription ?? {},
       video_url: validatedVideoUrl(exercise.video_url),
       is_active: exercise.is_active ?? true,
     })
@@ -606,6 +599,7 @@ export type ExerciseLogInput = {
   completionStatus: "completed" | "partial" | "skipped";
   difficulty: "too_easy" | "appropriate" | "too_hard" | null;
   difficultyReason?: string | null;
+  difficultyExplanation?: string | null;
   completionReason?: string | null;
   symptomResponse?: string | null;
   symptomRecovery?: string | null;
@@ -626,6 +620,10 @@ export async function logExerciseSession(
 ) {
   if (!entries.length) throw new Error("Add at least one exercise result before saving.");
 
+  for (const entry of entries) {
+    if (entry.difficulty === "too_hard" && entry.difficultyReason === "other" && !entry.difficultyExplanation?.trim()) throw new Error("Tell your therapist what made the exercise difficult.");
+    if ((entry.difficultyExplanation?.length ?? 0) > 500) throw new Error("Keep the difficulty explanation to 500 characters.");
+  }
   const performedAt = new Date().toISOString();
   const rows = entries.map((entry) => ({
     patient_id: patientId,
@@ -638,6 +636,7 @@ export async function logExerciseSession(
     difficulty: entry.difficulty,
     pain_during: entry.painDuring,
     difficulty_reason: entry.difficulty === "too_hard" ? entry.difficultyReason : null,
+    difficulty_explanation: entry.difficulty === "too_hard" && entry.difficultyReason === "other" ? entry.difficultyExplanation?.trim() : null,
     completion_reason: entry.completionStatus !== "completed" ? entry.completionReason : null,
     symptom_response: entry.completionStatus !== "skipped" ? entry.symptomResponse : null,
     symptom_recovery: entry.completionStatus !== "skipped" && ["little","lot"].includes(entry.symptomResponse ?? "") ? entry.symptomRecovery : null,
@@ -749,130 +748,6 @@ export async function loadFounderAnalytics(client: Client, days = 30): Promise<F
   return data as FounderAnalytics;
 }
 
-async function ensureActiveEpisode(client: Client, patientId: string) {
-  const patient = await client.from("patients").select("status").eq("id", patientId).single();
-  if (patient.error) throw patient.error;
-  if (patient.data.status === "discharged") throw new Error("Reactivate Case before modifying the program. A new problem needs a separate episode.");
-
-  const existing = await client
-    .from("episodes")
-    .select("*")
-    .eq("patient_id", patientId)
-    .eq("status", "active")
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existing.error) throw existing.error;
-  if (existing.data) {
-    return existing.data as Episode;
-  }
-
-  const previous = await client.from("episodes").select("id").eq("patient_id", patientId).limit(1);
-  if (previous.error) throw previous.error;
-  if (previous.data?.length) throw new Error("This patient has a closed episode. Reopen the same case from Summary; Start New Episode is not available yet.");
-
-  const { data, error } = await client
-    .from("episodes")
-    .insert({
-      patient_id: patientId,
-      title: "Active care episode",
-      status: "active",
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data as Episode;
-}
-
-async function ensureHomeProgram(client: Client, episode: Episode) {
-  const existing = await client
-    .from("home_programs")
-    .select("*")
-    .eq("episode_id", episode.id)
-    .in("status", ["draft", "active"])
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existing.data) {
-    const { data, error } = await client
-      .from("home_programs")
-      .update({ status: "active", assigned_at: new Date().toISOString() })
-      .eq("id", existing.data.id)
-      .select("*")
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return data as HomeProgram;
-  }
-
-  const { data, error } = await client
-    .from("home_programs")
-    .insert({
-      episode_id: episode.id,
-      name: "Home program",
-      status: "active",
-      assigned_at: new Date().toISOString(),
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data as HomeProgram;
-}
-
-async function ensureExercise(client: Client, exercise?: Exercise | null, clinicianId?: string) {
-  if (
-    exercise?.id &&
-    !exercise.id.startsWith("custom-") &&
-    clinicianId &&
-    exercise.clinician_id === clinicianId
-  ) {
-    return exercise;
-  }
-
-  const normalizedName = normalizeExerciseName(exercise?.name);
-  const existing = clinicianId ? await findExerciseByNormalizedName(client, clinicianId, normalizedName) : null;
-  if (existing) return mergeExerciseTags(client, existing, exercise?.tags);
-
-  const { data, error } = await client
-    .from("exercises")
-    .insert({
-      clinician_id: clinicianId,
-      name: exercise?.name?.trim() || "New exercise",
-      tags: normalizeTags(exercise?.tags),
-      category: normalizeExerciseCategory(exercise?.category),
-      clinical_purpose: exercise?.description ?? exercise?.clinical_purpose ?? null,
-      patient_instructions: exercise?.instructions ?? exercise?.patient_instructions ?? null,
-      default_dosage: exercise?.default_dosage ?? null,
-      video_url: validatedVideoUrl(exercise?.video_url),
-      is_active: true,
-    })
-    .select("*")
-    .single();
-
-  if (error?.code === "23505" && clinicianId) {
-    const duplicate = await findExerciseByNormalizedName(client, clinicianId, normalizedName);
-    if (duplicate) return mergeExerciseTags(client, duplicate, exercise?.tags);
-  }
-  if (error) {
-    throw error;
-  }
-
-  return normalizeExercise(data) as Exercise;
-}
-
 async function mergeExerciseTags(client: Client, exercise: Exercise, incomingTags?: string[] | null) {
   const mergedTags = normalizeTags([...(exercise.tags ?? []), ...(incomingTags ?? [])]);
   if (mergedTags.length === (exercise.tags ?? []).length && mergedTags.every((tag) => exercise.tags?.includes(tag))) {
@@ -934,14 +809,11 @@ function normalizeProgram(program?: Partial<HomeProgram> | null, patientId?: str
 }
 
 function normalizeProgramExercise(item: HomeProgramExercise) {
-  const sets = Number(item.sets ?? item.dosage_sets ?? 0);
-  const reps = Number(item.reps ?? item.dosage_reps ?? 0);
-
+  const prescription = prescriptionFor(item);
+  const exercise = normalizeExercise(item.exercise);
   return {
-    ...item,
-    sets: Number.isNaN(sets) ? 0 : sets,
-    reps: Number.isNaN(reps) ? null : reps,
-    exercise: normalizeExercise(item.exercise),
+    ...item, prescription, legacy_prescription: legacyPrescriptionFor(item), sets: prescription.sets?.value ?? null, reps: prescription.reps?.value ?? null,
+    exercise: exercise ? {...exercise, name: item.patient_name ?? exercise.name, video_url: item.video_overridden ? item.patient_video_url : exercise.video_url} : null,
   };
 }
 
@@ -963,27 +835,6 @@ function normalizeExerciseCategory(value?: string | null) {
   const allowed = ["mobility", "strength", "balance", "conditioning", "motor_control", "education", "other"];
 
   return category && allowed.includes(category) ? category : "other";
-}
-
-function exerciseFromProgramItem(item: HomeProgramExercise) {
-  return {
-    ...(item.exercise ?? {}),
-    category: item.exercise?.category ?? item.category,
-    default_dosage: item.exercise?.default_dosage ?? formatDefaultDosage(item),
-  } as Exercise;
-}
-
-function formatDefaultDosage(item: HomeProgramExercise) {
-  const sets = item.sets ?? item.dosage_sets;
-  const reps = item.dosage_reps ?? item.reps;
-  const frequency = item.frequency;
-  const dosage = [
-    sets ? `${sets} sets` : null,
-    formatRepsOrTime(reps),
-    frequency,
-  ].filter(Boolean).join(" · ");
-
-  return dosage || null;
 }
 
 function normalizeCheckins(checkins: DailyCheckin[]) {

@@ -13,7 +13,7 @@ import { emptyWorkspace, loadPatientWorkspace } from "@/lib/data";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { HomeProgramExercise, PatientWorkspace } from "@/lib/types";
 
-import { formatRepsOrTime } from "@/lib/exercise-media";
+import {formatExercisePrescription} from "@/lib/prescription";
 
 type PreviewTab = "home" | "program" | "response" | "progress";
 
@@ -97,7 +97,7 @@ export default function PatientPreviewPage() {
                         <div className="section-header"><h3>{formatCategory(category)}</h3><span className="pill">{items.length}</span></div>
                         <div className="exercise-card-list">{items.map((item) => {
                           const checked = completedIds.has(item.id);
-                          return <button className={`patient-exercise-card${checked ? " is-complete" : ""}`} type="button" key={item.id} onClick={() => toggleCompleted(item.id, setCompletedIds)}><span className="exercise-check">{checked ? "✓" : ""}</span><span className="exercise-copy"><strong>{item.exercise?.name ?? "Exercise"}</strong><span>{formatDosage(item)}</span>{item.exercise?.patient_instructions ? <small>{item.exercise.patient_instructions}</small> : null}{item.notes ? <small>PT note: {item.notes}</small> : null}</span></button>;
+                          return <button className={`patient-exercise-card${checked ? " is-complete" : ""}`} type="button" key={item.id} onClick={() => toggleCompleted(item.id, setCompletedIds)}><span className="exercise-check">{checked ? "✓" : ""}</span><span className="exercise-copy"><strong>{item.exercise?.name ?? "Exercise"}</strong><span>{formatExercisePrescription(item)}</span>{item.exercise?.patient_instructions ? <small>{item.exercise.patient_instructions}</small> : null}{item.notes ? <small>PT note: {item.notes}</small> : null}</span></button>;
                         })}</div>
                       </section>
                     ))}
@@ -159,9 +159,7 @@ function formatCategory(category: string) {
   return category.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function formatDosage(item: HomeProgramExercise) {
-  return [item.dosage_sets ? `${item.dosage_sets} sets` : null, formatRepsOrTime(item.dosage_reps), item.frequency].filter(Boolean).join(" · ") || "Follow your therapist’s instructions";
-}
+
 
 function toggleCompleted(id: string, setCompleted: Dispatch<SetStateAction<Set<string>>>) {
   setCompleted((current) => {
