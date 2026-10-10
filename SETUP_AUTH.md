@@ -91,6 +91,10 @@ provider click tracking for both messages.
 - [ ] Custom SMTP sends from a verified domain.
 - [ ] Email-provider click tracking is disabled for auth emails.
 - [ ] Recovery and confirmation templates use `/auth/confirm`.
-- [ ] Patient invite template preserves `{{ .ConfirmationURL }}`.
+- [ ] Patient invite and magic-link templates preserve `{{ .RedirectTo }}` and append `TokenHash` without using `ConfirmationURL`.
 - [ ] Leaked-password protection is enabled.
 - [ ] The manual QA checklist in `docs/auth-qa-checklist.md` passes.
+
+## Invitation correction and release
+
+See [patient-invitation-release.md](docs/patient-invitation-release.md) for recipient-bound claims, replacement/revocation, SMTP repair, and the coordinated migration/deployment checklist. Manual unbound text links are disabled. Pending means API acceptance; it does not verify inbox receipt.

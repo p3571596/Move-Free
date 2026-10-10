@@ -44,9 +44,9 @@ function isInvitedPatient(user: User) {
   // magic links do not copy inviteUserByEmail metadata. New invited users keep
   // the original user_metadata onboarding hint. Neither grants data access: the
   // one-time database claim validates and consumes the secure patient token.
-  const hasPendingExistingUserInvite = typeof user.app_metadata?.pending_patient_invite_id === "string";
+  const hasPendingExistingUserInvite = user.app_metadata?.pending_patient_invite === true || typeof user.app_metadata?.pending_patient_invite_id === "string";
   const hasNewUserInvite = user.user_metadata?.role === "patient"
-    && typeof user.user_metadata?.patient_id === "string";
+    && (user.user_metadata?.patient_invite === true || typeof user.user_metadata?.patient_id === "string");
   return hasPendingExistingUserInvite || hasNewUserInvite;
 }
 

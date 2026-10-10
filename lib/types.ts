@@ -338,6 +338,7 @@ export type Database = {
       save_structured_program: {Args: {p_patient: string; p_program: string | null; p_expected: string | null; p_items: Json}; Returns: string};
       answer_patient_followup: {Args: {p_id:string; p_answers:Json}; Returns: undefined};
       transition_case: { Args: {p_patient_id: string; p_episode_id: string; p_action: string; p_reason: string; p_date: string; p_program_plan: string; p_note: string}; Returns: string };
+      manage_patient_email_invitation: { Args: { p_patient_id: string; p_email: string; p_action: string }; Returns: { status: string; email?: string; errorCode?: string; retryAt?: string } };
       create_patient_invite: { Args: { p_patient_id: string }; Returns: string };
       claim_patient_invite: { Args: { p_token: string }; Returns: string };
       publish_care_guidance: {Args: {p_patient_id: string; p_program_id: string; p_expected_version: string; p_body: string; p_message_id: string}; Returns: string};
