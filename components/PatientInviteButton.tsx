@@ -1,100 +1,99 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { Check, Copy, Mail, MessageSquareText, Send, X } from "lucide-react";
-import { createPatientInvite } from "@/lib/data";
+import { FormEvent, useEffect, useState } from "react";
+import { Check, Copy, Send, X } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { getAppRoute } from "@/lib/app-url";
 
+type Invitation = { status: string; email?: string; retryAt?: string };
+const labels: Record<string, string> = {
+  none: "No invitation yet", sending: "Sending request in progress", pending: "Pending acceptance — email request accepted; inbox delivery unverified",
+  failed: "Invitation failed — resend required", accepted: "Patient account linked", expired: "Invitation expired", revoked: "Invitation revoked",
+};
+
 export function PatientInviteButton({ patientId, isLinked }: { patientId: string; isLinked: boolean }) {
-  const [inviteUrl, setInviteUrl] = useState("");
+  const [invitation, setInvitation] = useState<Invitation>({ status: isLinked ? "accepted" : "none" });
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
-  const [channel, setChannel] = useState<"email" | "text">("email");
+  const [action, setAction] = useState<"send" | "replace">("send");
   const [destination, setDestination] = useState("");
+  const linked = isLinked || invitation.status === "accepted";
 
-  async function copy(url = inviteUrl) {
-    await navigator.clipboard.writeText(url);
-    setStatus(isLinked ? "Patient sign-in page copied." : "Invitation link copied.");
+  async function refresh() {
+    const client = createSupabaseBrowserClient();
+    const { data, error } = await client.rpc("manage_patient_email_invitation", { p_patient_id: patientId, p_email: "", p_action: "status" });
+    if (error || !data) throw new Error("Invitation status is unavailable. Refresh or contact the administrator.");
+    setInvitation(data);
+    return data;
   }
 
-  async function sendInvite(event: FormEvent) {
-    event.preventDefault();
+  useEffect(() => {
+    let active = true;
+    const client = createSupabaseBrowserClient();
+    void client.rpc("manage_patient_email_invitation", { p_patient_id: patientId, p_email: "", p_action: "status" }).then(({ data, error }) => {
+      if (!active) return;
+      if (error || !data) setStatus("Invitation status is unavailable. Refresh or contact the administrator.");
+      else setInvitation(data);
+    });
+    return () => { active = false; };
+  }, [patientId]);
+
+  async function submit(requestedAction: "send" | "replace" | "revoke") {
+    if (busy) return;
     setBusy(true);
     setStatus("");
-
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Sign in again before inviting a patient.");
-
-      if (channel === "email") {
-        const response = await fetch("/api/patient-invitations/email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ patientId, email: destination.trim() }),
-        });
-        const result = await response.json() as { error?: string; mode?: "invite" | "resume" };
-        if (!response.ok) throw new Error(result.error ?? "Invitation email could not be sent.");
-        setStatus(`${result.mode === "resume" ? "Setup link" : "Invitation"} sent to ${destination.trim()}.`);
-        setOpen(false);
-      } else {
-        const url = isLinked
-          ? getAppRoute("/login")
-          : getAppRoute(`/invite?token=${encodeURIComponent(await createPatientInvite(supabase, patientId))}&mode=signin`);
-        setInviteUrl(url);
-        await navigator.clipboard.writeText(url);
-        setStatus(`SMS delivery is not configured yet. ${isLinked ? "Patient sign-in" : "Secure invitation"} link copied for ${destination.trim()}.`);
-        setOpen(false);
-      }
+      const client = createSupabaseBrowserClient();
+      const { data } = await client.auth.getSession();
+      if (!data.session?.access_token) throw new Error("Sign in again before inviting a patient.");
+      const response = await fetch("/api/patient-invitations/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+        body: JSON.stringify({ patientId, email: destination.trim(), action: requestedAction }),
+      });
+      const result = await response.json() as { error?: string; status?: string };
+      await refresh();
+      if (!response.ok) throw new Error(result.error ?? "Invitation could not be completed.");
+      setStatus(requestedAction === "revoke" ? "Old invitation revoked. Its link can no longer link this patient." : "Email request accepted. Receipt is not verified; ask the patient to check their inbox and spam folder.");
+      setOpen(false);
     } catch (cause) {
-      setStatus(cause instanceof Error ? cause.message : "Could not create invitation.");
-    } finally {
-      setBusy(false);
-    }
+      setStatus(cause instanceof Error ? cause.message : "Invitation could not be completed.");
+    } finally { setBusy(false); }
+  }
+
+  async function openDialog(nextAction: "send" | "replace") {
+    try {
+      const current = await refresh();
+      setDestination(nextAction === "replace" ? "" : current.email ?? "");
+      setAction(nextAction);
+      setOpen(true);
+    } catch (cause) { setStatus(cause instanceof Error ? cause.message : "Status unavailable."); }
   }
 
   return <div className="invite-control">
-    {isLinked ? <span className="pill"><Check size={15}/>Patient login linked</span> : null}
-    <button className="secondary-button" type="button" onClick={() => {
-      if (isLinked) {
-        const loginUrl = getAppRoute("/login");
-        setInviteUrl(loginUrl);
-        void copy(loginUrl);
-      } else {
-        setOpen(true);
-      }
-    }} disabled={busy}>{isLinked ? <Copy size={17}/> : <Send size={17}/>} {isLinked ? "Copy Patient Sign-in" : "Invite Patient"}</button>
-    {inviteUrl ? <button className="icon-button" type="button" onClick={() => void copy()} aria-label="Copy patient invitation link"><Copy size={17}/></button> : null}
+    <span className="pill">{linked ? <Check size={15}/> : null}{labels[linked ? "accepted" : invitation.status] ?? "Status unavailable"}</span>
+    {linked ? <button className="secondary-button" type="button" onClick={async () => {
+      try { await navigator.clipboard.writeText(getAppRoute("/login")); setStatus("Patient sign-in page copied."); }
+      catch { setStatus("Could not copy. Direct the patient to the sign-in page."); }
+    }}><Copy size={17}/>Copy Patient Sign-in</button> : <>
+      <button className="secondary-button" type="button" onClick={() => void openDialog("send")} disabled={busy}><Send size={17}/>{invitation.email ? "Resend Invitation" : "Invite Patient"}</button>
+      {invitation.email ? <button className="secondary-button" type="button" onClick={() => void openDialog("replace")} disabled={busy}>Correct Email / Replace Invitation</button> : null}
+      {invitation.status === "pending" || invitation.status === "sending" ? <button className="secondary-button" type="button" onClick={() => void submit("revoke")} disabled={busy}>Revoke Old Invitation</button> : null}
+    </>}
+    <button className="secondary-button" type="button" onClick={() => void refresh().catch(() => setStatus("Invitation status unavailable."))} disabled={busy}>Refresh status</button>
     {status ? <small className="muted" role="status">{status}</small> : null}
-    {open && !isLinked ? <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}>
-      <section className="invite-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-title" onMouseDown={(event) => event.stopPropagation()}>
+    {open && !linked ? <div className="modal-backdrop" role="presentation" onMouseDown={() => { if (!busy) setOpen(false); }}>
+      <section className="invite-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-title" onMouseDown={event => event.stopPropagation()}>
         <div className="section-header">
-          <div><p className="eyebrow">Patient access</p><h3 id="invite-title">{isLinked ? "Resend patient link" : "Invite patient"}</h3></div>
-          <button className="icon-button" type="button" onClick={() => setOpen(false)} aria-label="Close invitation dialog"><X size={18}/></button>
+          <div><p className="eyebrow">Patient access</p><h3 id="invite-title">{action === "replace" ? "Correct email and replace invitation" : invitation.email ? "Resend invitation" : "Invite patient"}</h3></div>
+          <button className="icon-button" type="button" onClick={() => setOpen(false)} disabled={busy} aria-label="Close invitation dialog"><X size={18}/></button>
         </div>
-        <p className="muted">{isLinked ? "Send a fresh sign-in link to the patient’s existing account." : "The patient will securely link their account and see the assigned program immediately."}</p>
-        <p className="invite-tip">For testing, open the link on the patient&apos;s device or in a private browser window so an existing therapist session cannot be reused.</p>
-        <div className="invite-channel-picker" role="group" aria-label="Invitation method">
-          <button className={channel === "email" ? "channel-option active" : "channel-option"} type="button" onClick={() => { setChannel("email"); setDestination(""); }}><Mail size={18}/>Email</button>
-          <button className={channel === "text" ? "channel-option active" : "channel-option"} type="button" onClick={() => { setChannel("text"); setDestination(""); }}><MessageSquareText size={18}/>Text</button>
-        </div>
-        <form className="form" onSubmit={sendInvite}>
-          <label className="field">
-            <span>{channel === "email" ? "Patient email" : "Patient mobile number"}</span>
-            <input
-              type={channel === "email" ? "email" : "tel"}
-              value={destination}
-              onChange={(event) => setDestination(event.target.value)}
-              placeholder={channel === "email" ? "patient@example.com" : "+1 555 555 0123"}
-              required
-            />
-          </label>
-          {channel === "email" && isLinked ? <p className="muted">For security, this must match the email already linked to the patient account.</p> : null}
-          {channel === "text" ? <p className="muted">SMS delivery is coming later. For now, Move Free will copy the {isLinked ? "patient sign-in" : "secure invitation"} link so you can send it manually.</p> : null}
-          <button className="button" type="submit" disabled={busy}>{busy ? "Sending..." : channel === "email" ? (isLinked ? "Send sign-in link" : "Send email invitation") : "Copy link for text"}</button>
+        <p className="muted">One recipient per patient. Only an account with this verified email can accept.</p>
+        {action === "replace" ? <p className="invite-tip">Replacing revokes the previous invitation immediately, even if the new email fails. An already linked account cannot be replaced.</p> : <p className="invite-tip">Resending replaces the previous link. Wait at least 60 seconds between attempts.</p>}
+        <form className="form" onSubmit={(event: FormEvent) => { event.preventDefault(); void submit(action); }}>
+          <label className="field"><span>Patient email</span><input type="email" maxLength={254} value={destination} onChange={event => setDestination(event.target.value)} required readOnly={action === "send" && Boolean(invitation.email)} /></label>
+          <button className="button" type="submit" disabled={busy}>{busy ? "Sending..." : action === "replace" ? "Revoke old invitation and send replacement" : "Send email invitation"}</button>
         </form>
       </section>
     </div> : null}

@@ -1,0 +1,56 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { PGlite } from '@electric-sql/pglite';
+import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
+
+test('recipient-bound invitations revoke stale links, fail closed, and enforce ownership', async () => {
+ const db = new PGlite({ extensions: { pgcrypto } });
+ const ids = { owner:'10000000-0000-0000-0000-000000000001', outsider:'10000000-0000-0000-0000-000000000002', wrong:'10000000-0000-0000-0000-000000000003', right:'10000000-0000-0000-0000-000000000004', unverified:'10000000-0000-0000-0000-000000000005', p:'20000000-0000-0000-0000-000000000001', p2:'20000000-0000-0000-0000-000000000002' };
+ try {
+ await db.exec(`create role anon; create role authenticated; create role service_role; create schema auth; create schema private; create schema extensions; create extension pgcrypto schema extensions;
+ create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+ create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz);
+ create table public.profiles(id uuid primary key,role text,email text);
+ create table public.patients(id uuid primary key,clinician_id uuid,patient_profile_id uuid,patient_invite_token_hash text,patient_invite_expires_at timestamptz,updated_at timestamptz);
+ grant usage on schema auth,private to authenticated; grant execute on function auth.uid() to authenticated;
+ grant select,insert,update on public.patients,public.profiles to authenticated;
+ alter table patients enable row level security;
+ create policy owner on patients to authenticated using(clinician_id=auth.uid()) with check(clinician_id=auth.uid());
+ `);
+ for (const [actor, email] of [['owner','clinician'],['outsider','outsider'],['wrong','wrong'],['right','corrected'],['unverified','unverified']]) await db.query("insert into auth.users values($1,$2,case when $3 then now() else null end)",[ids[actor],email+'@example.invalid',actor!=='unverified']);
+ await db.query('insert into patients(id,clinician_id,patient_invite_token_hash) values($1,$3,\'legacy\'),($2,$3,null)',[ids.p,ids.p2,ids.owner]);
+ await db.exec(fs.readFileSync('supabase/migrations/20261010220722_secure_patient_invitation_replacement.sql','utf8'));
+ await db.exec(`create function public.claim_patient_invite(p_token text) returns uuid language sql security invoker set search_path='' as $$select private.claim_patient_invite(p_token)$$; revoke all on function public.claim_patient_invite(text) from public,anon; grant execute on function public.claim_patient_invite(text) to authenticated;`);
+ assert.equal((await db.query('select patient_invite_token_hash from patients limit 1')).rows[0].patient_invite_token_hash,null);
+ const as = async actor => { await db.exec('reset role'); await db.query("select set_config('request.jwt.claim.sub',$1,false)",[ids[actor]]); await db.exec('set role authenticated'); };
+ const manage = async (email,action='send',patient=ids.p) => (await db.query('select manage_patient_email_invitation($1,$2,$3) a',[patient,email,action])).rows[0].a;
+ const finish = async (a,ok,patient=ids.p) => { await db.exec('reset role; set role service_role'); return (await db.query('select finish_patient_email_invitation($1,$2,$3,$4) ok',[patient,a.attemptId,ok,ok?null:'smtp_delivery_failed'])).rows[0].ok; };
+ const claim = token => db.query('select claim_patient_invite($1)',[token]);
+ const age = async () => { await db.exec('reset role'); await db.exec("update private.patient_email_invitations set attempted_at=now()-interval '3 minutes'"); };
+ await as('outsider'); await assert.rejects(manage('wrong@example.invalid'),/access denied/); assert.equal((await db.query('select * from patients')).rows.length,0);
+ await as('owner'); await assert.rejects(db.query('select * from private.patient_email_invitations'),/permission denied/);
+ await assert.rejects(db.query('select create_patient_invite($1)',[ids.p]),/permission denied/);
+ await assert.rejects(db.query('update patients set patient_profile_id=$1 where id=$2',[ids.wrong,ids.p]),/invitation flow/);
+ const wrong=await manage('wrong@example.invalid'); await as('wrong'); await assert.rejects(claim(wrong.token),/invalid/,'sending is not claimable');
+ assert.equal(await finish(wrong,true),true);
+ await as('owner'); await assert.rejects(manage('wrong@example.invalid'),/60 seconds/); await assert.rejects(manage('corrected@example.invalid'),/Correct Email/);
+ const corrected=await manage('corrected@example.invalid','replace');
+ assert.equal(await finish(wrong,true),false,'late result cannot revive wrong invitation');
+ await as('wrong'); await assert.rejects(claim(wrong.token),/invalid/); await assert.rejects(claim(corrected.token),/invalid/);
+ assert.equal(await finish(corrected,false),true);
+ await as('right'); await assert.rejects(claim(corrected.token),/invalid/,'SMTP failed tokens are invalid');
+ await age(); await as('owner'); const resend=await manage('corrected@example.invalid'); await finish(resend,true);
+ await as('unverified'); await assert.rejects(claim(resend.token),/Verify/);
+ await as('owner'); await assert.rejects(claim(resend.token),/Clinician/);
+ await as('right'); assert.equal((await claim(resend.token)).rows[0].claim_patient_invite,ids.p);
+ await assert.rejects(claim(resend.token),/already linked/);
+ await as('owner'); assert.equal((await manage('','status')).status,'accepted'); await assert.rejects(manage('wrong@example.invalid','replace'),/already linked/);
+ const other=await manage('corrected@example.invalid','send',ids.p2); await finish(other,true,ids.p2); await as('right'); await assert.rejects(claim(other.token),/already linked/);
+ await as('owner'); await manage('','revoke',ids.p2); assert.equal(await finish(other,true,ids.p2),false);
+ await age(); await as('owner'); const expired=await manage('wrong@example.invalid','replace',ids.p2); await finish(expired,true,ids.p2);
+ await db.exec('reset role'); await db.exec("update private.patient_email_invitations set expires_at=now()-interval '1 second' where status='pending'");
+ await as('owner'); assert.equal((await manage('','status',ids.p2)).status,'expired'); await as('wrong'); await assert.rejects(claim(expired.token),/expired/);
+ await db.exec('reset role; set role anon'); await assert.rejects(claim(expired.token),/permission denied/);
+ } finally { await db.close(); }
+});
