@@ -10,7 +10,8 @@ try {
  await page.getByRole('button',{name:'Synthetic preview — upload disabled'}).waitFor();assert.equal(await page.getByRole('button',{name:'Synthetic preview — upload disabled'}).isDisabled(),true);
  assert.equal(await page.getByLabel('Repetitions value',{exact:true}).inputValue(),'10');assert.equal(await page.getByLabel('Clinical notes and cues').inputValue(),'Synthetic movement cues');
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);assert.deepEqual(writes,[]);assert.deepEqual(errors,[]);
- await page.getByRole('button',{name:'Discard selected recording'}).click();assert.equal(await page.getByRole('button',{name:'Synthetic preview — upload disabled'}).count(),0);await page.close();
+ await page.getByRole('button',{name:'Discard selected recording'}).click();await page.getByRole('button',{name:'Synthetic preview — upload disabled'}).waitFor({state:'hidden'});assert.equal(await page.getByRole('button',{name:'Synthetic preview — upload disabled'}).count(),0);await page.close();
  }
  console.log('PASS: mobile/desktop Program preview, numeric edits and cues retained, local file preview/discard, no writes or overflow. Synthetic bytes do not verify codecs or camera hardware.');
 } finally {await browser.close();}
+
