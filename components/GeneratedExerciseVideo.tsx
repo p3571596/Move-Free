@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase';
 import { GENERATION_BUCKET, movements, type Movement, type GeneratedVideoJob } from '@/lib/generated-video';
-import { blankAIExercise, type AIExerciseContent } from '@/lib/ai-exercise-content';
+import { blankAIExercise, validateAIExercise, type AIExerciseContent } from '@/lib/ai-exercise-content';
 import { prescriptionFor } from '@/lib/prescription';
 import type { HomeProgramExercise, Json } from '@/lib/types';
 import { PrivateVideoPlayer } from './PrivateVideoPlayer';
@@ -27,7 +27,7 @@ export function GeneratedExerciseVideo({item,patientId,onApply,onChanged}:{item:
  }
  function edit(next:AIExerciseContent){setContent(next);setChecks(v=>({...v,movement:false,instructions:false,fitt:false}));setApplied(false);}
  async function review() {
-  if(!job)return;setBusy(true);setError('');try{const result=await createSupabaseBrowserClient().rpc('review_generated_video',{p_id:job.id,p_content:content as unknown as Json,p_checks:checks});if(result.error)throw new Error('Review could not be saved. Check fields and access.');onApply(content);setApplied(true);setJob({...job,status:'reviewed',reviewed_content:content});}catch(e){setError((e as Error).message);}finally{setBusy(false);}
+  if(!job)return;setBusy(true);setError('');try{const reviewed=validateAIExercise(content);const result=await createSupabaseBrowserClient().rpc('review_generated_video',{p_id:job.id,p_content:reviewed as unknown as Json,p_checks:checks});if(result.error)throw new Error('Review could not be saved. Check fields and access.');setContent(reviewed);onApply(reviewed);setApplied(true);setJob({...job,status:'reviewed',reviewed_content:reviewed});}catch(e){setError((e as Error).message);}finally{setBusy(false);}
  }
  async function assign() {
   if(!job)return;setBusy(true);setError('');const id=assetId||crypto.randomUUID();setAssetId(id);
@@ -54,7 +54,7 @@ export function GeneratedExerciseVideo({item,patientId,onApply,onChanged}:{item:
     {(['name','instructions','cues','exercise_type','equipment'] as const).map(key=><label className="field" key={key}>{({name:'Exercise name',instructions:'Exercise instructions',cues:'Notes / movement cues',exercise_type:'Exercise type',equipment:'Equipment'})[key]}<textarea value={content[key]} maxLength={key==='instructions'?4000:key==='cues'?1400:200} onChange={e=>edit({...content,[key]:e.target.value})}/></label>)}
     <PrescriptionFields id={`generated-${job.id}`} value={content.prescription} onChange={prescription=>edit({...content,prescription})}/>
     {(['movement','instructions','fitt'] as const).map(key=><label key={key}><input type="checkbox" disabled={!checks.viewed||busy} checked={checks[key]} onChange={e=>setChecks(v=>({...v,[key]:e.target.checked}))}/> I reviewed {key==='movement'?'movement accuracy':key==='instructions'?'exercise instructions and cues':'numerical FITT; missing values remain unprescribed'}.</label>)}
-    <button type="button" className="secondary-button" disabled={busy||!complete} onClick={review}>{busy?'Saving review…':'Approve draft and apply edits to Program'}</button>
+    <button type="button" className="secondary-button" disabled={busy||!complete||applied} onClick={review}>{busy?'Saving review…':'Approve draft and apply edits to Program'}</button>
     <p className="muted">Applying edits does not assign the video. Save Program, then explicitly assign this reviewed video.</p>
     <button type="button" className="button" disabled={busy||!applied||!complete||item.id.startsWith('draft-')} onClick={assign}>{item.id.startsWith('draft-')?'Save Program before assigning':'Publish and assign reviewed video'}</button>
    </>:null}
