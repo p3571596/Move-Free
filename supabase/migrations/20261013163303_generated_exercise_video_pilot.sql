@@ -18,6 +18,7 @@ create table public.clinician_video_generation_jobs (
 create index generation_owner_time on public.clinician_video_generation_jobs(owner_id,created_at desc);
 alter table public.clinician_video_generation_jobs enable row level security;
 revoke all on public.clinician_video_generation_jobs from public,anon,authenticated;
+grant all on public.clinician_video_generation_jobs to service_role;
 grant select(id,owner_id,movement,model,duration_seconds,cost_cents,status,object_path,error_code,reviewed_content,reviewed_at,review_attestations,asset_id,created_at) on public.clinician_video_generation_jobs to authenticated;
 create policy generation_owner_read on public.clinician_video_generation_jobs for select to authenticated using(owner_id=auth.uid() and public.pilot_feature_enabled('ai_video_generation'));
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('exercise-generation-private','exercise-generation-private',false,26214400,array['video/mp4']);

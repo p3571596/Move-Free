@@ -42,6 +42,7 @@ export function GeneratedExerciseVideo({item,patientId,onApply,onChanged}:{item:
   {!job?<>
    <label className="field">Movement<select value={movement} disabled={busy} onChange={e=>{setMovement(e.target.value as Movement);setRequestId('');}}>{Object.entries(movements).map(([key,value])=><option key={key} value={key}>{value.name}</option>)}</select></label>
    <label><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)}/> I accept the $0.40 estimate for this attempt. Failed or uncertain attempts count toward the pilot cap.</label>
+   {requestId?<button type="button" disabled={busy} onClick={async()=>{setBusy(true);try{const data=await call('GET',undefined,requestId);select(data.job);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Check this attempt / resume</button>:null}
    <button type="button" className="button" disabled={busy||!accepted} onClick={generate}>{busy?'Starting generation…':'Generate private draft'}</button>
   </>:<>
    <p role="status">Generation status: {job.status}</p>

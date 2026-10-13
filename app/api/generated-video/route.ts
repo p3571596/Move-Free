@@ -3,7 +3,7 @@ import { experimental_startVideo as startVideo, experimental_getVideoStatus as g
 import { getVercelOidcToken } from '@vercel/oidc';
 import { gateway } from '@ai-sdk/gateway';
 import { pilotFeatureEnabled } from '@/lib/pilot-flags';
-import { GENERATION_BUCKET, GENERATION_MODEL, generationPrompt, isMovement } from '@/lib/generated-video';
+import { GENERATION_BUCKET, GENERATION_MODEL, generationPrompt, generationPriceVerified, isMovement } from '@/lib/generated-video';
 import type { Database, Json } from '@/lib/types';
 export const runtime='nodejs';
 export const maxDuration=120;
@@ -41,7 +41,7 @@ export async function POST(request:Request) {
  const {db,admin,user}=c;
  if(Number(request.headers.get('content-length'))>2000)return reply({error:'Invalid request.'},400);
  let body:Record<string,unknown>;
- try{const text=await request.text();if(text.length>2000)throw new Error();body=JSON.parse(text);}catch{return reply({error:'Invalid request.'},400);}
+ try{const reader=request.body?.getReader();if(!reader)throw new Error();const chunks:Uint8Array[]=[];let size=0;while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>2000){await reader.cancel();throw new Error();}chunks.push(value);}body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return reply({error:'Invalid request.'},400);}
  if(!body||typeof body!=='object'||Array.isArray(body))return reply({error:'Invalid request.'},400);
  if(body.action==='assign') {
   if(Object.keys(body).some(k=>!['action','id','assetId','patientId','exerciseId'].includes(k))||![body.id,body.assetId,body.patientId,body.exerciseId].every(uuid))return reply({error:'Invalid assignment.'},400);
@@ -67,9 +67,11 @@ export async function POST(request:Request) {
  }
  if(Object.keys(body).some(k=>!['id','movement','costAccepted'].includes(k))||!uuid(body.id)||!isMovement(body.movement)||body.costAccepted!==true)return reply({error:'Choose a pilot movement and accept the $0.40 estimate. Patient information and custom prompts are not accepted.'},400);
  if(!process.env.AI_GATEWAY_API_KEY){try{await getVercelOidcToken();}catch{return reply({error:'Vercel AI Gateway credentials are unavailable. Enable project OIDC authentication or configure a Gateway credential.'},503);}}
+ if(!await generationPriceVerified())return reply({error:'The current Veo price or capability could not be verified. Generation is paused; no paid job was started.'},503);
  const begin=await db.rpc('begin_video_generation',{p_id:body.id,p_movement:body.movement});
  if(begin.error)return reply({error:'Generation limit reached or another job is active. Resume the existing job. Daily reservations are capped at $5 UTC.'},429);
  const claimed=await admin.from('clinician_video_generation_jobs').update({status:'generating'}).eq('id',body.id).eq('owner_id',user.id).eq('status','starting').select('id').maybeSingle();
+ if(claimed.error)return reply({error:'Generation could not reserve its server job. Retry this request without changing its ID; no provider call was made.'},503);
  if(!claimed.data){const existing=await db.from('clinician_video_generation_jobs').select(columns).eq('id',body.id).single();return reply({job:existing.data});}
  try {
   const result=await startVideo({model:gateway.videoModel(GENERATION_MODEL),prompt:generationPrompt(body.movement),duration:4,resolution:'1280x720',aspectRatio:'16:9',generateAudio:false,n:1,maxRetries:0,abortSignal:AbortSignal.timeout(45000)});
@@ -91,6 +93,7 @@ export async function GET(request:Request) {
  const {data:job}=await admin.from('clinician_video_generation_jobs').select('*').eq('id',id).eq('owner_id',user.id).single();
  if(!job)return reply({error:'Draft unavailable.'},404);
  try {
+  if(['starting','generating'].includes(job.status)&&!job.provider_operation&&Date.parse(job.created_at)<Date.now()-300000){await admin.from('clinician_video_generation_jobs').update({status:'failed',error_code:'START_UNCERTAIN'}).eq('id',id).eq('status',job.status);}
   if(job.status==='generating'&&job.provider_operation) {
    const result=await getVideoStatus(gateway.videoModel(GENERATION_MODEL),{operation:job.provider_operation,maxRetries:0,abortSignal:AbortSignal.timeout(45000)});
    if(result.status==='error')await admin.from('clinician_video_generation_jobs').update({status:'failed',error_code:'PROVIDER_FAILED'}).eq('id',id).eq('status','generating');

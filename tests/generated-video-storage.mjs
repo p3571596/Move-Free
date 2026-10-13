@@ -30,6 +30,7 @@ await db.exec(fs.readFileSync('supabase/migrations/20261013133128_stage2_private
 await db.exec(fs.readFileSync('supabase/migrations/20261013140019_clinician_ai_exercise_drafts.sql','utf8'));
 await db.exec("alter table home_program_exercises add column prescription jsonb default '{}', add column patient_name text;");
 await db.exec(fs.readFileSync('supabase/migrations/20261013163303_generated_exercise_video_pilot.sql','utf8'));
+assert.equal((await db.query("select has_table_privilege('service_role','public.clinician_video_generation_jobs','UPDATE') allowed")).rows[0].allowed,true,'server worker can persist provider jobs');
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 for(const [n,role] of [[1,'clinician'],[2,'patient'],[3,'clinician']]){await db.query('insert into auth.users values($1,now())',[id(n)]);await db.query('insert into profiles(id,role) values($1,$2)',[id(n),role]);}
 await db.query('insert into patients(id,clinician_id,patient_profile_id) values($1,$2,$3)',[id(10),id(1),id(2)]);
