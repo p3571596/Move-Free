@@ -7,6 +7,8 @@ import {
   VIDEO_BUCKET,
 } from "@/lib/private-video";
 import type { ExerciseVideoAsset, HomeProgramExercise } from "@/lib/types";
+import { AIExerciseDraftReview } from "./AIExerciseDraftReview";
+import type { AIExerciseContent } from "@/lib/ai-exercise-content";
 import { PrivateVideoPlayer } from "./PrivateVideoPlayer";
 
 export function ProgramExerciseRecording({
@@ -14,8 +16,12 @@ export function ProgramExerciseRecording({
   patientId,
   onChanged,
   demonstrationOnly = false,
+  aiPreview = false,
+  onDraftApplied,
 }: {
   demonstrationOnly?: boolean;
+  aiPreview?: boolean;
+  onDraftApplied?: (draft: AIExerciseContent) => void;
   item: HomeProgramExercise;
   patientId: string;
   onChanged: () => void;
@@ -27,6 +33,7 @@ export function ProgramExerciseRecording({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [recording, setRecording] = useState(false);
+  const [reviewedDraftId, setReviewedDraftId] = useState("");
   const [title, setTitle] = useState(item.exercise?.name ?? ""),
     [instructions, setInstructions] = useState(
       item.exercise?.patient_instructions ?? item.exercise?.description ?? "",
@@ -54,7 +61,7 @@ export function ProgramExerciseRecording({
     [],
   );
   useEffect(() => {
-    if (demonstrationOnly) return;
+    if (demonstrationOnly || item.id.startsWith("draft-")) return;
     let active = true;
     createSupabaseBrowserClient()
       .from("exercise_video_assets")
@@ -66,6 +73,12 @@ export function ProgramExerciseRecording({
       .then(({ data, error }) => {
         if (active) {
           setAssets(data ?? []);
+          const ready = data?.find((a) => a.state === "ready" && a.title);
+          if (ready) {
+            setTitle(ready.title);
+            setInstructions(ready.instructions);
+            setCues(ready.cues);
+          }
           if (error) setError("Recordings could not be loaded.");
         }
       });
@@ -78,6 +91,7 @@ export function ProgramExerciseRecording({
     const invalid = videoFileError(next);
     setError(invalid ?? "");
     setFile(invalid ? null : next);
+    setReviewedDraftId("");
   }
   async function start() {
     try {
@@ -123,13 +137,23 @@ export function ProgramExerciseRecording({
     setBusy(true);
     setError("");
     try {
-      await uploadPrivateVideo(
+      const assetId = await uploadPrivateVideo(
         file,
         patientId,
         item.id,
         "demonstration",
         false,
       );
+      if (reviewedDraftId) {
+        const attached = await createSupabaseBrowserClient().rpc(
+          "attach_reviewed_ai_demonstration",
+          { p_asset: assetId, p_draft: reviewedDraftId },
+        );
+        if (attached.error)
+          throw new Error(
+            "Video uploaded, but the reviewed draft could not be attached. Your program is unchanged; reload before approving.",
+          );
+      }
       setFile(null);
       setRevision((r) => r + 1);
     } catch (e) {
@@ -248,10 +272,33 @@ export function ProgramExerciseRecording({
       )}
       <p className="muted">
         Record yourself demonstrating the exercise. MP4, WebM or MOV, up to 25
-        MB. AI assistance is pending validation.
+        MB. AI supports short self-demonstrations under 2.5 MB.
       </p>
       {localUrl ? (
         <>
+          {(!demonstrationOnly || aiPreview) && file ? (
+            <AIExerciseDraftReview
+              file={file}
+              onApply={(draft, runId) => {
+                setReviewedDraftId(runId);
+                setTitle(draft.name);
+                setInstructions(draft.instructions);
+                setCues(
+                  [
+                    draft.cues,
+                    draft.equipment ? `Equipment: ${draft.equipment}` : "",
+                    draft.exercise_type
+                      ? `Exercise type: ${draft.exercise_type}`
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join("\n"),
+                );
+                setApproved(false);
+                onDraftApplied?.(draft);
+              }}
+            />
+          ) : null}
           <video
             src={localUrl}
             controls
@@ -261,14 +308,16 @@ export function ProgramExerciseRecording({
           <button
             type="button"
             className="button"
-            disabled={busy || demonstrationOnly}
+            disabled={busy || demonstrationOnly || item.id.startsWith("draft-")}
             onClick={upload}
           >
             {demonstrationOnly
               ? "Synthetic preview — upload disabled"
-              : busy
-                ? "Uploading…"
-                : "Save private video draft"}
+              : item.id.startsWith("draft-")
+                ? "Save Program before uploading video"
+                : busy
+                  ? "Uploading…"
+                  : "Save private video draft"}
           </button>
           <button type="button" disabled={busy} onClick={() => setFile(null)}>
             Discard selected recording

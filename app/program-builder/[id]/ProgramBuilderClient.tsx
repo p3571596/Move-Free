@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Plus, Save } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { ExerciseVideoField } from "@/components/ExerciseVideoField";
 import { approvedVideoFromForm } from "@/lib/exercise-media";
@@ -19,7 +18,6 @@ import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabas
 import type { Exercise, HomeProgramExercise, PatientWorkspace } from "@/lib/types";
 
 export function ProgramBuilderClient({ patientId }: { patientId: string }) {
-  const router = useRouter();
   const [personalizedEnabled,setPersonalizedEnabled]=useState(false);
   const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
   const [library, setLibrary] = useState<Exercise[]>([]);
@@ -145,11 +143,11 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       }, videoUpdates, workspace.program);
       const loadedLibrary = await loadExerciseLibrary(supabase);
       setWorkspace((current) => current ? { ...current, ...saved } : current);
-      setDraft(saved.programExercises);
+      setDraft(saved.programExercises.map((item,index)=>({...item,client_key:draft[index]?.client_key??draft[index]?.id??item.id})));
       setLibrary(loadedLibrary);
       setStatus("Program saved.");
       workflowStartedAt.current = Date.now();
-      router.push(`/patients/${workspace.patient.id}?programSaved=1&librarySaved=${saved.libraryExerciseCount}`);
+
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : "Program could not be saved.");
     }
@@ -222,14 +220,14 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
               Add a personalized exercise
             </button>
             {draft.map((item) => (
-              <div className="list-item" key={item.id}>
+              <div className="list-item" key={item.client_key??item.id}>
                 <div className="field">
                   <label htmlFor={`exercise-${item.id}`}>Exercise</label>
                   <input id={`exercise-${item.id}`} value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
                 </div>
                 <ExerciseVideoField initialUrl={item.exercise?.video_url} name={item.exercise?.name ?? "Exercise"} inputId={`video-url-${item.id}`} scope="patient" fieldName={`video-${item.id}`} approvalName={`video-approved-${item.id}`} />
-                {personalizedEnabled && !item.id.startsWith("draft-") ? <ProgramExerciseRecording item={item} patientId={patientId} onChanged={()=>{void loadPatientWorkspace(createSupabaseBrowserClient(),patientId).then(w=>setWorkspace(w));}}/> : null}
-                {personalizedEnabled && item.id.startsWith("draft-") ? <p>Save the exercise first, then record its demonstration here.</p> : null}
+                {personalizedEnabled ? <ProgramExerciseRecording item={item} patientId={patientId} onDraftApplied={content=>updateItem(item.id,{patient_name:content.name,prescription:{...prescriptionFor(item),...content.prescription},notes:[item.notes,content.cues,content.equipment?`Equipment: ${content.equipment}`:"",content.exercise_type?`Exercise type: ${content.exercise_type}`:""].filter(Boolean).join("\n"),exercise:{...item.exercise!,name:content.name}})} onChanged={()=>{void loadPatientWorkspace(createSupabaseBrowserClient(),patientId).then(w=>setWorkspace(w));}}/> : null}
+
                 <PrescriptionFields id={item.id} value={prescriptionFor(item)} onChange={prescription => updateItem(item.id, {prescription})}/>
                 {item.legacy_prescription?.review_required && !item.legacy_prescription.reviewed ? <div className="field"><p>Original prescription: {[item.legacy_prescription.dosage_sets, item.legacy_prescription.dosage_reps, item.legacy_prescription.frequency].filter(Boolean).join(' · ')}</p><p className="muted">Confirm the numeric prescription and retain any remaining instructions in key cues. Original text stays in the record.</p><label><input type="checkbox" onChange={event => updateItem(item.id, {legacy_prescription: {...item.legacy_prescription, reviewed: event.target.checked}})}/> I reviewed the original instructions</label></div> : null}
                 {item.exercise?.id.startsWith("custom-") ? (

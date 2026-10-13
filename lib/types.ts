@@ -110,6 +110,7 @@ export type LegacyPrescription = {dosage_sets?: string | null; dosage_reps?: str
 export type ProgramChange = {id: string; patient_id: string; clinician_id: string; entity: string; operation: string; before_value: Json; after_value: Json; created_at: string};
 
 export type HomeProgramExercise = {
+  client_key?: string;
   prescription?: Prescription | null;
   legacy_prescription?: LegacyPrescription | null;
   prescription_source?: string | null;
@@ -310,6 +311,7 @@ export type FollowupState = {home_program_id: string; patient_id: string; episod
 export type Database = {
   public: {
     Tables: {
+      clinician_ai_exercise_drafts: Table<{id:string;owner_id:string;status:string;original_content:Json|null;reviewed_content:Json|null;model:string|null;limitations:string[];error_code:string|null;created_at:string}>;
       exercise_video_assets: Table<ExerciseVideoAsset>;
       engine_program_changes: Table<ProgramChange>;
       patient_followups: Table<PatientFollowup>;
@@ -335,6 +337,9 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      attach_reviewed_ai_demonstration: {Args:{p_asset:string;p_draft:string};Returns:undefined};
+      begin_clinician_ai_draft: {Args:{p_self_demonstration:boolean};Returns:string};
+      review_clinician_ai_draft: {Args:{p_id:string;p_content:Json};Returns:undefined};
       pilot_feature_enabled: {Args: {p_feature:string}; Returns:boolean};
       finish_exercise_video: {Args:{p_id:string}; Returns:undefined};
       approve_exercise_video: {Args:{p_id:string;p_title:string;p_instructions:string;p_cues:string}; Returns:undefined};
