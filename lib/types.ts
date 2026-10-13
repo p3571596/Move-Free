@@ -310,6 +310,7 @@ export type FollowupState = {home_program_id: string; patient_id: string; episod
 export type Database = {
   public: {
     Tables: {
+      exercise_video_assets: Table<ExerciseVideoAsset>;
       engine_program_changes: Table<ProgramChange>;
       patient_followups: Table<PatientFollowup>;
       patient_followup_state: Table<FollowupState>;
@@ -334,6 +335,10 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      pilot_feature_enabled: {Args: {p_feature:string}; Returns:boolean};
+      finish_exercise_video: {Args:{p_id:string}; Returns:undefined};
+      approve_exercise_video: {Args:{p_id:string;p_title:string;p_instructions:string;p_cues:string}; Returns:undefined};
+      withdraw_exercise_video: {Args:{p_id:string}; Returns:undefined};
       get_prescription_analytics: {Args: {p_days?: number}; Returns: {changes: number; numericChanges: number; notesChanges: number}};
       save_structured_program: {Args: {p_patient: string; p_program: string | null; p_expected: string | null; p_items: Json}; Returns: string};
       answer_patient_followup: {Args: {p_id:string; p_answers:Json}; Returns: undefined};
@@ -385,4 +390,14 @@ export type PatientWorkspace = {
   program: HomeProgram | null;
   programExercises: HomeProgramExercise[];
   adherenceLogs: ExerciseAdherenceLog[];
+};
+
+export type ExerciseVideoAsset = {
+  id: string; patient_id: string; program_exercise_id: string; owner_id: string;
+  kind: "demonstration" | "performance";
+  state: "uploading" | "ready" | "approved" | "withdrawn";
+  object_path: string; mime_type: string; byte_size: number;
+  title: string; instructions: string; cues: string;
+  consented_at: string | null; consent_notice_version: string | null;
+  approved_by: string | null; approved_at: string | null; created_at: string;
 };

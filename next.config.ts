@@ -6,8 +6,10 @@ import type { NextConfig } from "next";
 const pilotPreview = process.env.VERCEL_ENV === "preview"
   && ["feature/pwa-feedback-pilot", "feature/stage1-video-pwa", "codex/stage1-concise-lifecycle", "fix/stage1-adaptive-followups"].includes(process.env.VERCEL_GIT_COMMIT_REF ?? "");
 
+const syntheticPrivatePilot = process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "integration/stage2-private-pilot";
+
 const nextConfig: NextConfig = {
-  env: pilotPreview ? {
+  env: syntheticPrivatePilot ? {NEXT_PUBLIC_SUPABASE_URL:"",NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:""} : pilotPreview ? {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || "https://tyhbfgdrvqwkpmenosta.supabase.co",
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_4TQlsLZcs1uZrCaEQpmPKg_MNqPI2JF",
   } : undefined,

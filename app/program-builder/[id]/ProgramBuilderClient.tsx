@@ -11,6 +11,8 @@ import { ExerciseVideo } from "@/components/ExerciseVideo";
 import { PrescriptionFields } from "@/components/PrescriptionFields";
 import { prescriptionFor } from "@/lib/prescription";
 import { TagInput } from "@/components/TagInput";
+import { ProgramExerciseRecording } from "@/components/ProgramExerciseRecording";
+import { pilotFeatureEnabled } from "@/lib/pilot-flags";
 import { RequireAuth } from "@/components/RequireAuth";
 import { emptyWorkspace, loadExerciseLibrary, loadPatientWorkspace, saveProgramDraft } from "@/lib/data";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
@@ -18,6 +20,7 @@ import type { Exercise, HomeProgramExercise, PatientWorkspace } from "@/lib/type
 
 export function ProgramBuilderClient({ patientId }: { patientId: string }) {
   const router = useRouter();
+  const [personalizedEnabled,setPersonalizedEnabled]=useState(false);
   const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
   const [library, setLibrary] = useState<Exercise[]>([]);
   const [draft, setDraft] = useState<HomeProgramExercise[]>([]);
@@ -32,6 +35,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
     }
 
     const supabase = createSupabaseBrowserClient();
+    void pilotFeatureEnabled(supabase,"personalized_exercises").then(setPersonalizedEnabled);
     Promise.all([loadPatientWorkspace(supabase, patientId), loadExerciseLibrary(supabase)])
       .then(([loadedWorkspace, loadedLibrary]) => {
         setWorkspace(loadedWorkspace);
@@ -196,9 +200,9 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
             <h2>{workspace.program?.title ?? "Current program"}</h2>
             <p className="muted">Exercise-level dosage, frequency, and notes for {patientName}.</p>
           </div>
-          <Link className="secondary-button" href={`/patients/${workspace.patient.id}`}>
+          <Link className="secondary-button" href={`/patients/${workspace.patient.id}/program`}>
             <ArrowLeft size={18} />
-            Back to Patient
+            Back to Patient Program
           </Link>
         </div>
         <section className="grid two">
@@ -224,6 +228,8 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                   <input id={`exercise-${item.id}`} value={item.exercise?.name ?? ""} onChange={(event) => updateExerciseName(item.id, event.target.value)} />
                 </div>
                 <ExerciseVideoField initialUrl={item.exercise?.video_url} name={item.exercise?.name ?? "Exercise"} inputId={`video-url-${item.id}`} scope="patient" fieldName={`video-${item.id}`} approvalName={`video-approved-${item.id}`} />
+                {personalizedEnabled && !item.id.startsWith("draft-") ? <ProgramExerciseRecording item={item} patientId={patientId} onChanged={()=>{void loadPatientWorkspace(createSupabaseBrowserClient(),patientId).then(w=>setWorkspace(w));}}/> : null}
+                {personalizedEnabled && item.id.startsWith("draft-") ? <p>Save the exercise first, then record its demonstration here.</p> : null}
                 <PrescriptionFields id={item.id} value={prescriptionFor(item)} onChange={prescription => updateItem(item.id, {prescription})}/>
                 {item.legacy_prescription?.review_required && !item.legacy_prescription.reviewed ? <div className="field"><p>Original prescription: {[item.legacy_prescription.dosage_sets, item.legacy_prescription.dosage_reps, item.legacy_prescription.frequency].filter(Boolean).join(' · ')}</p><p className="muted">Confirm the numeric prescription and retain any remaining instructions in key cues. Original text stays in the record.</p><label><input type="checkbox" onChange={event => updateItem(item.id, {legacy_prescription: {...item.legacy_prescription, reviewed: event.target.checked}})}/> I reviewed the original instructions</label></div> : null}
                 {item.exercise?.id.startsWith("custom-") ? (
@@ -274,7 +280,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                     </button>
                   </div>
                   <ExerciseVideo url={exercise.video_url} name={exercise.name??"Exercise"}/>
-                  <Link href={`/exercise-studio/${exercise.id}/edit`} target="_blank" rel="noopener noreferrer">Edit instructions or video in library</Link>
+                  <Link href={`/exercise-studio/${exercise.id}/edit`} >Edit instructions or video in library</Link>
                   <p>{exercise.description ?? exercise.instructions ?? "No description available."}</p>
                 </li>
               ))}

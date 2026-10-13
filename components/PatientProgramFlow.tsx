@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Play } from "lucide-react";
 import { ExerciseVideo } from "@/components/ExerciseVideo";
+import { AssignedExerciseVideo } from "@/components/AssignedExerciseVideo";
 import { formatExercisePrescription } from "@/lib/prescription";
 import { PatientShell } from "@/components/PatientShell";
 import { RoleGate } from "@/components/RoleGate";
@@ -147,7 +148,7 @@ export function PatientProgramFlow({previewWorkspace, onPreviewSave}: {previewWo
               <fieldset disabled={saving || Boolean(message) || logsSaved} style={{ border: 0, padding: 0, minWidth: 0 }}>
               {step < orderedExercises.length ? <section className="patient-program-group">
                 <p className="eyebrow">Exercise {step + 1} of {orderedExercises.length}</p>
-                <ExerciseEntryCard headingRef={exerciseHeading} key={orderedExercises[step].id} item={orderedExercises[step]} value={entries[orderedExercises[step].id]} onChange={patch=>updateEntry(orderedExercises[step].id,patch)}/>
+                <ExerciseEntryCard preview={Boolean(previewWorkspace)} headingRef={exerciseHeading} key={orderedExercises[step].id} item={orderedExercises[step]} value={entries[orderedExercises[step].id]} onChange={patch=>updateEntry(orderedExercises[step].id,patch)}/>
                 <div className="row-between" style={{marginTop:16}}><button type="button" className="secondary-button" disabled={step===0} onClick={()=>setStep(step-1)}>Back</button><button type="button" className="button" disabled={!entries[orderedExercises[step].id]?.statusChosen || needsExplanation(entries[orderedExercises[step].id])} onClick={()=>setStep(step+1)}>{step===orderedExercises.length-1 ? "Finish and share feedback" : "Next exercise"}</button></div>
               </section> : <button type="button" className="secondary-button" onClick={()=>setStep(0)}>Review exercise responses</button>}
 
@@ -174,7 +175,7 @@ export function PatientProgramFlow({previewWorkspace, onPreviewSave}: {previewWo
   );
 }
 
-function ExerciseEntryCard({ item, value, onChange, headingRef }: { headingRef: React.RefObject<HTMLHeadingElement | null>; item: HomeProgramExercise; value?: EntryState; onChange: (patch: Partial<EntryState>) => void }) {
+function ExerciseEntryCard({ item, value, onChange, headingRef, preview=false }: { preview?:boolean; headingRef: React.RefObject<HTMLHeadingElement | null>; item: HomeProgramExercise; value?: EntryState; onChange: (patch: Partial<EntryState>) => void }) {
   if (!value) return null;
   return (
     <article className={`patient-exercise-entry${value.statusChosen ? " has-status" : ""}`}>
@@ -182,11 +183,11 @@ function ExerciseEntryCard({ item, value, onChange, headingRef }: { headingRef: 
         <div><h4 ref={headingRef} tabIndex={-1} className="exercise-step-heading">{item.exercise?.name ?? "Exercise"}</h4></div>
         <span className="pill">{formatCategory(item.category ?? item.exercise?.category ?? "other")}</span>
       </div>
-      <ExerciseVideo key={item.id} url={item.exercise?.video_url} name={item.exercise?.name??"Exercise"}/>
+      {preview ? <ExerciseVideo key={item.id} url={item.exercise?.video_url} name={item.exercise?.name??"Exercise"}/> : <AssignedExerciseVideo key={item.id} item={item}/>}
       <p><strong>{formatExercisePrescription(item)}</strong></p>
-      {item.exercise?.patient_instructions ? <p>{item.exercise.patient_instructions}</p> : null}
+      {preview && item.exercise?.patient_instructions ? <p>{item.exercise.patient_instructions}</p> : null}
 
-      {item.notes ? <p className="therapist-note"><strong>Key cues:</strong> {item.notes}</p> : null}
+      {preview && item.notes ? <p className="therapist-note"><strong>Key cues:</strong> {item.notes}</p> : null}
       <fieldset className="segmented-field">
         <legend>What did you complete?</legend>
         <div className="segment-options">
