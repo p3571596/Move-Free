@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "dev": "next dev",
@@ -13,10 +13,13 @@
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
+    "@ai-sdk/gateway": "4.0.112",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.45.4",
+    "@vercel/oidc": "3.2.0",
+    "ai": "7.0.139",
     "lucide-react": "^0.468.0",
-    "next": "16.3.5",
+    "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -26,7 +29,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "eslint": "9.39.5",
-    "eslint-config-next": "16.3.5",
+    "eslint-config-next": "16.3.8",
     "playwright": "1.62.1",
     "typescript": "^5.6.3"
   },

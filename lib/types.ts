@@ -110,6 +110,7 @@ export type LegacyPrescription = {dosage_sets?: string | null; dosage_reps?: str
 export type ProgramChange = {id: string; patient_id: string; clinician_id: string; entity: string; operation: string; before_value: Json; after_value: Json; created_at: string};
 
 export type HomeProgramExercise = {
+  client_key?: string;
   prescription?: Prescription | null;
   legacy_prescription?: LegacyPrescription | null;
   prescription_source?: string | null;
@@ -310,6 +311,9 @@ export type FollowupState = {home_program_id: string; patient_id: string; episod
 export type Database = {
   public: {
     Tables: {
+      clinician_video_generation_jobs: Table<import("./generated-video").GeneratedVideoJob & {owner_id:string;provider_operation:Json|null}>;
+      clinician_ai_exercise_drafts: Table<{id:string;owner_id:string;status:string;original_content:Json|null;reviewed_content:Json|null;model:string|null;limitations:string[];error_code:string|null;created_at:string}>;
+      exercise_video_assets: Table<ExerciseVideoAsset>;
       engine_program_changes: Table<ProgramChange>;
       patient_followups: Table<PatientFollowup>;
       patient_followup_state: Table<FollowupState>;
@@ -334,6 +338,16 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      begin_video_generation:{Args:{p_id:string;p_movement:string};Returns:string};
+      review_generated_video:{Args:{p_id:string;p_content:Json;p_checks:Json};Returns:undefined};
+      assign_generated_video:{Args:{p_job:string;p_asset:string};Returns:undefined};
+      attach_reviewed_ai_demonstration: {Args:{p_asset:string;p_draft:string};Returns:undefined};
+      begin_clinician_ai_draft: {Args:{p_self_demonstration:boolean};Returns:string};
+      review_clinician_ai_draft: {Args:{p_id:string;p_content:Json};Returns:undefined};
+      pilot_feature_enabled: {Args: {p_feature:string}; Returns:boolean};
+      finish_exercise_video: {Args:{p_id:string}; Returns:undefined};
+      approve_exercise_video: {Args:{p_id:string;p_title:string;p_instructions:string;p_cues:string}; Returns:undefined};
+      withdraw_exercise_video: {Args:{p_id:string}; Returns:undefined};
       get_prescription_analytics: {Args: {p_days?: number}; Returns: {changes: number; numericChanges: number; notesChanges: number}};
       save_structured_program: {Args: {p_patient: string; p_program: string | null; p_expected: string | null; p_items: Json}; Returns: string};
       answer_patient_followup: {Args: {p_id:string; p_answers:Json}; Returns: undefined};
@@ -385,4 +399,15 @@ export type PatientWorkspace = {
   program: HomeProgram | null;
   programExercises: HomeProgramExercise[];
   adherenceLogs: ExerciseAdherenceLog[];
+};
+
+export type ExerciseVideoAsset = {
+  generated_job_id?: string|null;
+  id: string; patient_id: string; program_exercise_id: string; owner_id: string;
+  kind: "demonstration" | "performance";
+  state: "uploading" | "ready" | "approved" | "withdrawn";
+  object_path: string; mime_type: string; byte_size: number;
+  title: string; instructions: string; cues: string;
+  consented_at: string | null; consent_notice_version: string | null;
+  approved_by: string | null; approved_at: string | null; created_at: string;
 };
