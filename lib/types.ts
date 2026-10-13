@@ -311,6 +311,7 @@ export type FollowupState = {home_program_id: string; patient_id: string; episod
 export type Database = {
   public: {
     Tables: {
+      clinician_video_generation_jobs: Table<import("./generated-video").GeneratedVideoJob & {owner_id:string;provider_operation:Json|null}>;
       clinician_ai_exercise_drafts: Table<{id:string;owner_id:string;status:string;original_content:Json|null;reviewed_content:Json|null;model:string|null;limitations:string[];error_code:string|null;created_at:string}>;
       exercise_video_assets: Table<ExerciseVideoAsset>;
       engine_program_changes: Table<ProgramChange>;
@@ -337,6 +338,9 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      begin_video_generation:{Args:{p_id:string;p_movement:string};Returns:string};
+      review_generated_video:{Args:{p_id:string;p_content:Json;p_checks:Json};Returns:undefined};
+      assign_generated_video:{Args:{p_job:string;p_asset:string};Returns:undefined};
       attach_reviewed_ai_demonstration: {Args:{p_asset:string;p_draft:string};Returns:undefined};
       begin_clinician_ai_draft: {Args:{p_self_demonstration:boolean};Returns:string};
       review_clinician_ai_draft: {Args:{p_id:string;p_content:Json};Returns:undefined};
@@ -398,6 +402,7 @@ export type PatientWorkspace = {
 };
 
 export type ExerciseVideoAsset = {
+  generated_job_id?: string|null;
   id: string; patient_id: string; program_exercise_id: string; owner_id: string;
   kind: "demonstration" | "performance";
   state: "uploading" | "ready" | "approved" | "withdrawn";

@@ -327,6 +327,7 @@ export function ProgramExerciseRecording({
       {assets.map((a) => (
         <article className="form" key={a.id}>
           <p>
+            {a.generated_job_id ? "AI-generated demonstration · " : ""}
             {a.state === "approved"
               ? "Approved for this patient"
               : a.state === "uploading"
@@ -342,7 +343,7 @@ export function ProgramExerciseRecording({
               onViewed={() => setViewed(a.id)}
             />
           ) : null}
-          {a.state === "ready" ? (
+          {a.state === "ready" && !a.generated_job_id ? (
             <>
               <label className="field">
                 Exercise name

@@ -2,10 +2,10 @@
 import {useState} from "react";
 import {createSupabaseBrowserClient} from "@/lib/supabase";
 import {VIDEO_BUCKET} from "@/lib/private-video";
-export function PrivateVideoPlayer({path,title,onViewed}:{path:string;title:string;onViewed?:()=>void}) {
+export function PrivateVideoPlayer({path,title,onViewed,bucket=VIDEO_BUCKET}:{path:string;title:string;onViewed?:()=>void;bucket?:string}) {
   const [url,setUrl]=useState("");const [error,setError]=useState("");const [busy,setBusy]=useState(false);
   async function load(){setBusy(true);setError("");try{
-    const {data,error}=await createSupabaseBrowserClient().storage.from(VIDEO_BUCKET).createSignedUrl(path,60);
+    const {data,error}=await createSupabaseBrowserClient().storage.from(bucket).createSignedUrl(path,60);
     if(error||!data)throw new Error();setUrl(data.signedUrl);
   }catch{setUrl("");setError("This video is unavailable or access has changed. Try again or contact your clinician.");}finally{setBusy(false);}}
   return <div className="form">

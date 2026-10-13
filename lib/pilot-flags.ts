@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 export async function pilotFeatureEnabled(
   db: SupabaseClient<Database>,
-  feature: "personalized_exercises" | "ai_video_assistance",
+  feature: "personalized_exercises" | "ai_video_assistance" | "ai_video_generation",
 ) {
   const { data, error } = await db.rpc("pilot_feature_enabled", {
     p_feature: feature,
