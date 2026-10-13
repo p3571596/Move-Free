@@ -2,6 +2,7 @@
 import {useEffect,useState} from "react";
 import {createSupabaseBrowserClient} from "@/lib/supabase";
 import type {ExerciseVideoAsset,HomeProgramExercise} from "@/lib/types";
+import {exerciseCues} from "@/lib/exercise-cues";
 import {ExerciseVideo} from "./ExerciseVideo";
 import {PrivateVideoPlayer} from "./PrivateVideoPlayer";
 
@@ -23,6 +24,7 @@ export function AssignedExerciseVideo({item}:{item:HomeProgramExercise}) {
   },[item.id]);
   if(!loaded)return <p role="status">Loading exercise demonstration…</p>;
   if(error)return <p role="alert">Your demonstration could not be loaded. Reconnect and reload this page before starting.</p>;
-  if(asset)return <section className="form"><p className="eyebrow">Your therapist’s approved demonstration</p><h5>{asset.title}</h5><PrivateVideoPlayer key={asset.id} path={asset.object_path} title={asset.title}/><p style={{whiteSpace:"pre-wrap"}}>{asset.instructions}</p>{asset.cues?<p style={{whiteSpace:"pre-wrap"}}><strong>Key cues:</strong> {asset.cues}</p>:null}</section>;
+  const cues=exerciseCues(item.notes,asset?.cues);
+  if(asset)return <section className="form"><p className="eyebrow">Your therapist’s approved demonstration</p><h5>{asset.title}</h5><PrivateVideoPlayer key={asset.id} path={asset.object_path} title={asset.title}/><p style={{whiteSpace:"pre-wrap"}}>{asset.instructions}</p>{cues?<p style={{whiteSpace:"pre-wrap"}}><strong>Key cues:</strong> {cues}</p>:null}</section>;
   return <><ExerciseVideo url={item.exercise?.video_url} name={item.exercise?.name??"Exercise"}/>{item.exercise?.patient_instructions?<p>{item.exercise.patient_instructions}</p>:null}{item.notes?<p className="therapist-note"><strong>Key cues:</strong> {item.notes}</p>:null}</>;
 }
