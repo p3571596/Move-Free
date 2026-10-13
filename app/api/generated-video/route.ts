@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { experimental_startVideo as startVideo, experimental_getVideoStatus as getVideoStatus } from 'ai';
+import { getVercelOidcToken } from '@vercel/oidc';
 import { gateway } from '@ai-sdk/gateway';
 import { pilotFeatureEnabled } from '@/lib/pilot-flags';
 import { GENERATION_BUCKET, GENERATION_MODEL, generationPrompt, isMovement } from '@/lib/generated-video';
@@ -54,7 +55,7 @@ export async function POST(request:Request) {
    const bytes=await downloaded.data.arrayBuffer();
    const existing=await db.from('exercise_video_assets').select('*').eq('id',body.assetId as string).maybeSingle();
    if(existing.data && (existing.data.generated_job_id!==job.id||existing.data.program_exercise_id!==body.exerciseId||existing.data.patient_id!==body.patientId||existing.data.owner_id!==user.id))throw new Error();
-   if(!existing.data){const inserted=await db.from('exercise_video_assets').insert({id:body.assetId as string,patient_id:body.patientId as string,program_exercise_id:body.exerciseId as string,owner_id:user.id,kind:'demonstration',state:'uploading',generated_job_id:job.id,object_path:path,mime_type:'video/mp4',byte_size:bytes.byteLength});if(inserted.error)throw new Error();}
+   if(!existing.data){const inserted=await db.from('exercise_video_assets').insert({id:body.assetId as string,patient_id:body.patientId as string,program_exercise_id:body.exerciseId as string,owner_id:user.id,kind:'demonstration',state:'uploading',generated_job_id:job.id,object_path:path,mime_type:'video/mp4',byte_size:bytes.byteLength});if(inserted.error)throw new Error();const linked=await admin.from('clinician_video_generation_jobs').update({asset_id:body.assetId as string}).eq('id',job.id).eq('status','reviewed');if(linked.error)throw new Error();}
    if(!existing.data||existing.data.state==='uploading') {
     const exists=await admin.storage.from('exercise-video-preview').info(path);
     if(exists.error){const saved=await admin.storage.from('exercise-video-preview').upload(path,bytes,{contentType:'video/mp4',upsert:false,cacheControl:'0'});if(saved.error)throw new Error();}
@@ -65,7 +66,7 @@ export async function POST(request:Request) {
   }catch{return reply({error:'Assignment was not completed. Save the reviewed name and exact numerical FITT, check access, and retry. The draft remains private.'},409);}
  }
  if(Object.keys(body).some(k=>!['id','movement','costAccepted'].includes(k))||!uuid(body.id)||!isMovement(body.movement)||body.costAccepted!==true)return reply({error:'Choose a pilot movement and accept the $0.40 estimate. Patient information and custom prompts are not accepted.'},400);
- if(!process.env.VERCEL_OIDC_TOKEN&&!process.env.AI_GATEWAY_API_KEY)return reply({error:'Vercel AI Gateway credentials are unavailable.'},503);
+ if(!process.env.AI_GATEWAY_API_KEY){try{await getVercelOidcToken();}catch{return reply({error:'Vercel AI Gateway credentials are unavailable. Enable project OIDC authentication or configure a Gateway credential.'},503);}}
  const begin=await db.rpc('begin_video_generation',{p_id:body.id,p_movement:body.movement});
  if(begin.error)return reply({error:'Generation limit reached or another job is active. Resume the existing job. Daily reservations are capped at $5 UTC.'},429);
  const claimed=await admin.from('clinician_video_generation_jobs').update({status:'generating'}).eq('id',body.id).eq('owner_id',user.id).eq('status','starting').select('id').maybeSingle();
@@ -75,9 +76,11 @@ export async function POST(request:Request) {
   const saved=await admin.from('clinician_video_generation_jobs').update({provider_operation:result.operation as Json}).eq('id',body.id).eq('owner_id',user.id);
   if(saved.error)throw new Error();
   return reply({job:{id:body.id,movement:body.movement,status:'generating',cost_cents:40}});
- }catch {
-  await admin.from('clinician_video_generation_jobs').update({status:'failed',error_code:'START_FAILED_OR_UNCERTAIN'}).eq('id',body.id).eq('owner_id',user.id);
-  return reply({error:'Veo could not start or its response was lost. Check Gateway access/credits. No automatic retry was made; this attempt retains its $0.40 reservation. Retry explicitly or use another source.'},502);
+ }catch(e) {
+  const status=typeof e==='object'&&e!==null&&'statusCode' in e?Number(e.statusCode):0;
+  const code=status===402?'GATEWAY_CREDITS_REQUIRED':status===403?'GATEWAY_ACCESS_DENIED':status===401?'GATEWAY_AUTH_FAILED':'START_FAILED_OR_UNCERTAIN';
+  await admin.from('clinician_video_generation_jobs').update({status:'failed',error_code:code}).eq('id',body.id).eq('owner_id',user.id);
+  return reply({error:`${code}. Veo could not start or its response was lost. Check Gateway access/credits. No automatic retry was made; this attempt retains its $0.40 reservation. Retry explicitly or use another source.`},502);
  }
 }
 export async function GET(request:Request) {

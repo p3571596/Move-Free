@@ -61,6 +61,7 @@ declare j public.clinician_video_generation_jobs;
 begin
  if tg_op='UPDATE' and new.generated_job_id is distinct from old.generated_job_id then raise exception 'Immutable video provenance'; end if;
  if new.generated_job_id is null then return new; end if;
+ if new.state='withdrawn' and tg_op='UPDATE' then return new; end if;
  if not public.pilot_feature_enabled('ai_video_generation') then raise exception 'Generation access denied'; end if;
  select * into j from public.clinician_video_generation_jobs where id=new.generated_job_id;
  if j.owner_id is distinct from auth.uid() or j.status not in ('reviewed','approved') then raise exception 'Review required'; end if;
@@ -76,7 +77,8 @@ begin
  select * into a from public.exercise_video_assets where id=p_asset for update;
  if not public.pilot_feature_enabled('ai_video_generation') or not public.pilot_feature_enabled('personalized_exercises')
  or j.owner_id is distinct from auth.uid() or j.status is distinct from 'reviewed' or a.owner_id is distinct from auth.uid() or a.generated_job_id is distinct from j.id or a.state is distinct from 'ready' or not public.is_clinician_for_patient(a.patient_id) then raise exception 'Reviewed draft and active care relationship required'; end if;
- if not exists(select 1 from public.home_program_exercises x where x.id=a.program_exercise_id and x.prescription=j.reviewed_content->'prescription' and x.patient_name=j.reviewed_content->>'name') then raise exception 'Save the reviewed exercise name and numerical FITT before assigning'; end if;
+ perform x.id from public.home_program_exercises x where x.id=a.program_exercise_id and x.prescription=j.reviewed_content->'prescription' and x.patient_name=j.reviewed_content->>'name' for update;
+ if not found then raise exception 'Save the reviewed exercise name and numerical FITT before assigning'; end if;
  -- The authenticated API copies the approved draft bytes. Validate byte counts and MIME in both private buckets.
  if not exists(select 1 from storage.objects s join storage.objects d on d.name=a.object_path and d.bucket_id='exercise-video-preview' where s.name=j.object_path and s.bucket_id='exercise-generation-private' and s.metadata->>'size'=d.metadata->>'size' and d.metadata->>'mimetype'='video/mp4') then raise exception 'Video copy incomplete'; end if;
  update public.clinician_video_generation_jobs set status='approved',asset_id=a.id where id=j.id;
