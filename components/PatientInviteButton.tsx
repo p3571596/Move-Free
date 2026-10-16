@@ -5,9 +5,9 @@ import { Check, Copy, Send, X } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { getAppRoute } from "@/lib/app-url";
 
-type Invitation = { status: string; email?: string; retryAt?: string };
+type Invitation = { status: string; email?: string; phone?: string; method?: string; retryAt?: string };
 const labels: Record<string, string> = {
-  none: "No invitation yet", sending: "Sending request in progress", pending: "Pending acceptance — email request accepted; inbox delivery unverified",
+  none: "No invitation yet", sending: "Sending request in progress", pending: "Pending", sent: "Sent — awaiting acceptance",
   failed: "Invitation failed — resend required", accepted: "Patient account linked", expired: "Invitation expired", revoked: "Invitation revoked",
 };
 
@@ -18,6 +18,10 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
   const [open, setOpen] = useState(false);
   const [action, setAction] = useState<"send" | "replace">("send");
   const [destination, setDestination] = useState("");
+  const [method, setMethod] = useState<"email" | "sms" | "copy">("email");
+  const [mobile, setMobile] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [secureLink, setSecureLink] = useState("");
   const linked = isLinked || invitation.status === "accepted";
 
   async function refresh() {
@@ -47,15 +51,21 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
       const client = createSupabaseBrowserClient();
       const { data } = await client.auth.getSession();
       if (!data.session?.access_token) throw new Error("Sign in again before inviting a patient.");
-      const response = await fetch("/api/patient-invitations/email", {
+      const contactChanged = Boolean(invitation.email) && (destination.trim().toLowerCase() !== invitation.email || method !== (invitation.method ?? "email") || (method === "sms" && mobile !== invitation.phone));
+      const effectiveAction = requestedAction === "send" && contactChanged ? "replace" : requestedAction;
+      const response = await fetch(method === "email" || requestedAction === "revoke" ? "/api/patient-invitations/email" : "/api/patient-invitations/delivery", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-        body: JSON.stringify({ patientId, email: destination.trim(), action: requestedAction }),
+        body: JSON.stringify({ patientId, email: destination.trim(), mobile, method, consent, action: effectiveAction }),
       });
-      const result = await response.json() as { error?: string; status?: string };
+      const result = await response.json() as { error?: string; status?: string; link?: string };
       await refresh();
       if (!response.ok) throw new Error(result.error ?? "Invitation could not be completed.");
-      setStatus(requestedAction === "revoke" ? "Old invitation revoked. Its link can no longer link this patient." : "Email request accepted. Receipt is not verified; ask the patient to check their inbox and spam folder.");
+      setSecureLink(result.link ?? "");
+      if (result.link) {
+        try { await navigator.clipboard.writeText(result.link); } catch { /* Selectable link remains available. */ }
+      }
+      setStatus(requestedAction === "revoke" ? "Old invitation revoked. Its link can no longer link this patient." : method === "copy" ? "Secure link ready. Share only with the intended patient; email verification is required." : method === "sms" ? "Text request accepted. Delivery is not yet confirmed." : "Email request accepted. Receipt is not verified; ask the patient to check their inbox and spam folder.");
       setOpen(false);
     } catch (cause) {
       setStatus(cause instanceof Error ? cause.message : "Invitation could not be completed.");
@@ -66,6 +76,10 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
     try {
       const current = await refresh();
       setDestination(nextAction === "replace" ? "" : current.email ?? "");
+      setMobile(current.phone ?? "");
+      setMethod(current.method === "sms" || current.method === "copy" ? current.method : "email");
+      setConsent(false);
+      setSecureLink("");
       setAction(nextAction);
       setOpen(true);
     } catch (cause) { setStatus(cause instanceof Error ? cause.message : "Status unavailable."); }
@@ -78,22 +92,25 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
       catch { setStatus("Could not copy. Direct the patient to the sign-in page."); }
     }}><Copy size={17}/>Copy Patient Sign-in</button> : <>
       <button className="secondary-button" type="button" onClick={() => void openDialog("send")} disabled={busy}><Send size={17}/>{invitation.email ? "Resend Invitation" : "Invite Patient"}</button>
-      {invitation.email ? <button className="secondary-button" type="button" onClick={() => void openDialog("replace")} disabled={busy}>Correct Email / Replace Invitation</button> : null}
-      {invitation.status === "pending" || invitation.status === "sending" ? <button className="secondary-button" type="button" onClick={() => void submit("revoke")} disabled={busy}>Revoke Old Invitation</button> : null}
+      {invitation.email ? <button className="secondary-button" type="button" onClick={() => void openDialog("replace")} disabled={busy}>Correct Contact / Replace Invitation</button> : null}
+      {["pending", "sent", "sending"].includes(invitation.status) ? <button className="secondary-button" type="button" onClick={() => void submit("revoke")} disabled={busy}>Revoke Old Invitation</button> : null}
     </>}
     <button className="secondary-button" type="button" onClick={() => void refresh().catch(() => setStatus("Invitation status unavailable."))} disabled={busy}>Refresh status</button>
+    {secureLink ? <label className="field"><span>Secure invitation link</span><input readOnly value={secureLink} onFocus={event => event.target.select()}/></label> : null}
     {status ? <small className="muted" role="status">{status}</small> : null}
     {open && !linked ? <div className="modal-backdrop" role="presentation" onMouseDown={() => { if (!busy) setOpen(false); }}>
       <section className="invite-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-title" onMouseDown={event => event.stopPropagation()}>
         <div className="section-header">
-          <div><p className="eyebrow">Patient access</p><h3 id="invite-title">{action === "replace" ? "Correct email and replace invitation" : invitation.email ? "Resend invitation" : "Invite patient"}</h3></div>
+          <div><p className="eyebrow">Patient access</p><h3 id="invite-title">{action === "replace" ? "Correct contact and replace invitation" : invitation.email ? "Resend invitation" : "Invite patient"}</h3></div>
           <button className="icon-button" type="button" onClick={() => setOpen(false)} disabled={busy} aria-label="Close invitation dialog"><X size={18}/></button>
         </div>
-        <p className="muted">One recipient per patient. Only an account with this verified email can accept.</p>
-        {action === "replace" ? <p className="invite-tip">Replacing revokes the previous invitation immediately, even if the new email fails. An already linked account cannot be replaced.</p> : <p className="invite-tip">Resending replaces the previous link. Wait at least 60 seconds between attempts.</p>}
+        <p className="muted">One recipient per patient. Only an account with this verified email can accept. SMS and secure links also require email verification.</p>
+        {action === "replace" ? <p className="invite-tip">Replacing revokes the previous invitation immediately, even if the new delivery fails. An already linked account cannot be replaced.</p> : <p className="invite-tip">Resending replaces the previous link. Wait at least 60 seconds between attempts.</p>}
         <form className="form" onSubmit={(event: FormEvent) => { event.preventDefault(); void submit(action); }}>
-          <label className="field"><span>Patient email</span><input type="email" maxLength={254} value={destination} onChange={event => setDestination(event.target.value)} required readOnly={action === "send" && Boolean(invitation.email)} /></label>
-          <button className="button" type="submit" disabled={busy}>{busy ? "Sending..." : action === "replace" ? "Revoke old invitation and send replacement" : "Send email invitation"}</button>
+          <label className="field"><span>Invitation method</span><select value={method} onChange={event => setMethod(event.target.value as "email" | "sms" | "copy")}><option value="email">Email</option><option value="sms">Text Message (SMS)</option><option value="copy">Copy Secure Link</option></select></label>
+          {method === "sms" ? <><label className="field"><span>Patient mobile (with country code)</span><input type="tel" autoComplete="tel" placeholder="+1 202 555 0123" required maxLength={32} value={mobile} onChange={event => setMobile(event.target.value)}/></label><label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} required/> Patient agreed to receive this invitation by text.</label></> : null}
+          <label className="field"><span>Patient email</span><input type="email" maxLength={254} value={destination} onChange={event => setDestination(event.target.value)} required /></label>
+          <button className="button" type="submit" disabled={busy}>{busy ? "Sending..." : action === "replace" ? "Revoke old invitation and send replacement" : method === "sms" ? "Send text invitation" : method === "copy" ? "Create and copy secure link" : "Send email invitation"}</button>
         </form>
       </section>
     </div> : null}
