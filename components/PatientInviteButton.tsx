@@ -99,13 +99,13 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
     {secureLink ? <label className="field"><span>Secure invitation link</span><input readOnly value={secureLink} onFocus={event => event.target.select()}/></label> : null}
     {status ? <small className="muted" role="status">{status}</small> : null}
     {open && !linked ? <div className="modal-backdrop" role="presentation" onMouseDown={() => { if (!busy) setOpen(false); }}>
-      <section className="invite-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-title" onMouseDown={event => event.stopPropagation()}>
+      <section className="invite-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-title" onMouseDown={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape" && !busy) setOpen(false); }}>
         <div className="section-header">
           <div><p className="eyebrow">Patient access</p><h3 id="invite-title">{action === "replace" ? "Correct contact and replace invitation" : invitation.email ? "Resend invitation" : "Invite patient"}</h3></div>
           <button className="icon-button" type="button" onClick={() => setOpen(false)} disabled={busy} aria-label="Close invitation dialog"><X size={18}/></button>
         </div>
-        <p className="muted">One recipient per patient. Only an account with this verified email can accept. SMS and secure links also require email verification.</p>
-        {action === "replace" ? <p className="invite-tip">Replacing revokes the previous invitation immediately, even if the new delivery fails. An already linked account cannot be replaced.</p> : <p className="invite-tip">Resending replaces the previous link. Wait at least 60 seconds between attempts.</p>}
+        <p className="muted">Only the patient’s verified email can activate this invitation, including invitations sent by text.</p>
+        {action === "replace" ? <p className="invite-tip">Replacing revokes the previous invitation immediately, even if the new delivery fails. An already linked account cannot be replaced.</p> : invitation.email ? <p className="invite-tip">Resending replaces the previous link. Wait at least 60 seconds between attempts.</p> : <p className="invite-tip">Secure links expire in 7 days.</p>}
         <form className="form" onSubmit={(event: FormEvent) => { event.preventDefault(); void submit(action); }}>
           <label className="field"><span>Invitation method</span><select value={method} onChange={event => setMethod(event.target.value as "email" | "sms" | "copy")}><option value="email">Email</option><option value="sms">Text Message (SMS)</option><option value="copy">Copy Secure Link</option></select></label>
           {method === "sms" ? <><label className="field"><span>Patient mobile (with country code)</span><input type="tel" autoComplete="tel" placeholder="+1 202 555 0123" required maxLength={32} value={mobile} onChange={event => setMobile(event.target.value)}/></label><label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} required/> Patient agreed to receive this invitation by text.</label></> : null}

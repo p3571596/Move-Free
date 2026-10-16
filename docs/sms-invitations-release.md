@@ -29,6 +29,8 @@ Sources:
 - https://www.twilio.com/en-us/legal/messaging-policy
 - https://www.twilio.com/docs/usage/webhooks/webhooks-security
 - https://aws.amazon.com/end-user-messaging/pricing/
+- https://www.hhs.gov/hipaa/for-professionals/covered-entities/fast-facts/index.html
+- https://docs.fcc.gov/public/attachments/FCC-24-24A1_Rcd.pdf
 
 ## Server setup and release gates
 
@@ -54,3 +56,5 @@ Preview database: `xpfpnxlobjvtemoktjxg` (`sms-invitations-preview`), branched w
 Synthetic clinician: `sms-clinician@example.invalid`; password `SyntheticPreview!2026`. This credential belongs only to disposable synthetic data. Patient workspace: `/patients/92600000-0000-0000-0000-000000000001`. Synthetic patient email: `sms-patient@example.invalid`, same synthetic password. Do not enter real patient data into this preview.
 
 Automated coverage includes original email-delivery tests, PostgreSQL/PGlite authorization and lifecycle tests, SMS/copy database tests, provider-failure route tests, real Twilio SDK signature verification tests, international normalization and neutral-message checks. Live carrier delivery, controlled inbox receipt, email-code signup template configuration, STOP/START and real provider callback testing require provider setup and remain explicit release gates.
+
+Observed preview validation: 51 automated tests, lint, TypeScript and production build pass. Browser testing against the live isolated database passed secure-link issuance, verified synthetic patient sign-in and claim, patient app rendering and clinician Accepted status; SQL confirmed the token hash was consumed. Hosted preview clinician login also passed. The short-screen invitation dialog scrolls so the send action stays reachable. For a fresh invitation use synthetic patient `92600000-0000-0000-0000-000000000002`; the original fixture is now linked.
