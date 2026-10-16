@@ -631,6 +631,8 @@ button {
 }
 
 .invite-dialog {
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
   display: grid;
   gap: 18px;
   width: min(100%, 520px);

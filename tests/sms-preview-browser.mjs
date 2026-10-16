@@ -1,0 +1,35 @@
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+const base=process.env.TEST_BASE_URL||'http://127.0.0.1:3000';
+const browser=await chromium.launch({channel:'chrome',headless:true});
+try {
+ const clinician=await browser.newPage({viewport:{width:390,height:844}});
+ const errors=[];clinician.on('pageerror',e=>errors.push(e.message));
+ await clinician.goto(base+'/login');
+ await clinician.getByLabel('Email',{exact:true}).fill('sms-clinician@example.invalid');
+ await clinician.getByLabel('Password',{exact:true}).fill('SyntheticPreview!2026');
+ await clinician.getByRole('button',{name:'Log in',exact:true}).click();
+ await clinician.waitForURL('**/dashboard',{timeout:60000});
+ await clinician.goto(base+'/patients/92600000-0000-0000-0000-000000000001');
+ await clinician.getByText('Patient actions',{exact:true}).click();
+ await clinician.getByRole('button',{name:'Invite Patient',exact:true}).click();
+ await clinician.getByLabel('Invitation method').selectOption('sms');
+ await clinician.getByLabel('Patient mobile (with country code)').fill('+12025550123');
+ await clinician.getByLabel('Patient email',{exact:true}).fill('sms-patient@example.invalid');
+ await clinician.getByText('Patient agreed to receive this invitation by text.').click();
+ await clinician.screenshot({path:'../../outputs/sms-invitation-mobile.png',fullPage:true});
+ assert.equal(await clinician.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await clinician.getByLabel('Invitation method').selectOption('copy');
+ await clinician.getByRole('button',{name:'Create and copy secure link'}).click();
+ const input=clinician.getByLabel('Secure invitation link');await input.waitFor();const link=await input.inputValue();assert(link.includes('#token='));
+ const context=await browser.newContext();const patient=await context.newPage();patient.on('pageerror',e=>errors.push(e.message));
+ await patient.goto(link);await patient.getByLabel('Patient email',{exact:true}).fill('sms-patient@example.invalid');
+ await patient.getByLabel('Password',{exact:true}).fill('SyntheticPreview!2026');
+ await patient.getByRole('button',{name:'Sign in and accept invitation'}).click();
+ await patient.waitForURL('**/patient',{timeout:60000});
+ await patient.getByText('This login is not linked to a patient record.').waitFor({state:'hidden'});
+ await clinician.getByRole('button',{name:'Refresh status',exact:true}).click();
+ await clinician.getByText('Patient account linked',{exact:true}).waitFor();
+ assert.equal(errors.length,0,errors.join('\n'));
+ console.log('PASS: mobile clinician method selection, secure copy API, fresh patient sign-in, verified-email claim, patient page, clinician Accepted status. No browser errors.');
+} finally {await browser.close();}
