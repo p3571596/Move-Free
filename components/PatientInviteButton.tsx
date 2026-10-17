@@ -20,6 +20,7 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
   const [action, setAction] = useState<"send" | "replace">("send");
   const [destination, setDestination] = useState("");
   const [method, setMethod] = useState<"email" | "copy">("copy");
+  const [skipVerification, setSkipVerification] = useState(true);
   const [secureLink, setSecureLink] = useState("");
   const linked = isLinked || invitation.status === "accepted";
 
@@ -57,13 +58,13 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
       const response = await fetch(method === "email" || requestedAction === "revoke" ? "/api/patient-invitations/email" : "/api/patient-invitations/delivery", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-        body: JSON.stringify({ patientId, email: destination.trim(), method, action: effectiveAction }),
+        body: JSON.stringify({ patientId, email: destination.trim(), method, skipEmailVerification: method === "copy" && skipVerification, action: effectiveAction }),
       });
       const result = await response.json() as { error?: string; status?: string; link?: string };
       await refresh();
       if (!response.ok) throw new Error(result.error ?? "Invitation could not be completed.");
       setSecureLink(result.link ?? "");
-      setStatus(requestedAction === "revoke" ? "Old invitation revoked. Its link can no longer link this patient." : method === "copy" ? "Secure link ready. Share only with the intended patient; email verification is required." : "Email request accepted. Receipt is not verified; ask the patient to check their inbox and spam folder.");
+      setStatus(requestedAction === "revoke" ? "Old invitation revoked. Its link can no longer link this patient." : method === "copy" ? skipVerification ? "Pilot link ready. Anyone with this link can create the patient account without email verification." : "Secure link ready. Email verification is required." : "Email request accepted. Receipt is not verified; ask the patient to check their inbox and spam folder.");
       setOpen(false);
     } catch (cause) {
       setStatus(cause instanceof Error ? cause.message : "Invitation could not be completed.");
@@ -115,10 +116,11 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
           <div><p className="eyebrow">Patient access</p><h3 id="invite-title">{action === "replace" ? "Correct contact and replace invitation" : invitation.email ? "Regenerate invitation" : "Invite patient"}</h3></div>
           <button className="icon-button" type="button" onClick={() => setOpen(false)} disabled={busy} aria-label="Close invitation dialog"><X size={18}/></button>
         </div>
-        <p className="muted">Only the patient’s verified email can activate this invitation, including links shared manually. Confirm this email with the patient before creating the link.</p>
+        <p className="muted">{method === "copy" && skipVerification ? "Private pilot: anyone holding this link can create the patient account and access its information. Confirm the recipient before sharing; revoke a misdirected link immediately." : "Only the patient’s verified email can activate this invitation. Confirm this email with the patient before sharing."}</p>
         {action === "replace" ? <p className="invite-tip">Replacing revokes the previous invitation immediately, even if the new delivery fails. An already linked account cannot be replaced.</p> : invitation.email ? <p className="invite-tip">Regenerating replaces the previous link. Wait at least 60 seconds between attempts.</p> : <p className="invite-tip">Secure links expire in 7 days.</p>}
         <form className="form" onSubmit={(event: FormEvent) => { event.preventDefault(); void submit(action); }}>
           <label className="field"><span>Invitation method</span><select value={method} onChange={event => setMethod(event.target.value as "email" | "copy")}><option value="copy">Share secure link</option><option value="email">Email</option></select></label>
+          {method === "copy" ? <label><input type="checkbox" checked={skipVerification} onChange={event => setSkipVerification(event.target.checked)}/> Skip email verification — private pilot only</label> : null}
           <label className="field"><span>Patient email</span><input type="email" maxLength={254} value={destination} onChange={event => setDestination(event.target.value)} required /></label>
           <button className="button" type="submit" disabled={busy}>{busy ? "Preparing..." : action === "replace" ? "Revoke old invitation and create replacement" : method === "copy" ? "Generate secure link" : "Send email invitation"}</button>
         </form>

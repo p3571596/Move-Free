@@ -11,10 +11,12 @@ export async function POST(request: NextRequest) {
     const { patientId, method, action = "send" } = body;
     if (!/^[0-9a-f-]{36}$/i.test(patientId ?? "") || method !== "copy" || !["send", "replace"].includes(action)) return reply({ error: "Invalid invitation request." }, 400);
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return reply({ error: "Enter the patient's email for identity verification." }, 400);
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return reply({ error: "Enter the patient's contact email." }, 400);
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     if (!url || !key) return reply({ error: "Invitation delivery is not configured." }, 503);
+    const skipVerification = body.skipEmailVerification === true;
+    if (skipVerification && (process.env.PATIENT_INVITE_LINK_ONLY_ENABLED !== "true" || !process.env.SUPABASE_SECRET_KEY)) return reply({ error: "Pilot signup is disabled. Uncheck Skip email verification to use a verified invitation." }, 503);
     const options = { auth: { persistSession: false, autoRefreshToken: false } };
     const client = createClient(url, key, { ...options, global: { headers: { Authorization: bearer } } });
     const { data: user, error } = await client.auth.getUser(bearer.slice(7));
@@ -28,7 +30,12 @@ export async function POST(request: NextRequest) {
       p_patient_id: patientId, p_email: email, p_mobile: "", p_method: method, p_action: action, p_consent: false,
     });
     if (issueError || !attempt?.token) return reply({ error: "Invitation unavailable. Wait before resending, or correct the contact and replace the invitation." }, /Wait|being sent/i.test(issueError?.message ?? "") ? 429 : 409);
-    const link = `${base}#token=${encodeURIComponent(attempt.token)}`;
+    if (skipVerification) {
+      const admin = createClient(url, process.env.SUPABASE_SECRET_KEY!, options);
+      const { data: enabled, error: modeError } = await admin.rpc("enable_patient_pilot_signup", { p_token: attempt.token, p_clinician_id: user.user.id });
+      if (modeError || enabled !== true) return reply({ error: "Pilot link could not be prepared. Regenerate the invitation." }, 503);
+    }
+    const link = `${base}#token=${encodeURIComponent(attempt.token)}${skipVerification ? "&mode=pilot" : ""}`;
     return reply({ status: "pending", link });
   } catch {
     return reply({ error: "Invitation failed. Refresh status before retrying." }, 503);

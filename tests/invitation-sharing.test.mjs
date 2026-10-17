@@ -11,3 +11,9 @@ test('native text composer preserves the complete fragment link without patient 
  assert.equal(new URLSearchParams(href.split('?')[1]).get('body'),invitationMessage(link));
  assert(invitationMessage(link).includes(link));assert(!invitationMessage(link).includes('STOP'));
 });
+
+test('pilot messages do not promise an email verification step',()=>{
+ const {invitationMessage}=load('lib/invitation-sharing.ts');
+ const body=invitationMessage('https://example.invalid/join#token='+'a'.repeat(64)+'&mode=pilot');
+ assert(body.includes('Create your account'));assert(!body.includes('Verify your email'));
+});

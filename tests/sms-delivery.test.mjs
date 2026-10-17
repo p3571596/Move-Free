@@ -25,3 +25,17 @@ test('manual links require ownership and work without SMTP or provider credentia
  cooldown=true;assert.equal((await POST(req())).status,429);
  }finally{for(const n of Object.keys(process.env))if(!(n in original))delete process.env[n];Object.assign(process.env,original);}
 });
+
+test('pilot link issuance needs its server gate and clinician ownership before service-only opt-in',async()=>{
+ const saved={...process.env};let owned=true,mode=true;const calls=[];
+ const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},from:()=>({select(){return this},eq(){return this},maybeSingle:async()=>({data:owned?{id:patientId}:null})}),rpc:async(name,args)=>{calls.push(name);return name==='manage_patient_delivery'?{data:{token:'a'.repeat(64)}}:{data:mode};}};
+ const {POST}=load('app/api/patient-invitations/delivery/route.ts',{'next/server':{NextResponse:response},'@supabase/supabase-js':{createClient:()=>client},'@/lib/app-url':{getAppRoute:p=>'https://example.invalid'+p}});
+ const req=()=>({headers:new Headers({authorization:'Bearer synthetic'}),json:async()=>({patientId,email:'patient@example.invalid',method:'copy',skipEmailVerification:true})});
+ try {
+ process.env.NEXT_PUBLIC_SUPABASE_URL='https://example.invalid';process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='synthetic';process.env.SUPABASE_SECRET_KEY='synthetic';delete process.env.PATIENT_INVITE_LINK_ONLY_ENABLED;
+ assert.equal((await POST(req())).status,503);assert.equal(calls.length,0);
+ process.env.PATIENT_INVITE_LINK_ONLY_ENABLED='true';owned=false;assert.equal((await POST(req())).status,403);assert.equal(calls.length,0);
+ owned=true;mode=false;assert.equal((await POST(req())).status,503);
+ mode=true;const result=await POST(req());assert.equal(result.status,200);assert(result.body.link.endsWith('&mode=pilot'));assert(calls.includes('enable_patient_pilot_signup'));
+ }finally {for(const key of Object.keys(process.env))if(!(key in saved))delete process.env[key];Object.assign(process.env,saved);}
+});
