@@ -1,6 +1,7 @@
 // Sharing is independent of invitation issuance and account onboarding.
 export function invitationMessage(link: string) {
-  return `You have a secure Move Free invitation: ${link} Verify your email to continue. This link expires in 7 days.`;
+  const instruction = new URL(link).hash.includes("mode=pilot") ? "Create your account to continue." : "Verify your email to continue.";
+  return `You have a secure Move Free invitation: ${link} ${instruction} This link expires in 7 days.`;
 }
 
 export function textInvitationHref(link: string) {

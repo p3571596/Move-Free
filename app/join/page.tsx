@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { claimPatientInvite } from "@/lib/data";
 
@@ -9,6 +10,8 @@ export default function JoinPage() {
   const router = useRouter();
   const initialized = useRef(false);
   const [token, setToken] = useState("");
+  const [pilot, setPilot] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -20,6 +23,7 @@ export default function JoinPage() {
     initialized.current = true;
     const value = new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "";
     setToken(value);
+    setPilot(new URLSearchParams(window.location.hash.slice(1)).get("mode") === "pilot");
     window.history.replaceState(null, "", window.location.pathname);
     if (!/^[a-f0-9]{64}$/.test(value)) setStatus("This invitation is incomplete. Ask your clinician for a new link.");
   }, []);
@@ -39,6 +43,19 @@ export default function JoinPage() {
       } else if (existing) {
         const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
+      } else if (pilot) {
+        const response = await fetch("/api/patient-invitations/pilot-signup", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, email: email.trim(), password }),
+        });
+        const result = await response.json() as { created?: boolean; error?: string };
+        if (!response.ok || !result.created) throw new Error(result.error ?? "Account creation unavailable.");
+        setAccountCreated(true);
+        const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
+        if (error) throw new Error("Your account was created. Use the sign-in page to continue.");
+        router.replace("/patient");
+        router.refresh();
+        return;
       } else {
         const { data, error } = await client.auth.signUp({ email: email.trim(), password, options: { data: { role: "patient", patient_invite: true } } });
         if (error) throw error;
@@ -52,19 +69,21 @@ export default function JoinPage() {
       await claimPatientInvite(client, token);
       router.replace("/patient");
       router.refresh();
-    } catch {
+    } catch (cause) {
+      if (pilot && cause instanceof Error) { setStatus(cause.message); return; }
       setStatus(stage === "verify" ? "Could not verify or accept. Check the code and invited email, or ask your clinician for a new invitation." : "Could not accept. Use the email recorded by your clinician. Existing patients can sign in below; otherwise ask your clinician for help.");
     } finally { setBusy(false); }
   }
   return <main className="auth-page"><section className="auth-panel">
-    <p className="eyebrow">Secure invitation</p><h2>Verify your identity</h2>
-    <p className="muted">Use the patient email your clinician recorded. This link alone does not provide account access.</p>
+    <p className="eyebrow">Secure invitation</p><h2>{pilot ? "Create your patient account" : "Verify your identity"}</h2>
+    <p className="muted">{pilot ? "Private pilot: this invitation lets you create an account without an email code. Use an email and password you can remember for future sign-in. Do not forward the link." : "Use the patient email your clinician recorded. This link alone does not provide account access."}</p>
     <form className="form" onSubmit={event => void submit(event)}>
       <label className="field"><span>Patient email</span><input type="email" required maxLength={254} autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} readOnly={stage === "verify"}/></label>
-      {stage === "account" ? <label className="field"><span>Password</span><input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)}/></label> : <label className="field"><span>Email verification code</span><input required autoComplete="one-time-code" inputMode="numeric" value={code} onChange={e => setCode(e.target.value)}/></label>}
-      <button className="button" disabled={busy || token.length !== 64}>{busy ? "Verifying..." : stage === "verify" ? "Verify and accept invitation" : "Create patient account"}</button>
+      {stage === "account" ? <label className="field"><span>Password</span><input type="password" required minLength={pilot ? 12 : 8} maxLength={pilot ? 128 : undefined} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)}/></label> : <label className="field"><span>Email verification code</span><input required autoComplete="one-time-code" inputMode="numeric" value={code} onChange={e => setCode(e.target.value)}/></label>}
+      <button className="button" disabled={busy || accountCreated || token.length !== 64}>{busy ? (pilot ? "Setting up..." : "Verifying...") : stage === "verify" ? "Verify and accept invitation" : "Create patient account"}</button>
       {stage === "account" ? <button type="button" className="secondary-button" disabled={busy} onClick={event => void submit(event, true)}>Sign in and accept invitation</button> : <button type="button" className="secondary-button" disabled={busy} onClick={() => setStage("account")}>Return to sign in</button>}
     </form>
+    <Link href="/login">Go to sign in</Link>
     {status ? <p role="status" className="muted">{status}</p> : null}
   </section></main>;
 }
