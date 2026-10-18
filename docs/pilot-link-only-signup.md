@@ -1,5 +1,7 @@
 # Pilot-only signup without verification email
 
+Historical first-release design. The follow-up [incomplete-registration fix](pilot-incomplete-registration.md) adds password-proven resumption without changing passwords.
+
 Prepared October 17, 2026, on isolated branch `feat/pilot-link-only-signup`. Not deployed. The user's previous release approval applied to the earlier verified-email flow; this security-model change is prepared for a new final review.
 
 ## Behavior

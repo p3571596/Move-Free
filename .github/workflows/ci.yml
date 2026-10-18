@@ -41,3 +41,26 @@ jobs:
           done
           node tests/workflow-browser.mjs
           node tests/private-pilot-browser.mjs
+
+  invitation-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://synthetic.example.invalid
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: synthetic-public-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Synthetic invitation recovery on mobile and desktop
+        run: |
+          npm run dev -- --port 3109 > /tmp/move-free-invitation.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3109/join > /dev/null; then break; fi
+            sleep 1
+          done
+          node tests/pilot-invitation-browser.mjs

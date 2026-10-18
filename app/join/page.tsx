@@ -40,10 +40,22 @@ export default function JoinPage() {
       if (stage === "verify") {
         const { error } = await client.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" });
         if (error) throw error;
-      } else if (existing) {
+      } else if (existing && !pilot) {
         const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
       } else if (pilot) {
+        if (existing) {
+          const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
+          if (!error) {
+            if (!accountCreated) await claimPatientInvite(client, token);
+            router.replace("/patient");
+            router.refresh();
+            return;
+          }
+          if (error.code !== "email_not_confirmed" && error.code !== "invalid_credentials") throw error;
+          // Let the server distinguish a new or incomplete registration using
+          // the invitation. It never changes an existing password.
+        }
         const response = await fetch("/api/patient-invitations/pilot-signup", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token, email: email.trim(), password }),
@@ -76,12 +88,12 @@ export default function JoinPage() {
   }
   return <main className="auth-page"><section className="auth-panel">
     <p className="eyebrow">Secure invitation</p><h2>{pilot ? "Create your patient account" : "Verify your identity"}</h2>
-    <p className="muted">{pilot ? "Private pilot: this invitation lets you create an account without an email code. Use an email and password you can remember for future sign-in. Do not forward the link." : "Use the patient email your clinician recorded. This link alone does not provide account access."}</p>
+    <p className="muted">{pilot ? "Private pilot: this invitation lets you create an account without an email code. Use an email and password you can remember for future sign-in. New passwords need at least 12 characters. If you already tried signing up, enter the password from that first attempt. Do not forward the link." : "Use the patient email your clinician recorded. This link alone does not provide account access."}</p>
     <form className="form" onSubmit={event => void submit(event)}>
       <label className="field"><span>Patient email</span><input type="email" required maxLength={254} autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} readOnly={stage === "verify"}/></label>
-      {stage === "account" ? <label className="field"><span>Password</span><input type="password" required minLength={pilot ? 12 : 8} maxLength={pilot ? 128 : undefined} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)}/></label> : <label className="field"><span>Email verification code</span><input required autoComplete="one-time-code" inputMode="numeric" value={code} onChange={e => setCode(e.target.value)}/></label>}
+      {stage === "account" ? <label className="field"><span>Password</span><input type="password" required minLength={pilot ? 1 : 8} maxLength={pilot ? 128 : undefined} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)}/></label> : <label className="field"><span>Email verification code</span><input required autoComplete="one-time-code" inputMode="numeric" value={code} onChange={e => setCode(e.target.value)}/></label>}
       <button className="button" disabled={busy || accountCreated || token.length !== 64}>{busy ? (pilot ? "Setting up..." : "Verifying...") : stage === "verify" ? "Verify and accept invitation" : "Create patient account"}</button>
-      {stage === "account" ? <button type="button" className="secondary-button" disabled={busy} onClick={event => void submit(event, true)}>Sign in and accept invitation</button> : <button type="button" className="secondary-button" disabled={busy} onClick={() => setStage("account")}>Return to sign in</button>}
+      {stage === "account" ? <button type="button" className="secondary-button" disabled={busy} onClick={event => void submit(event, true)}>{accountCreated ? "Sign in to your account" : "Already registered? Sign in"}</button> : <button type="button" className="secondary-button" disabled={busy} onClick={() => setStage("account")}>Return to sign in</button>}
     </form>
     <Link href="/login">Go to sign in</Link>
     {status ? <p role="status" className="muted">{status}</p> : null}
