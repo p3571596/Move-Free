@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       // interpret invalid_credentials, a network error, or a session as proof.
       const auth = createClient(url, publicKey, { auth: { persistSession: false, autoRefreshToken: false } });
       const { error: passwordError } = await auth.auth.signInWithPassword({ email, password: body.password });
-      if (passwordError?.code !== "email_not_confirmed") return reply({ error: "This email already has a registration. Use the password from your first signup attempt, or use a different email to create a new account. No email code is required for this pilot link." }, 409);
+      if (passwordError?.code !== "email_not_confirmed") return reply({ error: "This email already has a registration. Use your existing password, or ask your clinician for a password reset link if you forgot it. No email code is required for the clinician-assisted reset." }, 409);
       const { data, error } = await admin.auth.admin.updateUserById(userId, {
         email_confirm: true,
         app_metadata: { signup_assurance: "invitation_link_only", email_ownership_verified: false },

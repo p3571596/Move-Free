@@ -51,7 +51,7 @@ export default function ForgotPasswordPage() {
   return <main className="auth-page"><section className="auth-panel">
     <p className="eyebrow">Move Free account recovery</p>
     <h2>Reset your password</h2>
-    <p className="muted">Use the same email address that received the patient invitation.</p>
+    <p className="muted">Use your account email. If reset emails do not arrive, ask your clinician to generate a password reset link from your patient record. They can share it directly without email delivery.</p>
     <form className="form" onSubmit={submit} style={{ marginTop: 18 }}>
       <label className="field"><span>Email</span><input type="email" inputMode="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
       <button className="button" type="submit" disabled={submitting || cooldown > 0}>{submitting ? "Sending..." : cooldown > 0 ? `Try again in ${cooldown}s` : "Send reset link"}</button>

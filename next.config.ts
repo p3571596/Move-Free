@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   async headers() {
     return [
-      { source: "/join", headers: [
+      { source: "/:path(join|recover)", headers: [
         { key: "Referrer-Policy", value: "no-referrer" },
         { key: "Cache-Control", value: "no-store" },
         { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
