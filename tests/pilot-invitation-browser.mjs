@@ -29,7 +29,8 @@ try {
   const page=await browser.newPage({viewport});let writes=0;
   await page.route('**/api/patient-invitations/password-reset',async route=>{writes++;await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({updated:true})});});
   await page.goto((process.env.TEST_BASE_URL||'http://localhost:3109')+'/recover#token='+'b'.repeat(64));
-  await page.getByRole('heading',{name:'Choose a new password'}).waitFor();assert.equal(new URL(page.url()).hash,'');
+  await page.getByRole('heading',{name:'Choose a new password'}).waitFor();
+  await page.waitForFunction(()=>!window.location.hash);assert.equal(new URL(page.url()).hash,'');
   await page.getByLabel('Account email').fill('synthetic@example.invalid');
   await page.getByLabel('New password',{exact:true}).fill('NewSyntheticPassword!2026');
   await page.getByLabel('Confirm password').fill('DifferentPassword!2026');
