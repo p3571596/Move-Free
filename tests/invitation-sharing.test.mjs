@@ -17,3 +17,10 @@ test('pilot messages do not promise an email verification step',()=>{
  const body=invitationMessage('https://example.invalid/join#token='+'a'.repeat(64)+'&mode=pilot');
  assert(body.includes('Create your account'));assert(!body.includes('Verify your email'));
 });
+
+test('recovery sharing is neutral, expires in thirty minutes and never requests an old password or email code',()=>{
+ const {invitationMessage,textInvitationHref}=load('lib/invitation-sharing.ts');
+ const link='https://example.invalid/recover#token='+'a'.repeat(64),body=invitationMessage(link);
+ assert(body.includes('new password'));assert(body.includes('30 minutes'));assert(body.includes(link));assert(!body.includes('7 days'));
+ assert.equal(new URLSearchParams(textInvitationHref(link).split('?')[1]).get('body'),body);
+});

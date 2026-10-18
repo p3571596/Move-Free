@@ -64,11 +64,30 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
       await refresh();
       if (!response.ok) throw new Error(result.error ?? "Invitation could not be completed.");
       setSecureLink(result.link ?? "");
-      setStatus(requestedAction === "revoke" ? "Old invitation revoked. Its link can no longer link this patient." : method === "copy" ? skipVerification ? "Pilot link ready. Anyone with this link can create the patient account without email verification." : "Secure link ready. Email verification is required." : "Email request accepted. Receipt is not verified; ask the patient to check their inbox and spam folder.");
+      setStatus(requestedAction === "revoke" ? "Old invitation and pending password reset link revoked. The email can be used with a new invitation and the existing account. Account data is preserved." : method === "copy" ? skipVerification ? "Pilot link ready. Anyone with this link can create the patient account without email verification." : "Secure link ready. Email verification is required." : "Email request accepted. Receipt is not verified; ask the patient to check their inbox and spam folder.");
       setOpen(false);
     } catch (cause) {
       setStatus(cause instanceof Error ? cause.message : "Invitation could not be completed.");
     } finally { setBusy(false); }
+  }
+
+  async function recovery(action: "issue" | "revoke") {
+    if (busy) return;
+    setBusy(true);setStatus("");setSecureLink("");
+    try {
+      const client=createSupabaseBrowserClient();
+      const {data}=await client.auth.getSession();
+      if(!data.session?.access_token)throw new Error("Sign in again.");
+      const response=await fetch("/api/patient-invitations/password-reset",{
+        method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${data.session.access_token}`},
+        body:JSON.stringify({patientId,action}),
+      });
+      const result=await response.json() as {link?:string;error?:string};
+      if(!response.ok)throw new Error(result.error??"Password reset unavailable.");
+      setSecureLink(result.link??"");
+      setStatus(action==="revoke"?"Password reset link revoked. The account and its history are preserved.":"Password reset link ready. Anyone with this link and the account email can choose a new password. Confirm the recipient before sharing. Expires in 30 minutes; works once.");
+    }catch(cause){setStatus(cause instanceof Error?cause.message:"Password reset unavailable.");}
+    finally{setBusy(false);}
   }
 
   async function openDialog(nextAction: "send" | "replace") {
@@ -92,9 +111,13 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
       {invitation.email ? <button className="secondary-button" type="button" onClick={() => void openDialog("replace")} disabled={busy}>Correct Contact / Replace Invitation</button> : null}
       {["pending", "sent", "sending"].includes(invitation.status) ? <button className="secondary-button" type="button" onClick={() => void submit("revoke")} disabled={busy}>Revoke Old Invitation</button> : null}
     </>}
+    {linked || invitation.email ? <>
+      <button className="secondary-button" type="button" disabled={busy} onClick={() => void recovery("issue")}>Generate Password Reset Link</button>
+      <button className="secondary-button" type="button" disabled={busy} onClick={() => void recovery("revoke")}>Revoke Password Reset Link</button>
+    </> : null}
     <button className="secondary-button" type="button" onClick={() => void refresh().catch(() => setStatus("Invitation status unavailable."))} disabled={busy}>Refresh status</button>
     {secureLink ? <div className="form">
-      <label className="field"><span>Secure invitation link</span><input readOnly value={secureLink} onFocus={event => event.target.select()}/></label>
+      <label className="field"><span>{secureLink.includes("/recover#") ? "Secure password reset link" : "Secure invitation link"}</span><input readOnly value={secureLink} onFocus={event => event.target.select()}/></label>
       <div className="button-row">
         <button className="secondary-button" type="button" onClick={async () => {
           try { await navigator.clipboard.writeText(secureLink); setStatus("Link copied."); }
@@ -107,7 +130,7 @@ export function PatientInviteButton({ patientId, isLinked }: { patientId: string
         }}><Share2 size={17}/>Share Link</button>
         <a className="secondary-button" href={textInvitationHref(secureLink)} onClick={() => setStatus("Send the message manually in your messaging app. Delivery is not confirmed.")}>Share via Text</a>
       </div>
-      <small className="muted">Choose the intended recipient in your app. Sharing does not confirm delivery. Regenerating or revoking invalidates this link.</small>
+      <small className="muted">Choose the intended recipient in your app. Sharing does not confirm delivery. Regenerating or revoking its invitation also invalidates a pending reset link. Revocation preserves the account and clinical history.</small>
     </div> : null}
     {status ? <small className="muted" role="status">{status}</small> : null}
     {open && !linked ? <div className="modal-backdrop" role="presentation" onMouseDown={() => { if (!busy) setOpen(false); }}>
