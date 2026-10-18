@@ -12,6 +12,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://synthetic.example.invalid
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: synthetic-public-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,3 +44,4 @@ jobs:
           done
           node tests/workflow-browser.mjs
           node tests/private-pilot-browser.mjs
+          node tests/pilot-invitation-browser.mjs
