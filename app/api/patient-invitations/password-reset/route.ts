@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { describePatientAuthError } from "@/lib/auth-errors";
 import { getAppRoute } from "@/lib/app-url";
 
 export async function POST(request: NextRequest) {
@@ -22,6 +23,10 @@ export async function POST(request: NextRequest) {
       if(error || !user.user) return reply({error:"Sign in again."},401);
       const base=getAppRoute("/recover");
       const {data,error:issueError}=await client.rpc("manage_patient_password_reset",{p_patient_id:body.patientId,p_action:body.action});
+      if(issueError?.message === "Wait before generating another reset link") return reply({code:"reset_cooldown",error:"A reset link was recently generated. Wait at least 60 seconds before generating another."},429);
+      if(issueError?.message === "Generate a current pilot invitation first") return reply({code:"pilot_invitation_required",error:"Generate a new private-pilot invitation for this patient first, then generate the password reset link."},409);
+      if(issueError?.message === "Patient unavailable") return reply({code:"patient_access_denied",error:"Patient unavailable or access denied. Open a patient record you own and try again."},403);
+      if(issueError?.message === "Account is not eligible for this patient") return reply({code:"account_not_eligible",error:"This account cannot be reset from this patient record. Check the patient email and account association; clinician and other patients' accounts cannot be reset here."},409);
       if(issueError || !data) return reply({error:"Reset unavailable. Generate a current pilot invitation for an unfinished signup, or check that the account belongs to this patient. Wait 60 seconds between links."},409);
       return reply(body.action==="revoke"?{status:"revoked"}:{status:"pending",link:`${base}#token=${encodeURIComponent(data.token)}`});
     }
@@ -30,12 +35,15 @@ export async function POST(request: NextRequest) {
       return reply({error:"Enter your email and a new password of 12–128 characters."},400);
     const admin=createClient(url,secret,options);
     const {data:target,error}=await admin.rpc("consume_patient_password_reset",{p_token:body.token,p_email:body.email.trim().toLowerCase()});
-    if(error || !target?.userId) return reply({error:"Reset link unavailable, expired, revoked, already used, or email does not match. Ask your clinician for a new link."},409);
+    if(error || !target?.userId) return reply({code:"reset_unavailable",error:"This reset link is expired, revoked, already used, or the email does not match. Check the account email. If it is correct, ask your clinician for a new reset link."},409);
     const {error:updateError}=await admin.auth.admin.updateUserById(target.userId,{
       password:body.password,
       ...(target.unconfirmed?{email_confirm:true,app_metadata:{signup_assurance:"clinician_recovery_link",email_ownership_verified:false}}:{}),
     });
-    if(updateError) return reply({error:"Password could not be updated. This link is now used; ask your clinician for a new one."},503);
+    if(updateError) {
+      const failure=describePatientAuthError(updateError);
+      return reply({code:failure.code,linkUsed:true,error:`${failure.error} This reset link is now used. Ask your clinician for a new reset link before trying again.`},failure.status);
+    }
     return reply({updated:true});
   } catch {
     // Never log passwords, reset tokens, request bodies or provider responses.

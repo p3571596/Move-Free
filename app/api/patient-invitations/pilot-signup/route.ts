@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { describePatientAuthError } from "@/lib/auth-errors";
 
 // Opted-in pilot links support fresh accounts and password-proven incomplete signups.
 // Never update an existing user's password or globally disable email confirmation.
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
     const { data: reservation, error: reserveError } = await admin.rpc("reserve_patient_pilot_signup", {
       p_token: body.token, p_user_id: userId, p_lease_id: leaseId, p_email: email,
     });
+    if (reserveError?.message === "Existing account must sign in") return reply({code:"account_exists",error:"This email already has an account. Use its existing password to sign in, or ask your clinician for a password reset link."},409);
     if (reserveError || !reservation?.patientId) return reply({ error: "Invitation unavailable, expired, revoked, already used, or signup is in progress. Ask your clinician for a new link if needed." }, 409);
     patientId = reservation.patientId;
     if (reservation.resumeExisting === true) {
@@ -39,12 +41,22 @@ export async function POST(request: NextRequest) {
       // interpret invalid_credentials, a network error, or a session as proof.
       const auth = createClient(url, publicKey, { auth: { persistSession: false, autoRefreshToken: false } });
       const { error: passwordError } = await auth.auth.signInWithPassword({ email, password: body.password });
-      if (passwordError?.code !== "email_not_confirmed") return reply({ error: "This email already has a registration. Use your existing password, or ask your clinician for a password reset link if you forgot it. No email code is required for the clinician-assisted reset." }, 409);
+      if (passwordError?.code !== "email_not_confirmed") {
+        if (passwordError?.code && passwordError.code !== "invalid_credentials") {
+          const failure=describePatientAuthError(passwordError);
+          return reply({code:failure.code,error:failure.error},failure.status);
+        }
+        return reply({code:"existing_password_required",error:"This email has an unfinished registration. The password did not match, or no password was previously set. Ask your clinician for a password reset link if you cannot sign in."},409);
+      }
       const { data, error } = await admin.auth.admin.updateUserById(userId, {
         email_confirm: true,
         app_metadata: { signup_assurance: "invitation_link_only", email_ownership_verified: false },
       });
-      if (error || data.user?.id !== userId) return reply({ error: "Could not finish this registration. Please retry or ask your clinician for help." }, 409);
+      if (error) {
+        const failure=describePatientAuthError(error);
+        return reply({code:failure.code,error:failure.error},failure.status);
+      }
+      if (data.user?.id !== userId) return reply({error:"Registration could not be completed. Ask your clinician for help."},503);
     } else {
       if (body.password.length < 12) return reply({ error: "Choose a password of at least 12 characters for your new account." }, 400);
       const { data, error } = await admin.auth.admin.createUser({
@@ -53,7 +65,11 @@ export async function POST(request: NextRequest) {
         // Auth confirmation enables password sign-in; it does NOT establish mailbox ownership.
         app_metadata: { signup_assurance: "invitation_link_only", email_ownership_verified: false },
       });
-      if (error || data.user?.id !== userId) return reply({ error: "Could not create this account. Existing accounts must sign in; otherwise use an unused email or contact your clinician." }, 409);
+      if (error) {
+        const failure=describePatientAuthError(error);
+        return reply({code:failure.code,error:failure.error},failure.status);
+      }
+      if (data.user?.id !== userId) return reply({error:"Registration could not be completed. Ask your clinician for help."},503);
       created = true;
     }
     const { data: accepted, error: acceptError } = await admin.rpc("complete_patient_pilot_signup", {

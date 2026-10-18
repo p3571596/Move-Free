@@ -40,5 +40,20 @@ try {
   assert.equal(writes,1);assert.equal(await page.getByRole('button',{name:'Update password'}).count(),0);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.close();
  }
+ for(const viewport of [{width:390,height:844},{width:412,height:915},{width:1280,height:900}]) {
+  const page=await browser.newPage({viewport});let submissions=0;
+  await page.route('**/api/patient-invitations/password-reset',async route=>{submissions++;await route.fulfill({status:422,contentType:'application/json',body:JSON.stringify({code:'weak_password',linkUsed:true,error:'This password was rejected because it is weak or easy to guess. Choose a different, unique password of at least 12 characters. This reset link is now used. Ask your clinician for a new reset link before trying again.'})});});
+  await page.goto((process.env.TEST_BASE_URL||'http://localhost:3109')+'/recover#token='+'c'.repeat(64));
+  await page.waitForFunction(()=>!window.location.hash);
+  await page.getByLabel('Account email').fill('synthetic@example.invalid');
+  await page.getByLabel('New password',{exact:true}).fill('SyntheticRejectedPassword!2026');
+  await page.getByLabel('Confirm password').fill('SyntheticRejectedPassword!2026');
+  await page.getByRole('button',{name:'Update password'}).click();
+  await page.getByRole('status').filter({hasText:'weak or easy to guess'}).waitFor();
+  assert((await page.getByRole('status').innerText()).includes('new reset link'));
+  assert.equal(await page.getByRole('button',{name:'Update password'}).count(),0,'consumed links must not offer a doomed retry');
+  assert.equal(submissions,1);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.close();
+ }
  console.log('PASS: iPhone-sized, Android-sized and desktop forms preserve incomplete-signup recovery through both buttons, explain password mismatch, hide email-code entry, and remove fragments without overflow. Auth/API responses mocked; hosted Auth tested separately.');
 } finally {await browser.close();}

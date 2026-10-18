@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { describeAuthError } from "@/lib/auth-errors";
 import { claimPatientInvite } from "@/lib/data";
 
 export default function JoinPage() {
@@ -39,10 +40,10 @@ export default function JoinPage() {
       if (signOutError) throw signOutError;
       if (stage === "verify") {
         const { error } = await client.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" });
-        if (error) throw error;
+        if (error) {setStatus(describeAuthError(error,"signup").message);return;}
       } else if (existing && !pilot) {
         const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
-        if (error) throw error;
+        if (error) {setStatus(describeAuthError(error,"login").message);return;}
       } else if (pilot) {
         {
           const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
@@ -52,7 +53,7 @@ export default function JoinPage() {
             router.refresh();
             return;
           }
-          if (error.code !== "email_not_confirmed" && error.code !== "invalid_credentials") throw error;
+          if (error.code !== "email_not_confirmed" && error.code !== "invalid_credentials") {setStatus(describeAuthError(error,"login").message);return;}
           // Let the server distinguish a new or incomplete registration using
           // the invitation. It never changes an existing password.
         }
@@ -70,7 +71,7 @@ export default function JoinPage() {
         return;
       } else {
         const { data, error } = await client.auth.signUp({ email: email.trim(), password, options: { data: { role: "patient", patient_invite: true } } });
-        if (error) throw error;
+        if (error) {setStatus(describeAuthError(error,"signup").message);return;}
         if (!data.session) {
           setStage("verify");
           setStatus("Enter the verification code sent to your email. If an account already exists, use Sign in instead. Keep this page open.");
@@ -82,6 +83,7 @@ export default function JoinPage() {
       router.replace("/patient");
       router.refresh();
     } catch (cause) {
+      if (cause instanceof TypeError) {setStatus("Could not connect to Move Free. Check your connection and try again. If a reset link was already submitted, ask your clinician to check its status.");return;}
       if (pilot && cause instanceof Error) { setStatus(cause.message); return; }
       setStatus(stage === "verify" ? "Could not verify or accept. Check the code and invited email, or ask your clinician for a new invitation." : "Could not accept. Use the email recorded by your clinician. Existing patients can sign in below; otherwise ask your clinician for help.");
     } finally { setBusy(false); }
