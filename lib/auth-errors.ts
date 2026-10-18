@@ -5,8 +5,25 @@ export type AuthFailure = {
   code?: string;
 };
 
+// Whitelist provider failure codes; never echo raw Auth responses to patients.
+export function describePatientAuthError(error: { code?: string; status?: number }) {
+  const code = error.code;
+  if (code === "weak_password") return { code, status: 422, error: "This password was rejected because it is weak or easy to guess. Choose a different, unique password of at least 12 characters. A password manager can generate one." };
+  if (code === "same_password") return { code, status: 422, error: "Your new password must be different from your current password. Choose a different password." };
+  if (code === "email_exists" || code === "user_already_exists" || code === "user_already_registered") return { code: "account_exists", status: 409, error: "This email already has an account. Use its existing password to sign in. If you never set a password or forgot it, ask your clinician for a password reset link." };
+  if (code === "email_address_invalid" || code === "validation_failed") return { code: "invalid_account_details", status: 400, error: "The account details were rejected. Check the email address and enter a valid password, then try again." };
+  if (error.status === 429 || code === "over_request_rate_limit" || code === "over_email_send_rate_limit") return { code: "rate_limited", status: 429, error: "Too many attempts were made. Wait a few minutes before trying again." };
+  if (code === "signup_disabled") return { code, status: 503, error: "Account registration is temporarily disabled. Ask your clinician for help." };
+  if (code === "user_banned") return { code: "account_unavailable", status: 403, error: "This account cannot sign in right now. Contact your clinician for help." };
+  return { code: "auth_unavailable", status: 503, error: "The account service could not complete this request. Try again later or contact your clinician." };
+}
+
 export function describeAuthError(error: AuthError, action: "login" | "signup" | "recovery" | "password-update"): AuthFailure {
   const code = error.code ?? undefined;
+  if (["weak_password", "same_password", "email_exists", "user_already_exists", "user_already_registered", "email_address_invalid", "validation_failed", "signup_disabled", "user_banned"].includes(code ?? "")) {
+    const failure = describePatientAuthError(error);
+    return { message: failure.error, code: failure.code };
+  }
 
   if (code === "invalid_credentials" || /invalid login credentials/i.test(error.message)) {
     return {
@@ -17,14 +34,14 @@ export function describeAuthError(error: AuthError, action: "login" | "signup" |
 
   if (code === "email_not_confirmed" || /email not confirmed/i.test(error.message)) {
     return {
-      message: "Confirm this email address before signing in. Check the inbox and spam folder for the Supabase confirmation email.",
+      message: "This email is not confirmed yet. Confirm your email or reopen your patient invitation. If you are a patient and email does not arrive, ask your clinician for a password reset link.",
       code: code ?? "email_not_confirmed",
     };
   }
 
   if (error.status === 429 || /rate limit/i.test(error.message)) {
     return {
-      message: "Too many email requests were made. Wait a few minutes before requesting another email, then use only the newest link.",
+      message: "Too many attempts were made. Wait a few minutes before trying again. If you request another link, use only the newest one.",
       code: code ?? "rate_limited",
     };
   }
@@ -51,7 +68,7 @@ export function describeAuthError(error: AuthError, action: "login" | "signup" |
         ? "The password reset email could not be sent."
         : "The password could not be updated.";
 
-  return { message: error.message || fallback, code };
+  return { message: fallback, code };
 }
 
 export function reportAuthError(context: string, error: AuthError) {
