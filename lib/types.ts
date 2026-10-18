@@ -354,6 +354,7 @@ export type Database = {
       transition_case: { Args: {p_patient_id: string; p_episode_id: string; p_action: string; p_reason: string; p_date: string; p_program_plan: string; p_note: string}; Returns: string };
       manage_patient_email_invitation: { Args: { p_patient_id: string; p_email: string; p_action: string }; Returns: { status: string; email?: string; phone?: string; method?: string; errorCode?: string; retryAt?: string } };
       create_patient_invite: { Args: { p_patient_id: string }; Returns: string };
+      finish_recovered_patient_setup: { Args: Record<string, never>; Returns: string };
       claim_patient_invite: { Args: { p_token: string }; Returns: string };
       publish_care_guidance: {Args: {p_patient_id: string; p_program_id: string; p_expected_version: string; p_body: string; p_message_id: string}; Returns: string};
       record_engine_review: { Args: {p_id: string; p_patient_id: string; p_episode_id: string; p_decision: string; p_rationale: string; p_engine: Json; p_source: Json; p_disposition: string; p_disagreement: string; p_modification: string}; Returns: undefined };

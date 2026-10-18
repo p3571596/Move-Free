@@ -15,6 +15,8 @@ import type { PatientWorkspace } from "@/lib/types";
 export default function PatientAppHomePage() {
   const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
   const [loadError, setLoadError] = useState("");
+  const [finishing, setFinishing] = useState(false);
+  const [setupMessage, setSetupMessage] = useState("");
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -34,6 +36,19 @@ export default function PatientAppHomePage() {
     return () => { active = false; clearInterval(timer); window.removeEventListener("focus", load); document.removeEventListener("visibilitychange", load); };
   }, []);
 
+  async function finishSetup() {
+    if (finishing) return;
+    setFinishing(true);setSetupMessage("");
+    try {
+      const client=createSupabaseBrowserClient();
+      const {error}=await client.rpc("finish_recovered_patient_setup",{});
+      if(error) {setSetupMessage("No current invitation can be completed from this recovered account. Ask your clinician to check the invitation and account association.");return;}
+      setSetupMessage("Setup completed. Loading your patient record...");
+      setWorkspace(await loadCurrentPatientAppWorkspace(client));
+    }catch{setSetupMessage("Could not finish loading setup. Refresh this page to check its status before trying again.");}
+    finally{setFinishing(false);}
+  }
+
   const patientName = workspace?.patient?.display_name ?? workspace?.patient?.full_name;
   const firstName = patientName?.trim().split(/\s+/)[0];
 
@@ -50,8 +65,11 @@ export default function PatientAppHomePage() {
           {loadError ? <div className="empty form-error" role="alert">{loadError}</div> : null}
           {workspace && !workspace.patient ? (
             <div className="empty">
-              <strong>No patient found.</strong>
-              <p>This login is not linked to a patient record. Ask your clinician to send or complete your patient invitation.</p>
+              <strong>Your account is signed in. Finish patient setup.</strong>
+              <p>If you completed a password reset link from your clinician, you can accept its current patient invitation here—even if you lost the invitation link.</p>
+              <button className="button" type="button" disabled={finishing} onClick={() => void finishSetup()}>{finishing ? "Completing setup..." : "Complete patient setup"}</button>
+              <p>If you have not completed clinician-assisted recovery, ask your clinician to check your invitation.</p>
+              {setupMessage ? <p role="status">{setupMessage}</p> : null}
             </div>
           ) : null}
           {workspace?.patient ? (

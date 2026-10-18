@@ -64,3 +64,4 @@ jobs:
             sleep 1
           done
           node tests/pilot-invitation-browser.mjs
+          node tests/recovered-setup-browser.mjs
