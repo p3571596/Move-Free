@@ -5,7 +5,7 @@ try {
  for(const viewport of [{width:390,height:844},{width:412,height:915},{width:1280,height:900}]) {
   const page=await browser.newPage({viewport});const errors=[],requests=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.route('**/auth/v1/**',route=>route.fulfill({status:400,headers:{'Access-Control-Allow-Origin':'*'},contentType:'application/json',body:JSON.stringify({code:'email_not_confirmed',msg:'Email not confirmed'})}));
+  await page.route('**/auth/v1/**',route=>route.fulfill({status:400,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Expose-Headers':'X-Supabase-Api-Version','X-Supabase-Api-Version':'2024-01-01'},contentType:'application/json',body:JSON.stringify({code:'email_not_confirmed',msg:'Email not confirmed'})}));
   await page.route('**/api/patient-invitations/pilot-signup',async route=>{
    requests.push(route.request().postDataJSON());
    await route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'Use the password from your first signup attempt, or use a different email to create a new account.'})});
