@@ -109,6 +109,12 @@ begin
  if not exists(select 1 from public.home_programs where id=s.home_program_id and updated_at=s.program_version) then raise exception 'Your program changed. Finish for now, reload, and start a new session'; end if;
  if s.state<>'active' then raise exception 'Session is closed'; end if;
  if jsonb_typeof(p_feedback)<>'object' or length(p_feedback::text)>10000 then raise exception 'Invalid exercise feedback'; end if;
+ if p_feedback ? 'nonperformance' and jsonb_typeof(p_feedback->'nonperformance')<>'boolean' then raise exception 'Invalid performance report'; end if;
+ if p_feedback ? 'painDuring' and p_feedback->'painDuring'<>'null'::jsonb then
+  if jsonb_typeof(p_feedback->'painDuring')<>'number' then raise exception 'Pain must be a whole number from 0 to 10'; end if;
+  if (p_feedback->>'painDuring')::numeric not between 0 and 10 or (p_feedback->>'painDuring')::numeric<>trunc((p_feedback->>'painDuring')::numeric) then raise exception 'Pain must be a whole number from 0 to 10'; end if;
+ end if;
+ if length(coalesce(p_feedback->>'notes',''))>2000 then raise exception 'Keep comments to 2000 characters'; end if;
  if p_feedback->'nonperformance'='true'::jsonb then p_feedback:=jsonb_build_object('nonperformance',true,'notes',p_feedback->>'notes'); end if;
  insert into public.exercise_adherence_logs(patient_id,home_program_id,home_program_exercise_id,session_id,client_submission_id,
   completion_status,performed_at,activity_source,actual_dose,actual_sets,actual_reps,actual_duration_minutes,
