@@ -91,6 +91,7 @@ export type Exercise = {
 };
 
 export type HomeProgram = {
+  guided_order?: boolean;
   id: string;
   patient_id?: string | null;
   episode_id?: string | null;
@@ -110,6 +111,7 @@ export type LegacyPrescription = {dosage_sets?: string | null; dosage_reps?: str
 export type ProgramChange = {id: string; patient_id: string; clinician_id: string; entity: string; operation: string; before_value: Json; after_value: Json; created_at: string};
 
 export type HomeProgramExercise = {
+  prerequisite_ids?: string[];
   client_key?: string;
   prescription?: Prescription | null;
   legacy_prescription?: LegacyPrescription | null;
@@ -220,6 +222,8 @@ export type Feedback = {
 };
 
 export type ExerciseAdherenceLog = {
+  actual_dose?: Prescription | null;
+  activity_source?: 'individual_confirmation' | 'legacy_report' | 'explicit_nonperformance';
   id: string;
   patient_id?: string | null;
   home_program_id?: string | null;
@@ -311,6 +315,7 @@ export type FollowupState = {home_program_id: string; patient_id: string; episod
 export type Database = {
   public: {
     Tables: {
+      patient_exercise_sessions: Table<import('./exercise-session').ExerciseSession>;
       clinician_video_generation_jobs: Table<import("./generated-video").GeneratedVideoJob & {owner_id:string;provider_operation:Json|null}>;
       clinician_ai_exercise_drafts: Table<{id:string;owner_id:string;status:string;original_content:Json|null;reviewed_content:Json|null;model:string|null;limitations:string[];error_code:string|null;created_at:string}>;
       exercise_video_assets: Table<ExerciseVideoAsset>;
@@ -338,6 +343,8 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      set_program_sequence: { Args: {p_program: string; p_expected: string | null; p_guided: boolean; p_dependencies: Json}; Returns: undefined };
+      confirm_patient_exercise: { Args: {p_session: string; p_exercise: string; p_feedback: Json}; Returns: string };
       begin_video_generation:{Args:{p_id:string;p_movement:string};Returns:string};
       review_generated_video:{Args:{p_id:string;p_content:Json;p_checks:Json};Returns:undefined};
       assign_generated_video:{Args:{p_job:string;p_asset:string};Returns:undefined};

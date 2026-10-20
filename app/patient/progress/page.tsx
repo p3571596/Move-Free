@@ -50,10 +50,11 @@ export default function PatientProgressPage() {
             <>
               <PatientGoalSummary workspace={workspace} />
               <section className="patient-progress-summary" aria-label="This week's progress">
-                <article className="card"><p className="eyebrow">Sessions this week</p><strong className="stat">{weekSummary?.completedSessions ?? 0}</strong></article>
-                <article className="card"><p className="eyebrow">Exercise participation</p><strong className="stat">{weekSummary?.completionRate == null ? "—" : `${weekSummary.completionRate}%`}</strong></article>
-                <article className="card"><p className="eyebrow">Movement streak</p><strong className="stat">{summary?.streakDays ?? 0} days</strong></article>
+                <article className="card"><p className="eyebrow">Sessions with records this week</p><strong className="stat">{weekSummary?.completedSessions ?? 0}</strong></article>
+                <article className="card"><p className="eyebrow">Exercises recorded</p><strong className="stat">{weekSummary?.recordedExercises ?? 0}</strong></article>
+                <article className="card"><p className="eyebrow">Days with records in a row</p><strong className="stat">{summary?.streakDays ?? 0} days</strong></article>
               </section>
+              <p className="muted">Records reflect what you confirmed. Unrecorded exercises have unknown performance; these counts do not measure prescribed adherence.</p>
               <section className="panel patient-progress-panel">
                 <p className="eyebrow">Your last 14 days</p>
                 <h3>Progress is more than one number</h3>

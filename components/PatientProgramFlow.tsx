@@ -1,180 +1,183 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Play } from "lucide-react";
 import { ExerciseVideo } from "@/components/ExerciseVideo";
 import { AssignedExerciseVideo } from "@/components/AssignedExerciseVideo";
-import { formatExercisePrescription } from "@/lib/prescription";
+import { formatExercisePrescription, parameterSpecs, type ParameterKey, type Prescription, validatePrescription } from "@/lib/prescription";
+import { sessionExercises, prerequisiteMessage, includeRequiredExercises, type ExerciseSession } from "@/lib/exercise-session";
 import { PatientShell } from "@/components/PatientShell";
 import { RoleGate } from "@/components/RoleGate";
 import { RequireAuth } from "@/components/RequireAuth";
-import { loadCurrentPatientAppWorkspace, logExerciseSession, logPainPattern, type ExerciseLogInput } from "@/lib/data";
+import { loadCurrentPatientAppWorkspace, logPainPattern, type ExerciseLogInput } from "@/lib/data";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { HomeProgramExercise, PatientWorkspace } from "@/lib/types";
 
-const categoryOrder = ["warm_up", "mobility", "strength", "balance", "conditioning", "cool_down", "education", "other"];
-
-type EntryState = Omit<ExerciseLogInput, "homeProgramExerciseId"> & { statusChosen: boolean };
+type EntryState = Omit<ExerciseLogInput, "homeProgramExerciseId"> & { statusChosen: boolean; actualDose?: Prescription };
 
 export function PatientProgramFlow({previewWorkspace, onPreviewSave}: {previewWorkspace?: PatientWorkspace; onPreviewSave?: (entries: ExerciseLogInput[]) => void} = {}) {
-  const [workspace, setWorkspace] = useState<PatientWorkspace | null>(null);
-  const [entries, setEntries] = useState<Record<string, EntryState>>({});
-  const [step, setStep] = useState(0);
-  const [started, setStarted] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [sessionId] = useState(() => crypto.randomUUID());
-  const [direction, setDirection] = useState<"improving" | "unchanged" | "worsening" | null>(null);
-  const [directionChosen, setDirectionChosen] = useState(false);
-  const [pain, setPain] = useState<number | null>(null);
-  const [comment, setComment] = useState("");
-  const [logsSaved, setLogsSaved] = useState(false);
-  const workflowStartedAt = useRef(Date.now());
-  const exerciseHeading = useRef<HTMLHeadingElement>(null);
-
-  useEffect(() => {
-    if (!started) return;
-    const frame = requestAnimationFrame(() => {
-      const heading = exerciseHeading.current;
-      if (!heading) return;
-      heading.focus({preventScroll: true});
-      heading.scrollIntoView({block: "start", behavior: "instant"});
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [started, step]);
-
-  useEffect(() => {
-    if (previewWorkspace) {
-      setWorkspace(previewWorkspace);
-      setEntries(Object.fromEntries(previewWorkspace.programExercises.map(item => [item.id, emptyEntry()])));
-      return;
+ const [workspace,setWorkspace]=useState<PatientWorkspace|null>(null);
+ const [entries,setEntries]=useState<Record<string,EntryState>>({});
+ const [session,setSession]=useState<ExerciseSession|null>(null);
+ const [resumable,setResumable]=useState<ExerciseSession[]>([]);
+ const [mode,setMode]=useState<ExerciseSession['selection_mode']>('full');
+ const [selected,setSelected]=useState<string[]>([]);
+ const [sections,setSections]=useState<string[]>([]);
+ const [current,setCurrent]=useState<string|null>(null);
+ const [confirmed,setConfirmed]=useState<string[]>([]);
+ const [nonperformance,setNonperformance]=useState<string[]>([]);
+ const [showList,setShowList]=useState(true);
+ const [finishing,setFinishing]=useState(false);
+ const [saving,setSaving]=useState(false);
+ const busy=useRef(false);
+ const [error,setError]=useState('');
+ const [message,setMessage]=useState('');
+ const [pain,setPain]=useState<number|null>(null);
+ const [direction,setDirection]=useState<'improving'|'unchanged'|'worsening'|null>(null);
+ const [comment,setComment]=useState('');
+ const exerciseHeading=useRef<HTMLHeadingElement>(null);
+ const startIntent=useRef<string|null>(null);
+ useEffect(()=>{
+  let cancelled=false;
+  async function load(){
+   try {
+    if(!previewWorkspace&&!isSupabaseConfigured()) throw new Error('The patient app is not configured yet.');
+    const data=previewWorkspace??await loadCurrentPatientAppWorkspace(createSupabaseBrowserClient());
+    if(cancelled)return;
+    setWorkspace(data);setEntries(Object.fromEntries(data.programExercises.map(x=>[x.id,emptyEntry()])));
+    if(!previewWorkspace&&data.patient&&data.program){
+     const result=await createSupabaseBrowserClient().from('patient_exercise_sessions').select('*').eq('patient_id',data.patient.id).eq('home_program_id',data.program.id).eq('state','active').order('created_at',{ascending:false});
+     if(result.error)throw result.error;
+     if(!cancelled)setResumable(result.data??[]);
     }
-    if (!isSupabaseConfigured()) {
-      setError("The patient app is not configured yet.");
-      return;
-    }
-    loadCurrentPatientAppWorkspace(createSupabaseBrowserClient())
-      .then((data) => {
-        setWorkspace(data);
-        setEntries(Object.fromEntries(data.programExercises.map((item) => [item.id, emptyEntry()])));
-        workflowStartedAt.current = Date.now();
-      })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load your program."));
-  }, [previewWorkspace]);
-
-  const groups = useMemo(() => groupExercises(workspace?.programExercises ?? []), [workspace?.programExercises]);
-
-  const orderedExercises = groups.flatMap(([,items])=>items);
-
-  function updateEntry(id: string, patch: Partial<EntryState>) {
-    setEntries((current) => ({ ...current, [id]: { ...current[id], ...patch } }));
+   }catch(e){if(!cancelled)setError(errorText(e));}
   }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!workspace?.patient || !workspace.program) {
-      setError("Your clinician has not assigned an active program yet.");
-      return;
-    }
-    const unanswered = workspace.programExercises.filter((item) => !entries[item.id]?.statusChosen);
-    if (unanswered.length) {
-      setError(`Choose Completed, Partially completed, or Skipped for ${unanswered.length} exercise${unanswered.length === 1 ? "" : "s"}.`);
-      return;
-    }
-
-    if (previewWorkspace) {
-      onPreviewSave?.(workspace.programExercises.map(item => ({homeProgramExerciseId: item.id, ...entries[item.id]})));
-      setMessage("Synthetic feedback saved in this preview only.");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      if (!logsSaved) await logExerciseSession(
-        createSupabaseBrowserClient(),
-        workspace.patient.id,
-        workspace.program.id,
-        workspace.programExercises.map((item) => ({ homeProgramExerciseId: item.id, ...entries[item.id] })),
-        sessionId,
-        Date.now() - workflowStartedAt.current,
-      );
-      setLogsSaved(true);
-      await logPainPattern(createSupabaseBrowserClient(), {
-        patientId: workspace.patient.id, episodeId: workspace.episode!.id,
-        painScore: pain, painLocation: "", symptomBehavior: "", activityContext: "Exercise session",
-        aggravatingFactors: "", easingFactors: "", confidenceScore: null,
-        symptomDirection: direction, patientComment: comment, clientSubmissionId: sessionId,
-        durationMs: Date.now() - workflowStartedAt.current,
-      });
-      setMessage("Your session and feedback are saved. Your therapist can review them during their usual working hours.");
-      workflowStartedAt.current = Date.now();
-    } catch (cause) {
-      const duplicate = cause instanceof Error && cause.message.includes("duplicate key");
-      setError(duplicate ? "This session was already saved. Your therapist can see it." : cause instanceof Error ? cause.message : "Could not save today’s program.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <PatientShell preview={!!previewWorkspace}>
-      <PatientFlowAccess preview={!!previewWorkspace}>
-        <div className="patient-screen">
-          <header className="patient-page-heading">
-            <p className="eyebrow">Program</p>
-            <h1>{workspace?.program?.title ?? "Today&apos;s plan"}</h1>
-            <p>{workspace?.programExercises.length ?? 0} exercises assigned by your therapist.</p>
-          </header>
-
-          {!workspace && !error ? <div className="empty">Loading today&apos;s program…</div> : null}
-          {error && !workspace ? <div className="empty form-error" role="alert">{error}</div> : null}
-          {workspace && !workspace.patient ? <PatientLinkEmptyState /> : null}
-          {workspace?.patient && !workspace.program ? <div className="empty"><strong>No active program yet.</strong><p>Your clinician is still preparing your movement plan.</p></div> : null}
-          {workspace?.program && !workspace.programExercises.length ? <div className="empty"><strong>No exercises assigned yet.</strong><p>Your clinician can add exercises to this program.</p></div> : null}
-
-          {workspace?.programExercises.length && !started ? (
-            <section className="panel patient-start-card">
-              <p className="eyebrow">Ready when you are</p>
-              <h3>{workspace.programExercises.length} exercises in today&apos;s plan</h3>
-              <p className="muted">Record what you complete. Add pain, difficulty, or a note only when it helps your therapist understand the session.</p>
-              <button className="button" type="button" onClick={() => setStarted(true)}><Play size={18} /> Start today&apos;s program</button>
-            </section>
-          ) : null}
-
-          {workspace?.programExercises.length && started ? (
-            <form className="program-session" onSubmit={submit}>
-              <fieldset disabled={saving || Boolean(message) || logsSaved} style={{ border: 0, padding: 0, minWidth: 0 }}>
-              {step < orderedExercises.length ? <section className="patient-program-group">
-                <p className="eyebrow">Exercise {step + 1} of {orderedExercises.length}</p>
-                <ExerciseEntryCard preview={Boolean(previewWorkspace)} headingRef={exerciseHeading} key={orderedExercises[step].id} item={orderedExercises[step]} value={entries[orderedExercises[step].id]} onChange={patch=>updateEntry(orderedExercises[step].id,patch)}/>
-                <div className="row-between" style={{marginTop:16}}><button type="button" className="secondary-button" disabled={step===0} onClick={()=>setStep(step-1)}>Back</button><button type="button" className="button" disabled={!entries[orderedExercises[step].id]?.statusChosen || needsExplanation(entries[orderedExercises[step].id])} onClick={()=>setStep(step+1)}>{step===orderedExercises.length-1 ? "Finish and share feedback" : "Next exercise"}</button></div>
-              </section> : <button type="button" className="secondary-button" onClick={()=>setStep(0)}>Review exercise responses</button>}
-
-              </fieldset>
-              {step === orderedExercises.length ? <section className="panel form session-finish-card">
-                <fieldset disabled={saving || Boolean(message)} className="segmented-field">
-                  <legend>How did today feel overall? (optional)</legend>
-                  <div className="segment-options">{([["improving", "Better"], ["unchanged", "Same"], ["worsening", "Worse"]] as const).map(([value, label]) => <button type="button" key={value} aria-pressed={directionChosen && direction === value} className={directionChosen && direction === value ? "active" : ""} onClick={() => { setDirection(value); setDirectionChosen(true); }}>{label}</button>)}</div>
-                  {directionChosen ? <button type="button" className="secondary-button" onClick={()=>{setDirection(null);setDirectionChosen(false);}}>Clear symptom rating</button> : null}
-                  <NumberField label="Pain after (0–10, optional)" value={pain} max={10} onChange={setPain}/>
-                  <div className="field"><label htmlFor="session-comment">Anything your therapist should know? (optional)</label><textarea id="session-comment" maxLength={2000} value={comment} onChange={event => setComment(event.target.value)}/></div>
-                </fieldset>
-                <p className="muted">Your therapist reviews updates during their usual working hours. This is not monitored continuously.</p>
-                <div><p className="eyebrow">Finish session</p><h3>Send today&apos;s results to your therapist</h3></div>
-                <button className="button" type="submit" disabled={saving || Boolean(message)}><CheckCircle2 size={18} />{saving ? "Saving…" : message ? "Program saved" : "Finish today’s program"}</button>
-                {message ? <div className="success-banner" role="status"><strong>{message}</strong><Link href="/patient">Return to Today</Link></div> : null}
-                {error ? <p className="form-error" role="alert">{error}</p> : null}
-              </section> : null}
-            </form>
-          ) : null}
-        </div>
-      </PatientFlowAccess>
-    </PatientShell>
-  );
+  void load();return()=>{cancelled=true};
+ },[previewWorkspace]);
+ useEffect(()=>{
+  if(showList||finishing||!current)return;
+  const frame=requestAnimationFrame(()=>{exerciseHeading.current?.focus({preventScroll:true});exerciseHeading.current?.scrollIntoView({block:'start',behavior:'instant'});});
+  return()=>cancelAnimationFrame(frame);
+ },[current,showList,finishing]);
+ const items=sessionExercises(workspace?.programExercises??[],workspace?.programExercises.map(x=>x.id)??[]);
+ const groups=groupExercises(items);
+ const chosen=session?sessionExercises(items,session.selected_ids):[];
+ const item=chosen.find(x=>x.id===current);
+ const recordCount=confirmed.length;
+ function updateEntry(id:string,patch:Partial<EntryState>){setEntries(e=>({...e,[id]:{...e[id],...patch}}));}
+ async function start(){
+  if(busy.current||!workspace?.patient||!workspace.program)return;
+  const selection=mode==='full'?items.map(x=>x.id):mode==='sections'?items.filter(x=>sections.includes(category(x))).map(x=>x.id):selected;
+  const ids=includeRequiredExercises(items,selection,workspace.program.guided_order??false);
+  if(!ids.length){setError('Choose at least one exercise or section.');return;}
+  busy.current=true;setSaving(true);setError('');
+  const next:ExerciseSession={id:startIntent.current??crypto.randomUUID(),patient_id:workspace.patient.id,home_program_id:workspace.program.id,program_version:workspace.program.updated_at??null,selection_mode:mode,selected_ids:ids,current_exercise_id:ids[0],state:'active'};
+  startIntent.current=next.id;
+  try{
+   if(!previewWorkspace){
+    const client=createSupabaseBrowserClient();const result=await client.from('patient_exercise_sessions').insert(next);
+    if(result.error){const existing=await client.from('patient_exercise_sessions').select('*').eq('id',next.id).maybeSingle();if(!existing.data)throw result.error;}
+   }
+   setSession(next);setConfirmed([]);setNonperformance([]);setCurrent(ids[0]);setShowList(mode!=='full');setMessage('');setFinishing(false);
+  }catch(e){setError(errorText(e));}finally{busy.current=false;setSaving(false);}
+ }
+ async function resume(s:ExerciseSession){
+  if(busy.current)return;busy.current=true;setSaving(true);setError('');
+  try{
+   let logs=workspace?.adherenceLogs.filter(l=>l.session_id===s.id)??[];
+   if(!previewWorkspace){const result=await createSupabaseBrowserClient().from('exercise_adherence_logs').select('*').eq('patient_id',s.patient_id).eq('session_id',s.id);if(result.error)throw result.error;logs=result.data??[];}
+   setSession(s);setConfirmed(logs.filter(l=>l.completion_status==='completed').map(l=>l.home_program_exercise_id!).filter(Boolean));
+   setEntries(Object.fromEntries(items.map(x=>{const l=logs.find(l=>l.home_program_exercise_id===x.id);return [x.id,l?{...emptyEntry(),statusChosen:true,actualDose:l.actual_dose??{},difficulty:l.difficulty as EntryState['difficulty'],difficultyReason:l.difficulty_reason,difficultyExplanation:l.difficulty_explanation,painDuring:l.pain_during??null,symptomResponse:l.symptom_response,symptomRecovery:l.symptom_recovery,notes:l.notes??''}:emptyEntry()];})));
+   setNonperformance(logs.filter(l=>l.activity_source==='explicit_nonperformance').map(l=>l.home_program_exercise_id!));
+   setCurrent(s.current_exercise_id);setShowList(true);setMessage('');setFinishing(false);
+  }catch(e){setError(errorText(e));}finally{busy.current=false;setSaving(false);}
+ }
+ async function openExercise(id:string){
+  setCurrent(id);setShowList(false);setFinishing(false);
+  if(!previewWorkspace&&session){const result=await createSupabaseBrowserClient().from('patient_exercise_sessions').update({current_exercise_id:id}).eq('id',session.id);if(result.error)setError('Your position could not be saved. Confirmed exercises are still recorded.');}
+ }
+ async function done(reportNonperformance=false){
+  if(busy.current||!session||!item||confirmed.includes(item.id)||nonperformance.includes(item.id))return;
+  if(!reportNonperformance&&needsExplanation(entries[item.id])){setError('Tell your therapist what made the exercise difficult.');return;}
+  busy.current=true;setSaving(true);setError('');
+  try{
+   if(!reportNonperformance){validatePrescription(entries[item.id].actualDose??{});validatePain(entries[item.id].painDuring);}
+   if(!previewWorkspace){
+    const result=await createSupabaseBrowserClient().rpc('confirm_patient_exercise',{p_session:session.id,p_exercise:item.id,p_feedback:JSON.parse(JSON.stringify(reportNonperformance?{nonperformance:true,notes:entries[item.id].notes}:entries[item.id]))});
+    if(result.error)throw result.error;
+   }
+   if(reportNonperformance){setNonperformance(a=>[...a,item.id]);updateEntry(item.id,{statusChosen:true,completionStatus:'skipped'});setMessage('Your report is saved. This exercise is not counted as recorded activity.');return;}
+   const ids=[...confirmed,item.id];setConfirmed(ids);updateEntry(item.id,{statusChosen:true});
+   setMessage(`${ids.length} exercise${ids.length===1?'':'s'} recorded. You can return later.`);
+  }catch(e){setError(errorText(e));}finally{busy.current=false;setSaving(false);}
+ }
+ async function finish(){
+  if(busy.current||!session)return;
+  busy.current=true;setSaving(true);setError('');
+  try{
+   validatePain(pain);
+   if(previewWorkspace)onPreviewSave?.([...confirmed,...nonperformance].map(id=>({homeProgramExerciseId:id,...entries[id]})));
+   else {
+    const client=createSupabaseBrowserClient();
+    if(workspace?.patient&&workspace.episode&&(pain!==null||direction||comment.trim()))await logPainPattern(client,{patientId:workspace.patient.id,episodeId:workspace.episode.id,painScore:pain,painLocation:'',symptomBehavior:'',activityContext:'Exercise session',aggravatingFactors:'',easingFactors:'',confidenceScore:null,symptomDirection:direction,patientComment:comment,clientSubmissionId:session.id});
+    const result=await client.from('patient_exercise_sessions').update({state:'closed'}).eq('id',session.id);if(result.error)throw result.error;
+   }
+   setSession(null);setResumable(r=>r.filter(s=>s.id!==session.id));setFinishing(false);setShowList(true);setCurrent(null);startIntent.current=null;
+   setEntries(Object.fromEntries(items.map(x=>[x.id,emptyEntry()])));setPain(null);setDirection(null);setComment('');
+   setMessage(previewWorkspace?'Synthetic feedback saved in this preview only.':`${recordCount} exercise${recordCount===1?'':'s'} recorded. Start another session whenever you choose.`);
+  }catch(e){setError(errorText(e));}finally{busy.current=false;setSaving(false);}
+ }
+ return <PatientShell preview={!!previewWorkspace}><PatientFlowAccess preview={!!previewWorkspace}><div className="patient-screen">
+  <header className="patient-page-heading"><p className="eyebrow">Program</p><h1>{workspace?.program?.title??workspace?.program?.name??'Your movement plan'}</h1><p>Choose what fits today. Confirm each exercise individually.</p></header>
+  {!workspace&&!error?<div className="empty">Loading your program…</div>:null}
+  {error?<p className="form-error" role="alert">{error}</p>:null}
+  {message?<p className="success-banner" role="status">{message}</p>:null}
+  {workspace&&!workspace.patient?<PatientLinkEmptyState/>:null}
+  {workspace?.patient&&!workspace.program?<div className="empty">Your clinician is preparing your program.</div>:null}
+  {workspace?.program&&!items.length?<div className="empty">No exercises assigned yet.</div>:null}
+  {items.length&&!session?<section className="panel form">
+   <h2>Where would you like to start?</h2>
+   {resumable.map(s=><button className="secondary-button" type="button" key={s.id} disabled={saving} onClick={()=>void resume(s)}>Resume session{ s.created_at ? ` · ${new Date(s.created_at).toLocaleString()}`:''}</button>)}
+   <div className="segment-options">{([['full','Follow Full Program'],['individual','Choose Individual Exercises'],['sections','Select Section(s)']] as const).map(([v,label])=><button type="button" key={v} aria-pressed={mode===v} className={mode===v?'active':''} onClick={()=>{setMode(v);startIntent.current=null;}}>{label}</button>)}</div>
+   {mode==='individual'?items.map(x=><label key={x.id}><input type="checkbox" checked={selected.includes(x.id)} onChange={e=>{setSelected(a=>e.target.checked?[...a,x.id]:a.filter(id=>id!==x.id));startIntent.current=null;}}/> {x.exercise?.name??'Exercise'}</label>):null}
+   {mode==='sections'?groups.map(([name,rows])=><label key={name}><input type="checkbox" checked={sections.includes(name)} onChange={e=>{setSections(a=>e.target.checked?[...a,name]:a.filter(v=>v!==name));startIntent.current=null;}}/> {formatCategory(name)} · {rows.length} exercises</label>):null}
+   <p className="muted">Choosing exercises or sections only creates your session list. Required preparatory exercises are included when your therapist specifies them. Nothing is recorded until you tap Done for an exercise.</p>
+   {workspace?.program?.guided_order?<p>Your therapist has set a required exercise order.</p>:null}
+   <button type="button" className="button" disabled={saving} onClick={()=>void start()}>{saving?'Saving selection…':'Start session'}</button>
+  </section>:null}
+  {session?<>
+   <p aria-live="polite">{recordCount} exercises recorded in this session</p>
+   <div className="row-between"><button type="button" className="secondary-button" disabled={saving} onClick={()=>{setShowList(true);setFinishing(false);setError('');}}>Exercise list</button><button type="button" className="secondary-button" disabled={saving} onClick={()=>setFinishing(true)}>Finish for now</button></div>
+   {finishing?<section className="panel form"><h2>Finish for now</h2><p>{recordCount} exercises recorded. Exercises without a confirmation stay unrecorded.</p>
+    <NumberField label="Pain after (0–10, optional)" value={pain} max={10} onChange={setPain}/>
+    <Choice label="Overall symptoms (optional)" value={direction} options={[["improving","Better"],["unchanged","Same"],["worsening","Worse"]]} onChange={v=>setDirection(v as typeof direction)}/>
+    <label>Anything your therapist should know? (optional)<textarea maxLength={2000} value={comment} onChange={e=>setComment(e.target.value)}/></label>
+    <p className="muted">Your therapist reviews updates during usual working hours. This is not monitored continuously.</p>
+    <button type="button" className="button" disabled={saving} onClick={()=>void finish()}>{saving?'Saving…':'Close session'}</button>
+    <button type="button" className="secondary-button" disabled={saving} onClick={()=>setFinishing(false)}>Continue session</button>
+   </section>:showList?<section className="panel form"><h2>Your session list</h2>
+    {groupExercises(chosen).map(([name,rows])=><section key={name}><h3>{formatCategory(name)} · {rows.filter(x=>confirmed.includes(x.id)).length} exercises recorded</h3>
+     {rows.map(x=>{const why=prerequisiteMessage(x,items,confirmed,workspace?.program?.guided_order??false);return <div key={x.id} className="list-item"><button type="button" className="secondary-button" disabled={saving||!!why} onClick={()=>void openExercise(x.id)}>{x.exercise?.name??'Exercise'}{confirmed.includes(x.id)?' · Recorded':nonperformance.includes(x.id)?' · Reported not performed':''}</button>{why?<p>{why}</p>:null}</div>;})}
+    </section>)}
+    <p className="muted">Leave this page any time and resume from Program. Confirmed activity is saved individually.</p>
+   </section>:item?<section className="patient-program-group">
+    <fieldset disabled={saving||confirmed.includes(item.id)||nonperformance.includes(item.id)} style={{border:0,padding:0,minWidth:0}}><ExerciseEntryCard preview={!!previewWorkspace} key={item.id} item={item} value={entries[item.id]} headingRef={exerciseHeading} onChange={p=>updateEntry(item.id,p)}/></fieldset>
+    {prerequisiteMessage(item,items,confirmed,workspace?.program?.guided_order??false)?<p>{prerequisiteMessage(item,items,confirmed,workspace?.program?.guided_order??false)}</p>:null}
+    <button type="button" className="button" disabled={saving||confirmed.includes(item.id)||nonperformance.includes(item.id)||needsExplanation(entries[item.id])||!!prerequisiteMessage(item,items,confirmed,workspace?.program?.guided_order??false)} onClick={()=>void done()}>{saving?'Saving…':confirmed.includes(item.id)?'Recorded':nonperformance.includes(item.id)?'Reported not performed':'Done'}</button>
+    {!confirmed.includes(item.id)&&!nonperformance.includes(item.id)?<details><summary>Something to tell my therapist</summary><p>Only send this if you want to explicitly report that you did not do this exercise. Leaving it unrecorded makes no assumption.</p><button type="button" className="secondary-button" disabled={saving} onClick={()=>void done(true)}>Send report: I did not do this exercise</button></details>:null}
+    <div className="row-between" style={{marginTop:16}}><button type="button" className="secondary-button" disabled={saving||chosen.indexOf(item)===0} onClick={()=>void openExercise(chosen[chosen.indexOf(item)-1].id)}>Back</button><button type="button" className="secondary-button" disabled={saving||chosen.indexOf(item)===chosen.length-1} onClick={()=>void openExercise(chosen[chosen.indexOf(item)+1].id)}>Next exercise</button></div>
+   </section>:<p>Return to the exercise list to choose an exercise.</p>}
+  </>:null}
+  <p className="muted">Records show what you confirmed, not everything you may have done. No record means performance is unknown.</p>
+  <Link href="/patient">Return to Today</Link>
+ </div></PatientFlowAccess></PatientShell>;
 }
-
+function validatePain(value:number|null){if(value!==null&&(!Number.isInteger(value)||value<0||value>10))throw new Error('Enter a whole-number pain rating from 0 to 10, or leave it blank.');}
+function errorText(e:unknown){return e instanceof Error?e.message:typeof e==='object'&&e&&'message' in e?String(e.message):'Could not save. Please try again; retries will not duplicate your record.';}
+function category(item:HomeProgramExercise){return item.category??item.exercise?.category??'other';}
+function ActualDoseFields({id,value,onChange}:{id:string;value:Prescription;onChange:(value:Prescription)=>void}){
+ return <div className="exercise-log-grid">{(['sets','reps','duration','intensity','load'] as ParameterKey[]).map(key=>{const entry=value[key];const spec=parameterSpecs[key];return <div className="field" key={key}><label htmlFor={`${id}-actual-${key}`}>Actual {spec.label.toLowerCase()}</label><input id={`${id}-actual-${key}`} type="number" min={0} max={100000} step={'integer' in spec?1:'any'} value={entry?.value??''} onChange={e=>{const next={...value};if(e.target.value==='')delete next[key];else next[key]={value:Number(e.target.value),unit:entry?.unit??spec.units[0]};onChange(next);}}/><label className="sr-only" htmlFor={`${id}-unit-${key}`}>Actual {spec.label.toLowerCase()} unit</label><select id={`${id}-unit-${key}`} value={entry?.unit??spec.units[0]} onChange={e=>onChange({...value,[key]:{value:entry?.value??null,unit:e.target.value}})}>{spec.units.map(u=><option key={u}>{u}</option>)}</select></div>;})}</div>;
+}
 function ExerciseEntryCard({ item, value, onChange, headingRef, preview=false }: { preview?:boolean; headingRef: React.RefObject<HTMLHeadingElement | null>; item: HomeProgramExercise; value?: EntryState; onChange: (patch: Partial<EntryState>) => void }) {
   if (!value) return null;
   return (
@@ -188,27 +191,20 @@ function ExerciseEntryCard({ item, value, onChange, headingRef, preview=false }:
       {preview && item.exercise?.patient_instructions ? <p>{item.exercise.patient_instructions}</p> : null}
 
       {preview && item.notes ? <p className="therapist-note"><strong>Key cues:</strong> {item.notes}</p> : null}
-      <fieldset className="segmented-field">
-        <legend>What did you complete?</legend>
-        <div className="segment-options">
-          {(["completed", "partial", "skipped"] as const).map((status) => (
-            <button key={status} className={value.statusChosen && value.completionStatus === status ? "active" : ""} type="button" onClick={() => onChange({ completionStatus: status, statusChosen: true })}>{status === "partial" ? "Partially completed" : titleCase(status)}</button>
-          ))}
-        </div>
-      </fieldset>
-      <details><summary>Optional exercise details</summary><div className="exercise-log-grid">
-        <NumberField label="Actual sets" value={value.actualSets} onChange={(actualSets) => onChange({ actualSets })} />
-        <NumberField label="Actual reps" value={value.actualReps} onChange={(actualReps) => onChange({ actualReps })} />
-        <NumberField label="Minutes" value={value.actualDurationMinutes} onChange={(actualDurationMinutes) => onChange({ actualDurationMinutes })} />
-        <NumberField label="Pain during (0–10)" value={value.painDuring} max={10} onChange={(painDuring) => onChange({ painDuring })} />
+      <details><summary>Adjust what I did (optional)</summary>
+        <p className="muted">Record only values that differed. Your therapist’s prescription stays separate. Blank values remain unknown.</p>
+        <ActualDoseFields id={item.id} value={value.actualDose??{}} onChange={actualDose=>onChange({actualDose})}/>
+      </details><details><summary>How did it feel? (optional)</summary><div className="exercise-log-grid">
+        <NumberField label="Pain during (0–10)" value={value.painDuring} max={10} onChange={painDuring=>onChange({painDuring})}/>
       </div>
-      </details><div className="field"><label htmlFor={`difficulty-${item.id}`}>Difficulty</label><select id={`difficulty-${item.id}`} value={value.difficulty ?? ""} onChange={(event) => onChange({ difficulty: (event.target.value || null) as EntryState["difficulty"], difficultyReason: null, difficultyExplanation: "" })}><option value="">Not rated</option><option value="too_easy">Too easy</option><option value="appropriate">About right</option><option value="too_hard">Too hard</option></select></div>
+      <div className="field"><label htmlFor={`difficulty-${item.id}`}>Difficulty</label><select id={`difficulty-${item.id}`} value={value.difficulty ?? ""} onChange={(event) => onChange({ difficulty: (event.target.value || null) as EntryState["difficulty"], difficultyReason: null, difficultyExplanation: "" })}><option value="">Not rated</option><option value="too_easy">Too easy</option><option value="appropriate">About right</option><option value="too_hard">Too hard</option></select></div>
       {value.difficulty==='too_hard' ? <Choice label="What made it difficult? (optional)" value={value.difficultyReason} options={[["symptoms","Symptoms"],["fatigue","Fatigue"],["movement","Movement was difficult"],["instructions","Instructions unclear"],["other","Other"]]} onChange={difficultyReason=>onChange({difficultyReason, difficultyExplanation: ""})}/> : null}
       {value.difficulty === 'too_hard' && value.difficultyReason === 'other' ? <div className="field"><label htmlFor={`other-${item.id}`}>Tell your therapist what made it difficult</label><textarea id={`other-${item.id}`} required maxLength={500} value={value.difficultyExplanation ?? ''} onChange={event => onChange({difficultyExplanation: event.target.value})}/><p className="muted">A short explanation helps your therapist understand your response.</p></div> : null}
-      {value.statusChosen && value.completionStatus!=='completed' ? <Choice label="What got in the way? (optional)" value={value.completionReason} options={[["symptoms","Symptoms"],["time","Time"],["fatigue","Fatigue"],["instructions","Instructions unclear"],["other","Other"]]} onChange={completionReason=>onChange({completionReason})}/> : null}
-      {value.statusChosen && value.completionStatus!=='skipped' ? <Choice label="Did this increase your symptoms? (optional)" value={value.symptomResponse} options={[["none","No"],["little","A little"],["lot","A lot"]]} onChange={symptomResponse=>onChange({symptomResponse,symptomRecovery:null})}/> : null}
-      {value.completionStatus!=='skipped' && ['little','lot'].includes(value.symptomResponse??'') ? <Choice label="How are those symptoms now? (optional)" value={value.symptomRecovery} options={[["settled","Settled"],["improving","Improving"],["still_increased","Still increased"],["unsure","Not sure yet"]]} onChange={symptomRecovery=>onChange({symptomRecovery})}/> : null}
-      <div className="field"><label htmlFor={`comment-${item.id}`}>Comment (optional)</label><textarea id={`comment-${item.id}`} value={value.notes} onChange={(event) => onChange({ notes: event.target.value })} placeholder="For example: this felt easier today, or pain started after rep 8." /></div>
+
+      {<Choice label="Did this increase your symptoms? (optional)" value={value.symptomResponse} options={[["none","No"],["little","A little"],["lot","A lot"]]} onChange={symptomResponse=>onChange({symptomResponse,symptomRecovery:null})}/>}
+      {['little','lot'].includes(value.symptomResponse??'') ? <Choice label="How are those symptoms now? (optional)" value={value.symptomRecovery} options={[["settled","Settled"],["improving","Improving"],["still_increased","Still increased"],["unsure","Not sure yet"]]} onChange={symptomRecovery=>onChange({symptomRecovery})}/> : null}
+      <div className="field"><label htmlFor={`comment-${item.id}`}>Comment (optional)</label><textarea id={`comment-${item.id}`} maxLength={2000} value={value.notes} onChange={(event) => onChange({ notes: event.target.value })} placeholder="For example: this felt easier today, or pain started after rep 8." /></div>
+      </details>
     </article>
   );
 }
@@ -221,9 +217,8 @@ function emptyEntry(): EntryState {
   return { completionStatus: "completed", statusChosen: false, difficulty: null, difficultyExplanation: "", painDuring: null, actualSets: null, actualReps: null, actualDurationMinutes: null, notes: "" };
 }
 
-function groupExercises(items: HomeProgramExercise[]) { const grouped = new Map<string, HomeProgramExercise[]>(); for (const item of items) { const category = item.category ?? item.exercise?.category ?? "other"; grouped.set(category, [...(grouped.get(category) ?? []), item]); } return [...grouped.entries()].sort(([left], [right]) => categoryOrder.indexOf(left) - categoryOrder.indexOf(right)); }
+function groupExercises(items: HomeProgramExercise[]) { const grouped = new Map<string, HomeProgramExercise[]>(); for (const item of items) { const category = item.category ?? item.exercise?.category ?? "other"; grouped.set(category, [...(grouped.get(category) ?? []), item]); } return [...grouped.entries()]; }
 function formatCategory(category: string) { return category.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
-function titleCase(value: string) { return value.charAt(0).toUpperCase() + value.slice(1); }
 function PatientLinkEmptyState() { return <div className="empty"><strong>Your account still needs to be linked.</strong><p>Ask your clinician to resend the invitation, then open that link while signed in with this account.</p></div>; }
 
 function Choice({label,value,options,onChange}:{label:string;value?:string|null;options:string[][];onChange:(value:string|null)=>void}) {return <div className="field"><label>{label}<select value={value??''} onChange={e=>onChange(e.target.value||null)}><option value="">Not answered</option>{options.map(([key,text])=><option key={key} value={key}>{text}</option>)}</select></label></div>;}

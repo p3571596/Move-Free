@@ -70,7 +70,7 @@ export function buildPatientSummaries(snapshot: ClinicianSnapshot | null): Patie
       .sort((a, b) => timestamp(b.performed_at ?? b.created_at) - timestamp(a.performed_at ?? a.created_at));
     const latestCheckin = checkins[0] ?? null;
     const lastActivity = latestActivity(checkins, adherenceLogs);
-    const adherencePercent = calculateAdherence(adherenceLogs);
+    const adherencePercent = calculateAdherence();
     const painDelta = calculatePainDelta(checkins);
     const latestPain = latestCheckin?.pain_score;
     const repeatedWorsening = checkins.slice(0, 2).length === 2 && checkins.slice(0, 2).every((checkin) => checkin.symptom_direction === "worsening");
@@ -152,7 +152,7 @@ export function buildRecentActivity(snapshot: ClinicianSnapshot | null, limit = 
     if (!log.patient_id || !names.has(log.patient_id)) return [];
     const occurredAt = log.performed_at ?? log.created_at;
     if (!occurredAt) return [];
-    const status = log.completion_status ?? (log.completed ? "completed" : "updated");
+    const status = log.activity_source === "individual_confirmation" ? "activity recorded" : log.completion_status ?? (log.completed ? "completed" : "updated");
     return [{
       id: `adherence-${log.id}`,
       patientId: log.patient_id,
@@ -212,9 +212,9 @@ function reviewReasonsFor({
   if (painAlert) reasons.push(repeatedWorsening ? "Symptoms worsening twice in a row" : "Pain increased or remains high");
   if (!program || program.status !== "active") reasons.push("No active program assigned");
   if (!lastActivity) reasons.push("No patient activity recorded");
-  else if (daysSince(lastActivity) >= 3) reasons.push("No activity in 3+ days");
+  else if (daysSince(lastActivity) >= 3) reasons.push("No patient update recorded in 3+ days");
   if (recentLogCount >= 3 && adherencePercent != null && adherencePercent < 60) reasons.push("Participation below 60%");
-  if (skippedCount >= 2) reasons.push("2+ exercises skipped this week");
+  if (skippedCount >= 2) reasons.push("2+ explicit reports of nonperformance this week");
   if (hardExerciseAlert) reasons.push("2+ exercises rated hard");
 
   return reasons;
@@ -235,18 +235,13 @@ function activityLabel(checkins: DailyCheckin[], logs: ExerciseAdherenceLog[]) {
   const checkinTime = timestamp(latestCheckin?.created_at ?? latestCheckin?.checkin_date);
   const logTime = timestamp(latestLog?.performed_at ?? latestLog?.created_at);
 
-  if (!checkinTime && !logTime) return "No activity yet";
+  if (!checkinTime && !logTime) return "No activity recorded yet";
   return checkinTime >= logTime ? "Pain pattern log" : "Program activity";
 }
 
-function calculateAdherence(logs: ExerciseAdherenceLog[]) {
-  const recentLogs = logs.filter((log) => {
-    const value = log.performed_at ?? log.created_at;
-    return value ? daysSince(value) <= 7 : false;
-  });
-  if (!recentLogs.length) return null;
-  const participated = recentLogs.filter((log) => log.completed || ["completed", "partial"].includes(log.completion_status ?? "")).length;
-  return Math.round((participated / recentLogs.length) * 100);
+function calculateAdherence(): number | null {
+  // Logs establish reported activity, not the denominator of prescribed opportunities.
+  return null;
 }
 
 function calculatePainDelta(checkins: DailyCheckin[]) {

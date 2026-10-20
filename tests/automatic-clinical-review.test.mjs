@@ -58,3 +58,9 @@ test('H/I: structured patient response maps provenance but never supplies clinic
 test('J: structured unresolved symptoms never generate a treatment suggestion from insufficient data',()=>{
  const w=workspace();w.adherenceLogs=[log({symptom_response:'lot',symptom_recovery:'still_increased'})];const r=run(map(w,{},now));assert.equal(r.status,'missing_information');assert.equal(r.decisionState,'CLINICIAN_REVIEW');assert.deepEqual(r.patientQuestions,[]);
 });
+test('individual Done is reported activity, never a prescribed adherence percentage or full-dose claim',()=>{
+ const w=workspace();w.adherenceLogs=[log({activity_source:'individual_confirmation',actual_dose:{reps:{value:4,unit:'reps'}}})];
+ const m=map(w,{},now);assert.equal(m.inputs.adherence,undefined);assert.equal(m.provenance.adherence.state,'UNKNOWN');assert.equal(m.context.completionRate,null);assert.match(m.provenance.adherence.source,/unknown performance/);assert.equal(m.context.logs[0].actual_dose.reps.value,4);
+ w.adherenceLogs.push(log({id:'not-done',home_program_exercise_id:'y',completion_status:'skipped',activity_source:'explicit_nonperformance'}));
+ const explicit=map(w,{},now);assert.equal(explicit.context.counts.skipped,1);assert.equal(explicit.inputs.adherence,undefined);
+});

@@ -9,7 +9,7 @@ export function PilotTrendCharts({ checkins, logs, compact = false }: { checkins
   return (
     <div className={`pilot-trends${compact ? " compact" : ""}`}>
       <Trend title="Pain" points={points.map((point) => ({ date: point.date, value: point.pain }))} max={10} tone="pain" />
-      <Trend title="Exercise completion" points={points.map((point) => ({ date: point.date, value: point.adherence }))} max={100} suffix="%" tone="adherence" />
+      <Trend title="Exercises recorded" points={points.map((point) => ({ date: point.date, value: point.recordedExercises }))} max={Math.max(1,...points.map(p=>p.recordedExercises))} tone="adherence" />
       <Trend title="Confidence / function" points={points.map((point) => ({ date: point.date, value: point.confidence }))} max={10} tone="confidence" />
       <div className="trend-context">
         <p className="eyebrow">Context from the patient</p>

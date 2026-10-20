@@ -25,6 +25,7 @@ jobs:
       - run: node tests/case-lifecycle.mjs
       - run: node tests/followups.mjs
       - run: node tests/structured-prescriptions.mjs
+      - run: node tests/patient-directed-storage.mjs
       - run: node tests/private-pilot-storage.mjs
       - run: node tests/clinician-ai-drafts.mjs
       - run: node tests/generated-video-storage.mjs
@@ -65,3 +66,4 @@ jobs:
           done
           node tests/pilot-invitation-browser.mjs
           node tests/recovered-setup-browser.mjs
+          node tests/patient-directed-browser.mjs

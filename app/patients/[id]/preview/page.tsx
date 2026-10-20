@@ -124,7 +124,7 @@ export default function PatientPreviewPage() {
                     <PreviewSectionHeader eyebrow="My progress" title="Your movement journey" onBack={() => setTab("home")} />
                     <GoalProgress goals={workspace.goals} />
                     <section className="panel" style={{ marginTop: 14 }}><p className="eyebrow">Progress trend</p>{workspace.progressMetrics.length ? <ProgressBars metrics={workspace.progressMetrics} /> : <p className="muted">Progress measurements will appear here after your therapist records them.</p>}</section>
-                    <section className="panel" style={{ marginTop: 14 }}><p className="eyebrow">Exercise completion</p><h3>{completed} exercises completed</h3><p className="muted">Your completed sessions and streaks will build here over time.</p></section>
+                    <section className="panel" style={{ marginTop: 14 }}><p className="eyebrow">Recorded exercise activity</p><h3>{completed} exercises recorded</h3><p className="muted">These are submitted activity records. Unrecorded performance and actual prescribed adherence remain unknown.</p></section>
                   </>
                 ) : null}
               </div>

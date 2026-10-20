@@ -79,7 +79,7 @@ function AnalyticsContent({ analytics }: { analytics: FounderAnalytics }) {
         <AnalyticsKpi icon={UsersRound} label="Active patients" value={summary.activePatients} detail="Active or needs review" />
         <AnalyticsKpi icon={Dumbbell} label="Programs assigned" value={summary.programsAssigned} detail={`In ${analytics.rangeDays} days`} />
         <AnalyticsKpi icon={Activity} label="Exercise sessions" value={summary.exerciseSessions} detail={`In ${analytics.rangeDays} days`} />
-        <AnalyticsKpi icon={TrendingUp} label="Exercise adherence" value={percent(summary.exerciseAdherencePercent)} detail="Completed or partial ÷ attempted" />
+        <AnalyticsKpi icon={TrendingUp} label="Recorded participation" value={percent(summary.exerciseAdherencePercent)} detail="Activity reports ÷ submitted reports; actual adherence unknown" />
         <AnalyticsKpi icon={CalendarCheck2} label="Daily check-ins" value={percent(summary.checkinCompletionPercent)} detail="Submitted days ÷ eligible days" />
         <AnalyticsKpi icon={Clock3} label="Between check-ins" value={hours(summary.averageHoursBetweenCheckins)} detail="Average interval" />
       </section>
