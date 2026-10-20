@@ -5,11 +5,13 @@ export type TrendPoint = {
   pain: number | null;
   confidence: number | null;
   adherence: number | null;
+  recordedExercises: number;
   comments: string[];
 };
 
 export type PatientActivitySummary = {
   completionRate: number | null;
+  recordedExercises: number;
   completedSessions: number;
   skippedExercises: number;
   latestPain: number | null;
@@ -37,6 +39,7 @@ export function summarizePatientActivity(
   const easyCount = scopedLogs.filter((log) => log.difficulty === "too_easy").length;
 
   return {
+    recordedExercises: participated,
     completionRate: attempted.length ? Math.round((participated / attempted.length) * 100) : null,
     completedSessions: uniqueSessions(scopedLogs.filter((log) => ["completed", "partial"].includes(log.completion_status ?? ""))).length,
     skippedExercises: attempted.filter((log) => log.completion_status === "skipped").length,
@@ -78,6 +81,7 @@ export function buildTrendPoints(checkins: DailyCheckin[], logs: ExerciseAdheren
       date,
       pain: average(bucket.pain),
       confidence: average(bucket.confidence),
+      recordedExercises: participated,
       adherence: attempted.length ? Math.round((participated / attempted.length) * 100) : null,
       comments: [...new Set(bucket.comments)],
     };

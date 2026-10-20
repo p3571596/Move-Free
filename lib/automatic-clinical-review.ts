@@ -43,13 +43,14 @@ export function mapClinicalInputs(workspace: PatientWorkspace, observations: Eng
   const statuses=['completed','partial','skipped'];
   const reported=logs.filter(l=>statuses.includes(l.completion_status??''));
   const counts=Object.fromEntries(statuses.map(s=>[s,reported.filter(l=>l.completion_status===s).length])) as Record<string,number>;
-  const completionRate=reported.length ? Math.round(100*counts.completed/reported.length):null;
-  provenance.adherence.source='Prescribed adherence unknown: free-text frequency and logs do not establish all scheduled opportunities. Reported completion is shown separately.';
+  const legacyReports=reported.filter(l=>l.activity_source!=='individual_confirmation');
+  const completionRate=legacyReports.length ? Math.round(100*legacyReports.filter(l=>l.completion_status==='completed').length/legacyReports.length):null;
+  provenance.adherence.source='Prescribed adherence unknown: Done confirms activity, not full prescribed dose. Unconfirmed exercises have unknown performance. Only explicit nonperformance reports establish reported nonperformance; logs do not establish all prescribed opportunities.';
   const difficult = new Map<string, Set<string>>();
   for(const log of logs) if(['too_hard','painful'].includes(log.difficulty??'')) {const key=log.home_program_exercise_id??'unknown';const sessions=difficult.get(key)??new Set<string>();sessions.add(log.session_id??log.id);difficult.set(key,sessions);}
   const repeatedDifficulty=[...difficult].map(([exerciseId,sessions])=>({exerciseId,count:sessions.size})).filter(x=>x.count>=2);
   const middle=(cutoff+time(now))/2;
-  const rate=(rows:typeof reported)=>rows.length?Math.round(100*rows.filter(l=>l.completion_status==='completed').length/rows.length):null;
+  const rate=(rows:typeof reported)=>{const legacy=rows.filter(l=>l.activity_source!=='individual_confirmation');return legacy.length?Math.round(100*legacy.filter(l=>l.completion_status==='completed').length/legacy.length):null;};
   const recentRate=rate(reported.filter(l=>time(l.performed_at??l.created_at)>middle));
   const previousRate=rate(reported.filter(l=>time(l.performed_at??l.created_at)<=middle));
   for(const key of Object.keys(engineFields) as EngineKey[]) if(provenance[key].state!=='AUTO' && observations[key]!=null && observations[key]!=='' && observations[key]!=='unknown') {

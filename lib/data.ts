@@ -2,7 +2,7 @@
 
 import type { AutomaticReview } from "./automatic-clinical-review";
 
-import { prescriptionFor, legacyPrescriptionFor, validatePrescription } from "./prescription";
+import { prescriptionFor, legacyPrescriptionFor, validatePrescription, type Prescription } from "./prescription";
 import {validatedVideoUrl} from "./exercise-media";
 import type { EngineResult } from "./clinical-engine";
 
@@ -595,6 +595,7 @@ export async function saveFeedback(client: Client, message: string, sentiment: s
 }
 
 export type ExerciseLogInput = {
+  actualDose?: Prescription;
   homeProgramExerciseId: string;
   completionStatus: "completed" | "partial" | "skipped";
   difficulty: "too_easy" | "appropriate" | "too_hard" | null;

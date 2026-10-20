@@ -23,7 +23,7 @@ export function WorkflowPreview() {
   }
   function saveFeedback(entries: ExerciseLogInput[]) {
     const now=new Date().toISOString();
-    setWorkspace(current=>({...current,adherenceLogs:entries.map((e,i)=>({id:`synthetic-log-${i}`,patient_id:'synthetic-patient',home_program_id:'synthetic-program',home_program_exercise_id:e.homeProgramExerciseId,performed_at:now,completion_status:e.completionStatus,difficulty:e.difficulty,difficulty_reason:e.difficultyReason,feedback_provenance:{source:'PATIENT_REPORTED',recorded_by:'synthetic-patient',recorded_at:now},difficulty_explanation:e.difficulty==='too_hard'&&e.difficultyReason==='other'?e.difficultyExplanation:null,notes:e.notes}))}));
+    setWorkspace(current=>({...current,adherenceLogs:entries.map((e,i)=>({id:`synthetic-log-${i}`,patient_id:'synthetic-patient',home_program_id:'synthetic-program',home_program_exercise_id:e.homeProgramExerciseId,performed_at:now,completion_status:e.completionStatus,activity_source:e.completionStatus==='skipped'?'explicit_nonperformance':'individual_confirmation',actual_dose:e.actualDose,difficulty:e.difficulty,difficulty_reason:e.difficultyReason,feedback_provenance:{source:'PATIENT_REPORTED',recorded_by:'synthetic-patient',recorded_at:now},difficulty_explanation:e.difficulty==='too_hard'&&e.difficultyReason==='other'?e.difficultyExplanation:null,notes:e.notes}))}));
   }
   const mapped=mapClinicalInputs(workspace), result=evaluateAutomaticReview(mapped);
   return <><section className="panel" style={{maxWidth:900,margin:'16px auto'}}>
@@ -36,7 +36,7 @@ export function WorkflowPreview() {
     <button type="button" className="button" onClick={saveProgram}>Save synthetic prescription</button><p>Current patient dose: {formatExercisePrescription(workspace.programExercises[0])}</p>
   </section>:null}
   {view==='patient'?<PatientProgramFlow key={revision} previewWorkspace={workspace} onPreviewSave={saveFeedback}/>:null}
-  {view==='log'?<section className="panel form" style={{maxWidth:900,margin:'16px auto'}}><h2>Patient Log</h2>{workspace.adherenceLogs.map(log=><article key={log.id}><strong>{workspace.programExercises.find(e=>e.id===log.home_program_exercise_id)?.exercise?.name} · {log.completion_status}</strong><p>{log.difficulty} · {log.difficulty_reason}</p><p>{log.difficulty_explanation ? `Patient explanation: ${log.difficulty_explanation}` : log.notes}</p></article>)}
+  {view==='log'?<section className="panel form" style={{maxWidth:900,margin:'16px auto'}}><h2>Patient Log</h2>{workspace.adherenceLogs.map(log=><article key={log.id}><strong>{workspace.programExercises.find(e=>e.id===log.home_program_exercise_id)?.exercise?.name} · {log.activity_source==='explicit_nonperformance'?'Reported not performed':'Activity recorded'}</strong><p>{log.difficulty} · {log.difficulty_reason}</p><p>{log.difficulty_explanation ? `Patient explanation: ${log.difficulty_explanation}` : log.notes}</p></article>)}
     <details open><summary>Decision engine evidence</summary>{mapped.context.feedbackEvidence.map(e=><p key={e.recordId}>{e.source} · {e.text} · {e.clinicalInterpretation}</p>)}<p>{result.decisionState} · {result.recommendation}</p><p>Missing symptom/function reports remain unknown.</p></details>
     <details open><summary>Prescription history</summary>{history.map((h,i)=><p key={i}>{h}</p>)}</details>
   </section>:null}</>;
