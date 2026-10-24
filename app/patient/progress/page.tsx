@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ProgressionPlanSummary } from "@/components/ProgressionPlanSummary";
 import { PatientShell } from "@/components/PatientShell";
 import { RoleGate } from "@/components/RoleGate";
 import { PatientGoalSummary } from "@/components/PatientGoalSummary";
@@ -49,6 +50,7 @@ export default function PatientProgressPage() {
           {workspace?.patient ? (
             <>
               <PatientGoalSummary workspace={workspace} />
+              <ProgressionPlanSummary workspace={workspace} compact/>
               <section className="patient-progress-summary" aria-label="This week's progress">
                 <article className="card"><p className="eyebrow">Sessions with records this week</p><strong className="stat">{weekSummary?.completedSessions ?? 0}</strong></article>
                 <article className="card"><p className="eyebrow">Exercises recorded</p><strong className="stat">{weekSummary?.recordedExercises ?? 0}</strong></article>

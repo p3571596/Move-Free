@@ -91,6 +91,8 @@ export type Exercise = {
 };
 
 export type HomeProgram = {
+  progression_plan?: import("./progression").ProgressionPlan | null;
+  progression_revision_id?: string | null;
   guided_order?: boolean;
   id: string;
   patient_id?: string | null;
@@ -222,6 +224,10 @@ export type Feedback = {
 };
 
 export type ExerciseAdherenceLog = {
+  actual_reps_by_set?: number[] | null;
+  scheduled_date?: string | null;
+  progression_revision_id?: string | null;
+  day_template_id?: string | null;
   actual_dose?: Prescription | null;
   activity_source?: 'individual_confirmation' | 'legacy_report' | 'explicit_nonperformance';
   id: string;
@@ -329,6 +335,7 @@ export type Database = {
       goals: Table<Goal>;
       exercises: Table<Exercise>;
       home_programs: Table<HomeProgram>;
+      program_progression_revisions: Table<{id:string;home_program_id:string;document:import("./progression").ProgressionPlan|null;approved:boolean;created_at:string;recorded_by:string;source_program_version:string}>;
       home_program_exercises: Table<HomeProgramExercise>;
       exercise_adherence_logs: Table<ExerciseAdherenceLog>;
       daily_checkins: Table<DailyCheckin>;
@@ -343,6 +350,7 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      save_progression_plan: {Args: {p_program:string;p_expected:string|null;p_plan:Json;p_approve:boolean};Returns:string};
       set_program_sequence: { Args: {p_program: string; p_expected: string | null; p_guided: boolean; p_dependencies: Json}; Returns: undefined };
       confirm_patient_exercise: { Args: {p_session: string; p_exercise: string; p_feedback: Json}; Returns: string };
       begin_video_generation:{Args:{p_id:string;p_movement:string};Returns:string};

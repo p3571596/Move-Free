@@ -1,6 +1,7 @@
 import type { HomeProgramExercise } from './types';
 
 export type ExerciseSession = {
+  progression_revision_id?: string | null; day_template_id?: string | null; scheduled_date?: string | null; timezone?: string;
   id: string; patient_id: string; home_program_id: string;
   selection_mode: 'full' | 'individual' | 'sections'; selected_ids: string[];
   current_exercise_id: string | null; state: 'active' | 'closed'; created_at?: string;

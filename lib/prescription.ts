@@ -12,18 +12,47 @@ export const parameterSpecs = {
   distance: { label: 'Distance', units: ['m', 'ft', 'km', 'mi'] },
 } as const;
 export type ParameterKey = keyof typeof parameterSpecs;
-export type Prescription = Partial<Record<ParameterKey, { value: number | null; unit: string }>>;
+export type DoseParameter = { value: number | null; unit: string; mode?: "exact" | "range"; min?: number | null; max?: number | null; target?: number | null };
+export type Prescription = Partial<Record<ParameterKey, DoseParameter>>;
 export const parameterKeys = Object.keys(parameterSpecs) as ParameterKey[];
 
-export function validatePrescription(value: Prescription): void {
+export function validatePrescription(value: Prescription, allowRanges = true): void {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid prescription.');
   for (const [key, entry] of Object.entries(value)) {
-    if (!parameterKeys.includes(key as ParameterKey) || !entry || Object.keys(entry).some(k => !['value', 'unit'].includes(k))) throw new Error('Invalid prescription parameter.');
+    if (!parameterKeys.includes(key as ParameterKey) || !entry || typeof entry !== 'object' || Array.isArray(entry) || Object.keys(entry).some(k => !['value', 'unit', 'mode', 'min', 'max', 'target'].includes(k))) throw new Error('Invalid prescription parameter.');
     const spec = parameterSpecs[key as ParameterKey];
     if (!(spec.units as readonly string[]).includes(entry.unit)) throw new Error(`Choose a unit for ${spec.label}.`);
-    if (entry.value !== null && (typeof entry.value !== 'number' || !Number.isFinite(entry.value) || entry.value < 0 || entry.value > 100000 || ('integer' in spec && !Number.isInteger(entry.value)))) throw new Error(`Enter a valid number for ${spec.label}.`);
-    if (entry.value !== null && ((entry.unit === 'RPE/10' && entry.value > 10) || (['%HRmax', '%1RM'].includes(entry.unit) && entry.value > 100) || (entry.unit === 'days/week' && entry.value > 7))) throw new Error(`Check the range for ${spec.label}.`);
+    if (entry.mode !== undefined && !['exact','range'].includes(entry.mode)) throw new Error('Invalid dose mode.');
+    const range = entry.mode === 'range';
+    if (range && (!allowRanges || entry.value !== null || entry.min == null || entry.max == null)) throw new Error(`Enter both range limits for ${spec.label}.`);
+    if (!range && (entry.value === undefined || ['min','max','target'].some(k => k in entry))) throw new Error('Invalid exact dose.');
+    const values = range ? [entry.min,entry.max,entry.target ?? null] : [entry.value];
+    for (const v of values) {
+      if (v === null) continue;
+      if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > 100000 || ('integer' in spec && !Number.isInteger(v))) throw new Error(`Enter a valid number for ${spec.label}.`);
+      if ((entry.unit === 'RPE/10' && v > 10) || (['%HRmax','%1RM'].includes(entry.unit) && v > 100) || (entry.unit === 'days/week' && v > 7)) throw new Error(`Check the range for ${spec.label}.`);
+    }
+    if (range && (entry.min! > entry.max! || (entry.target != null && (entry.target < entry.min! || entry.target > entry.max!)))) throw new Error(`Use minimum ≤ preferred target ≤ maximum for ${spec.label}.`);
   }
+}
+
+export function doseBounds(entry?: DoseParameter) {
+  if (!entry) return null;
+  if (entry.mode === 'range') return entry.min != null && entry.max != null ? {min: entry.min, max: entry.max} : null;
+  return entry.value == null ? null : {min: entry.value, max: entry.value};
+}
+export function actualWithinPrescription(planned: Prescription, actual: Prescription, perSetReps?: number[]): 'within' | 'outside' | 'unknown' {
+  validatePrescription(actual, false);
+  if (perSetReps?.some(n => !Number.isInteger(n) || n < 0 || n > 100000)) throw new Error('Enter whole-number repetitions for each set.');
+  let observed = false;
+  for (const key of parameterKeys) {
+    const bound = doseBounds(planned[key]);
+    const values = key === 'reps' && perSetReps?.length ? perSetReps : actual[key]?.value != null ? [actual[key]!.value!] : [];
+    if (!bound || !values.length || (actual[key] && actual[key]!.unit !== planned[key]!.unit)) continue;
+    observed = true;
+    if (values.some(v => v < bound.min || v > bound.max)) return 'outside';
+  }
+  return observed ? 'within' : 'unknown';
 }
 
 // Conservative legacy conversion: only single explicit values, never ranges or clinical instructions.
@@ -44,13 +73,9 @@ export function prescriptionFor(item: HomeProgramExercise): Prescription {
   return item.prescription ?? prescriptionFromLegacy(item);
 }
 export function formatPrescription(value: Prescription): string {
-  return parameterKeys.flatMap(key => {
-    const entry = value[key];
-    if (entry?.value == null) return [];
-    if (key === 'sets' || key === 'reps') return [`${entry.value} ${entry.unit}`];
-    if (key === 'frequency') return [`${entry.value} ${entry.unit.replace('sessions/', 'sessions / ').replace('days/', 'days / ')}`];
-    return [`${parameterSpecs[key].label}: ${entry.value} ${entry.unit}`];
-  }).join(' · ');
+  const text = (key: ParameterKey) => {const e=value[key], b=doseBounds(e); return b ? `${b.min === b.max ? b.min : `${b.min}–${b.max}`} ${e!.unit}` : '';};
+  const counts = [text('sets'),text('reps')].filter(Boolean).join(' × ');
+  return [counts,...parameterKeys.filter(k=>k!=='sets'&&k!=='reps').map(key=>text(key) ? `${key==='frequency'?'':parameterSpecs[key].label+': '}${text(key)}` : '')].filter(Boolean).join(', ');
 }
 export function legacyPrescriptionFor(item: HomeProgramExercise): LegacyPrescription {
   if (item.legacy_prescription) return item.legacy_prescription;
