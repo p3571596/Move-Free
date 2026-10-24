@@ -6,7 +6,7 @@ import { formatPrescription, prescriptionFor } from '@/lib/prescription';
 import { PrescriptionFields } from './PrescriptionFields';
 import { createSupabaseBrowserClient } from '@/lib/supabase';
 
-export function ProgressionPlanEditor({program,items,logs=[],disabled=false,onSaved,onPreviewSave}:{program:HomeProgram;items:HomeProgramExercise[];logs?:ExerciseAdherenceLog[];disabled?:boolean;onSaved?:()=>Promise<void>;onPreviewSave?:(plan:ProgressionPlan|null,approved:boolean)=>void}){
+export function ProgressionPlanEditor({program,items,logs=[],disabled=false,onSaved,onPreviewSave}:{program:HomeProgram;items:HomeProgramExercise[];logs?:ExerciseAdherenceLog[];disabled?:boolean;onSaved?:(message:string)=>Promise<void>;onPreviewSave?:(plan:ProgressionPlan|null,approved:boolean)=>void}){
  const [plan,setPlan]=useState<ProgressionPlan>(()=>structuredClone(program.progression_plan??newProgressionPlan(items)));
  const [view,setView]=useState('Exercises'),[week,setWeek]=useState(0),[dayIndex,setDayIndex]=useState(0);
  const [reviewed,setReviewed]=useState(false),[status,setStatus]=useState(''),[saving,setSaving]=useState(false);
@@ -19,9 +19,10 @@ export function ProgressionPlanEditor({program,items,logs=[],disabled=false,onSa
   setSaving(true);setStatus('');
   try{
    if(!disable)validateProgressionPlan(plan,items);
+   const message=approved?disable?'Simple program restored; history retained.':`Week ${plan.activeWeek+1} approved. Other weeks remain planned until you review and activate them.`:'Draft saved. Patient plan unchanged.';
    if(onPreviewSave)onPreviewSave(disable?null:plan,approved);
-   else {const result=await createSupabaseBrowserClient().rpc('save_progression_plan',{p_program:program.id,p_expected:program.updated_at??null,p_plan:(disable?null:plan) as unknown as Json,p_approve:approved});if(result.error)throw result.error;await onSaved?.();}
-   setReviewed(false);setStatus(approved?disable?'Simple program restored; history retained.':`Week ${plan.activeWeek+1} approved. Other weeks remain planned until you review and activate them.`:'Draft saved. Patient plan unchanged.');
+   else {const result=await createSupabaseBrowserClient().rpc('save_progression_plan',{p_program:program.id,p_expected:program.updated_at??null,p_plan:(disable?null:plan) as unknown as Json,p_approve:approved});if(result.error)throw result.error;await onSaved?.(message);}
+   setReviewed(false);setStatus(message);
   }catch(e){setStatus(e instanceof Error?e.message:typeof e==='object'&&e&&'message' in e?String(e.message):'Could not save plan.');}finally{setSaving(false);}
  }
  return <details className="panel"><summary>Progression Plan (optional){program.progression_plan?' · Active':''}</summary>
