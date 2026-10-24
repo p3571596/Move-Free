@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { PatientProgramFlow } from '@/components/PatientProgramFlow';
+import { ProgressionPlanSummary } from '@/components/ProgressionPlanSummary';
 import { ProgressionPlanEditor } from '@/components/ProgressionPlanEditor';
 import { validatePrescription } from '@/lib/prescription';
 import { PrescriptionFields } from '@/components/PrescriptionFields';
@@ -40,7 +41,7 @@ export function WorkflowPreview() {
     <button type="button" className="button" onClick={saveProgram}>Save synthetic prescription</button><p>Current patient dose: {formatExercisePrescription(workspace.programExercises[0])}</p>
   </section>:null}
   {view==='patient'?<PatientProgramFlow key={revision} previewWorkspace={workspace} onPreviewSave={saveFeedback}/>:null}
-  {view==='log'?<section className="panel form" style={{maxWidth:900,margin:'16px auto'}}><h2>Patient Log</h2>{workspace.adherenceLogs.map(log=><article key={log.id}><strong>{workspace.programExercises.find(e=>e.id===log.home_program_exercise_id)?.exercise?.name} · {log.activity_source==='explicit_nonperformance'?'Reported not performed':'Activity recorded'}</strong><p>{log.difficulty} · {log.difficulty_reason}</p><p>{log.difficulty_explanation ? `Patient explanation: ${log.difficulty_explanation}` : log.notes}</p></article>)}
+  {view==='log'?<section className="panel form" style={{maxWidth:900,margin:'16px auto'}}><h2>Patient Log</h2><ProgressionPlanSummary workspace={workspace} review/>{workspace.adherenceLogs.map(log=><article key={log.id}><strong>{workspace.programExercises.find(e=>e.id===log.home_program_exercise_id)?.exercise?.name} · {log.activity_source==='explicit_nonperformance'?'Reported not performed':'Activity recorded'}</strong><p>{log.difficulty} · {log.difficulty_reason}</p><p>{log.difficulty_explanation ? `Patient explanation: ${log.difficulty_explanation}` : log.notes}</p></article>)}
     <details open><summary>Decision engine evidence</summary>{mapped.context.feedbackEvidence.map(e=><p key={e.recordId}>{e.source} · {e.text} · {e.clinicalInterpretation}</p>)}<p>{result.decisionState} · {result.recommendation}</p><p>Missing symptom/function reports remain unknown.</p></details>
     <details open><summary>Prescription history</summary>{history.map((h,i)=><p key={i}>{h}</p>)}</details>
   </section>:null}</>;
