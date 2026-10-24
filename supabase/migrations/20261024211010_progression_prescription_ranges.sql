@@ -172,9 +172,20 @@ begin
  -- Logs with no valid selected session cannot evade plan restrictions through the legacy insert path.
  if exists(select 1 from public.home_programs where id=new.home_program_id and progression_plan is not null) and new.activity_source<>'individual_confirmation' and new.activity_source<>'explicit_nonperformance' then raise exception 'Individual confirmation through a day template required'; end if;
  if new.activity_source not in ('individual_confirmation','explicit_nonperformance') then return new; end if;
+ if new.activity_source='explicit_nonperformance' then new.actual_dose:=null;new.actual_reps_by_set:=null;end if;
+ if new.actual_reps_by_set is not null then
+  if not public.valid_actual_reps(new.actual_reps_by_set) then raise exception 'Invalid per-set repetitions'; end if;
+  if new.actual_dose#>>'{sets,value}' is not null and (new.actual_dose#>>'{sets,value}')::numeric<>cardinality(new.actual_reps_by_set) then raise exception 'Set count must match reported per-set repetitions'; end if;
+  if new.actual_dose#>>'{reps,value}' is not null then raise exception 'Use either per-set repetitions or a single reported value'; end if;
+ end if;
+ -- Legacy scalar columns are projections of explicitly supplied structured values only.
+ new.actual_sets:=(new.actual_dose#>>'{sets,value}')::integer;
+ new.actual_reps:=(new.actual_dose#>>'{reps,value}')::integer;
+ new.actual_duration_minutes:=(new.actual_dose#>>'{duration,value}')::numeric / case when new.actual_dose#>>'{duration,unit}'='sec' then 60 else 1 end;
  select * into s from public.patient_exercise_sessions where id=new.session_id;
  day:=private.progression_day(s);
  new.scheduled_date:=s.scheduled_date;new.day_template_id:=s.day_template_id;new.progression_revision_id:=s.progression_revision_id;
+ new.performed_at:=clock_timestamp();
  if day is null then return new; end if;
  today:=(clock_timestamp() at time zone s.timezone)::date;
  if new.activity_source='individual_confirmation' then
@@ -251,11 +262,12 @@ end $$;
 create or replace function private.validate_individual_confirmation() returns trigger language plpgsql security invoker set search_path='' as $$
 declare s public.patient_exercise_sessions; h public.home_program_exercises; guided boolean;
 begin
- if tg_op='UPDATE' and old.activity_source in ('individual_confirmation','explicit_nonperformance') then raise exception 'Confirmed activity is immutable'; end if;
+ if tg_op='UPDATE' and (old.activity_source in ('individual_confirmation','explicit_nonperformance') or new.activity_source is distinct from old.activity_source or exists(select 1 from public.home_programs where id=new.home_program_id and progression_plan is not null)) then raise exception 'Confirmed activity and historical source are immutable'; end if;
  select * into h from public.home_program_exercises where id=new.home_program_exercise_id;
  select guided_order and progression_plan is null into guided from public.home_programs where id=h.home_program_id;
  if new.activity_source in ('individual_confirmation','explicit_nonperformance') then
   select * into s from public.patient_exercise_sessions where id=new.session_id for update;
+  if s.program_version is distinct from (select updated_at from public.home_programs where id=new.home_program_id) then raise exception 'Your program changed; reload before confirming'; end if;
   if not exists(select 1 from public.home_programs p join public.episodes e on e.id=p.episode_id join public.patients pt on pt.id=e.patient_id where p.id=new.home_program_id and pt.id=new.patient_id and pt.patient_profile_id=auth.uid() and p.status='active' and e.status='active' and pt.status in ('active','needs_review')) then raise exception 'Active patient assignment required'; end if;
   if not found or s.patient_id<>new.patient_id or s.home_program_id<>new.home_program_id or not h.id=any(s.selected_ids)
    or s.state<>'active' or new.completion_status<>(case when new.activity_source='explicit_nonperformance' then 'skipped' else 'completed' end) then raise exception 'Active session and individual confirmation required'; end if;
