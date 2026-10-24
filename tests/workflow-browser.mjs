@@ -15,11 +15,11 @@ try {
   assert.equal(await first.getByLabel('Distance value',{exact:true}).count(),0,'irrelevant fields not required');
   await first.getByLabel('Key clinical cues for this patient').fill('Synthetic cues: use the rail.');
   await page.getByRole('button',{name:'Save synthetic prescription',exact:true}).click();
-  await page.getByText('Shared library standard: 2 sets · 8 reps · 3 sessions / week',{exact:true}).waitFor();
+  await page.getByText('Shared library standard: 2 sets × 8 reps, 3 sessions/week',{exact:true}).waitFor();
   await page.screenshot({path:`work/workflow-${name}-prescription.png`,fullPage:true});
   await page.getByRole('button',{name:'Patient exercise flow',exact:true}).click();await page.getByRole('button',{name:'Start session',exact:true}).click();
   await page.getByRole('heading',{name:'Sit to stand',exact:true}).waitFor();
-  await page.getByText('2 sets · 10 reps · Hold duration: 5 sec · 3 sessions / week',{exact:true}).waitFor();await page.getByText('Synthetic cues: use the rail.',{exact:false}).waitFor();
+  await page.getByText('2 sets × 10 reps, Hold duration: 5 sec, 3 sessions/week',{exact:true}).waitFor();await page.getByText('Synthetic cues: use the rail.',{exact:false}).waitFor();
   await page.getByText('How did it feel? (optional)',{exact:true}).click();await page.getByLabel('Difficulty',{exact:true}).selectOption('too_hard');
   await page.getByLabel('What made it difficult? (optional)').selectOption('other');const explanation=page.getByLabel('Tell your therapist what made it difficult');
   await explanation.waitFor();assert(await explanation.evaluate(e=>e.required));assert(await page.getByRole('button',{name:'Done',exact:true}).isDisabled());

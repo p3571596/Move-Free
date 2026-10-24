@@ -1,6 +1,8 @@
 "use client";
 import { useState } from 'react';
 import { PatientProgramFlow } from '@/components/PatientProgramFlow';
+import { ProgressionPlanEditor } from '@/components/ProgressionPlanEditor';
+import { validatePrescription } from '@/lib/prescription';
 import { PrescriptionFields } from '@/components/PrescriptionFields';
 import { formatExercisePrescription, type Prescription } from '@/lib/prescription';
 import { mapClinicalInputs, evaluateAutomaticReview } from '@/lib/automatic-clinical-review';
@@ -17,19 +19,21 @@ export function WorkflowPreview() {
   const [draft,setDraft] = useState(()=>structuredClone(baseItems));
   const [history,setHistory] = useState<string[]>([]);
   function saveProgram() {
+    try { for(const item of draft)validatePrescription(item.prescription??{}); }catch(e){window.alert(e instanceof Error?e.message:'Invalid prescription');return;}
     setHistory(current=>[`${formatExercisePrescription(workspace.programExercises[0])} → ${formatExercisePrescription(draft[0])}`, ...current]);
     setWorkspace(current=>({...current,programExercises:structuredClone(draft)}));
     setRevision(r=>r+1);
   }
   function saveFeedback(entries: ExerciseLogInput[]) {
     const now=new Date().toISOString();
-    setWorkspace(current=>({...current,adherenceLogs:entries.map((e,i)=>({id:`synthetic-log-${i}`,patient_id:'synthetic-patient',home_program_id:'synthetic-program',home_program_exercise_id:e.homeProgramExerciseId,performed_at:now,completion_status:e.completionStatus,activity_source:e.completionStatus==='skipped'?'explicit_nonperformance':'individual_confirmation',actual_dose:e.actualDose,difficulty:e.difficulty,difficulty_reason:e.difficultyReason,feedback_provenance:{source:'PATIENT_REPORTED',recorded_by:'synthetic-patient',recorded_at:now},difficulty_explanation:e.difficulty==='too_hard'&&e.difficultyReason==='other'?e.difficultyExplanation:null,notes:e.notes}))}));
+    setWorkspace(current=>({...current,adherenceLogs:entries.map((e,i)=>({id:`synthetic-log-${i}`,patient_id:'synthetic-patient',home_program_id:'synthetic-program',home_program_exercise_id:e.homeProgramExerciseId,performed_at:now,completion_status:e.completionStatus,activity_source:e.completionStatus==='skipped'?'explicit_nonperformance':'individual_confirmation',actual_dose:e.actualDose,actual_reps_by_set:e.actualRepsBySet,difficulty:e.difficulty,difficulty_reason:e.difficultyReason,feedback_provenance:{source:'PATIENT_REPORTED',recorded_by:'synthetic-patient',recorded_at:now},difficulty_explanation:e.difficulty==='too_hard'&&e.difficultyReason==='other'?e.difficultyExplanation:null,notes:e.notes}))}));
   }
   const mapped=mapClinicalInputs(workspace), result=evaluateAutomaticReview(mapped);
   return <><section className="panel" style={{maxWidth:900,margin:'16px auto'}}>
     <h1>Workflow preview</h1><p>Synthetic data only. Changes stay in this browser session. No patient records or database writes.</p>
     <div className="segment-options">{(['editor','patient','log'] as const).map(v=><button type="button" className={view===v?'active':''} aria-pressed={view===v} key={v} onClick={()=>setView(v)}>{v==='editor'?'Clinician prescription':v==='patient'?'Patient exercise flow':'Patient Log & evidence'}</button>)}</div>
   </section>
+  {view==='editor'&&workspace.program?<div style={{maxWidth:900,margin:'16px auto'}}><ProgressionPlanEditor program={workspace.program} items={workspace.programExercises} logs={workspace.adherenceLogs} onPreviewSave={(plan,approved)=>{if(approved){setWorkspace(w=>({...w,program:{...w.program!,progression_plan:plan,progression_revision_id:crypto.randomUUID()}}));setRevision(r=>r+1);}}}/></div>:null}
   {view==='editor'?<section className="panel form" style={{maxWidth:900,margin:'16px auto'}}><h2>Patient-specific prescription</h2>
     <p>Shared library standard: {formatExercisePrescription(baseItems[0])}</p>
     {draft.map(item=><article className="form" key={item.id}><h3>{item.exercise?.name}</h3><PrescriptionFields id={item.id} value={item.prescription??{}} onChange={prescription=>setDraft(items=>items.map(x=>x.id===item.id?{...x,prescription}:x))}/><label>Key clinical cues for this patient<textarea value={item.notes??''} onChange={e=>setDraft(items=>items.map(x=>x.id===item.id?{...x,notes:e.target.value}:x))}/></label></article>)}

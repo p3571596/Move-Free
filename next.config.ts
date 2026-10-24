@@ -6,7 +6,7 @@ import type { NextConfig } from "next";
 const pilotPreview = process.env.VERCEL_ENV === "preview"
   && ["feature/pwa-feedback-pilot", "feature/stage1-video-pwa", "codex/stage1-concise-lifecycle", "fix/stage1-adaptive-followups"].includes(process.env.VERCEL_GIT_COMMIT_REF ?? "");
 
-const patientWorkflowPreview = process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "integration/patient-directed-workflow";
+const patientWorkflowPreview = process.env.VERCEL_ENV === "preview" && ["integration/patient-directed-workflow", "feat/progression-prescription-ranges"].includes(process.env.VERCEL_GIT_COMMIT_REF ?? "");
 
 const syntheticPrivatePilot = process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "integration/stage2-private-pilot";
 

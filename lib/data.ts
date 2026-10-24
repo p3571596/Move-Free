@@ -596,6 +596,7 @@ export async function saveFeedback(client: Client, message: string, sentiment: s
 
 export type ExerciseLogInput = {
   actualDose?: Prescription;
+  actualRepsBySet?: number[];
   homeProgramExerciseId: string;
   completionStatus: "completed" | "partial" | "skipped";
   difficulty: "too_easy" | "appropriate" | "too_hard" | null;

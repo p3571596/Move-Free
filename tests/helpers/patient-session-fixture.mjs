@@ -25,5 +25,6 @@ await db.exec(fs.readFileSync('supabase/migrations/20261009212333_stage1_structu
 await db.exec("create unique index if not exists session_exercise_test on public.exercise_adherence_logs(patient_id,session_id,home_program_exercise_id) where session_id is not null and home_program_exercise_id is not null;");
 await db.exec(fs.readFileSync('supabase/migrations/20261020202607_patient_directed_sessions.sql','utf8'));
 
+await db.exec(fs.readFileSync('supabase/migrations/20261024211010_progression_prescription_ranges.sql','utf8'));
 return {db,id};
 }

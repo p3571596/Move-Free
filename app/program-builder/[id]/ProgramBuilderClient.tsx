@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { ProgressionPlanEditor } from "@/components/ProgressionPlanEditor";
 import { ProgramSequenceSettings } from "@/components/ProgramSequenceSettings";
 import { ExerciseVideoSource } from "@/components/ExerciseVideoSource";
 import { approvedVideoFromForm } from "@/lib/exercise-media";
@@ -205,6 +206,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
             Back to Patient Program
           </Link>
         </div>
+        {workspace.program?<ProgressionPlanEditor key={`progression-${workspace.program.updated_at}`} program={workspace.program} items={workspace.programExercises} logs={workspace.adherenceLogs} disabled={JSON.stringify(draft)!==JSON.stringify(workspace.programExercises)} onSaved={async()=>{const w=await loadPatientWorkspace(createSupabaseBrowserClient(),patientId);setWorkspace(w);setDraft(w.programExercises);}}/>:null}
         <ProgramSequenceSettings key={workspace.program?.updated_at} workspace={workspace} disabled={JSON.stringify(draft.map(item=>({...item,client_key:undefined})))!==JSON.stringify(workspace.programExercises.map(item=>({...item,client_key:undefined})))} onSaved={async()=>{const w=await loadPatientWorkspace(createSupabaseBrowserClient(),patientId);setWorkspace(w);setDraft(w.programExercises);}}/>
         <section className="grid two">
           <form className="panel form" onSubmit={submit}>
