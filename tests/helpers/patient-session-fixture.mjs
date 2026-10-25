@@ -27,5 +27,6 @@ await db.exec(fs.readFileSync('supabase/migrations/20261020202607_patient_direct
 
 await db.exec(fs.readFileSync('supabase/migrations/20261024211010_progression_prescription_ranges.sql','utf8'));
 for(const name of fs.readdirSync('supabase/migrations').filter(n=>n.endsWith('_periodization_cycle_builder.sql')))await db.exec(fs.readFileSync('supabase/migrations/'+name,'utf8'));
+for(const name of fs.readdirSync('supabase/migrations').filter(n=>n.endsWith('_progression_authenticated_actor.sql')))await db.exec(fs.readFileSync('supabase/migrations/'+name,'utf8'));
 return {db,id};
 }

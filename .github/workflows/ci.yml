@@ -71,3 +71,4 @@ jobs:
           node tests/pilot-invitation-browser.mjs
           node tests/recovered-setup-browser.mjs
           node tests/patient-directed-browser.mjs
+          node tests/program-builder-browser.mjs

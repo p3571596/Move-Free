@@ -3,7 +3,9 @@ const load=(file,deps={})=>{const m=new Module(file);m.require=k=>deps[k];m._com
 const rx=load('lib/prescription.ts'),cycle=load('lib/cycle.ts',{'./prescription':rx});
 const {db,id}=await patientSessionFixture();const as=async n=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id(n)]);await db.exec('set role authenticated');};
 const today=new Date().toISOString().slice(0,10);const items=[{id:id(13),prescription:{sets:{value:3,unit:'sets'},reps:{value:null,mode:'range',min:8,max:12,unit:'reps'},load:{value:20,unit:'lb'}}},{id:id(14),prescription:{sets:{value:2,unit:'sets'},reps:{value:8,unit:'reps'}}}];
-await as(1);for(const item of items)await db.query('update home_program_exercises set prescription=$1 where id=$2',[item.prescription,item.id]);
+await db.query('insert into auth.users values($1)',[id(5)]);
+await db.query('update patients set clinician_id=$1 where id=$2',[id(5),id(10)]);
+await as(5);for(const item of items)await db.query('update home_program_exercises set prescription=$1 where id=$2',[item.prescription,item.id]);
 const plan=cycle.newCyclePlan(items,today);plan.cycle.variables[id(13)]=['sets','reps','load'];plan.templates[1].exercises[0].prescription.load.value=10;
 const version=async()=>(await db.query('select updated_at from home_programs where id=$1',[id(12)])).rows[0].updated_at;
 const save=async(p=plan,approve=true)=>db.query('select save_progression_plan($1,$2,$3,$4) as id',[id(12),await version(),p,approve]);
@@ -12,6 +14,9 @@ const confirm=(n,x=13,feedback={})=>db.query('select confirm_patient_exercise($1
 const logs=async n=>(await db.query('select * from exercise_adherence_logs where session_id=$1',[id(n)])).rows;
 const relativeEnd=structuredClone(plan);relativeEnd.cycle.endDate='today';await assert.rejects(save(relativeEnd),/ISO cycle end/);const relativeFuture=structuredClone(plan);relativeFuture.cycle.futureEdits=[{from:'today',slot:0,profileId:'low'}];await assert.rejects(save(relativeFuture),/Invalid future edit/);
 await save(plan,false);assert.equal((await db.query('select progression_plan from home_programs where id=$1',[id(12)])).rows[0].progression_plan,null);let revision=(await save()).rows[0].id;
+assert.equal((await db.query('select recorded_by from program_progression_revisions where id=$1',[revision])).rows[0].recorded_by,id(5));
+await db.exec('reset role');await db.query('update patients set clinician_id=$1 where id=$2',[id(1),id(10)]);
+console.log('PASS treating auth account without profile saves draft and approval with authentic audit actor');
 await as(2);assert.equal((await db.query('select * from program_progression_revisions')).rows.length,1);await assert.rejects(start(80,'low',today,revision),/approved profile/);await assert.rejects(start(80,'recovery',cycle.addDays(today,2),revision),/Full rest/);await start(80,'high',today,revision);await confirm(80);await confirm(80,14);let history=(await logs(80))[0];assert.equal(history.actual_dose,null);assert.equal(history.prescription_snapshot.prescription.load.value,20);await assert.rejects(start(81,'high',cycle.addDays(today,28),revision),/outside/);await start(81,'high',cycle.addDays(today,7),revision);await assert.rejects(confirm(81),/scheduled days/);console.log('PASS v2 fixed cycle repetition, explicit dates, full rest, individual Done and draft visibility');
 await as(1);const one=cycle.changeCycleOccurrence(plan,cycle.addDays(today,1),'recovery','one');const future=cycle.changeCycleOccurrence(one,cycle.addDays(today,8),'recovery','future');const template=cycle.changeCycleOccurrence(future,cycle.addDays(today,2),'low','template');revision=(await save(template)).rows[0].id;
 for(const [offset,expected]of [[1,'recovery'],[8,'recovery'],[15,'recovery'],[2,'low'],[9,'low']]){const day=(await db.query('select private.cycle_occurrence($1,$2) as day',[template,cycle.addDays(today,offset)])).rows[0].day;assert.equal(day.id,expected);}
