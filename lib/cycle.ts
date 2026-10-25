@@ -2,6 +2,7 @@ import {
   parameterKeys,
   prescriptionFor,
   validatePrescription,
+  doseBounds,
   type ParameterKey,
   type Prescription,
 } from "./prescription";
@@ -382,6 +383,36 @@ export function validateCycle(
       r.slot >= c.pattern.length
     )
       throw new Error("Invalid future edit.");
+  if (c.mode === "fixed")
+    for (let offset = 0; offset < occurrences.length; offset += 7) {
+      const window = occurrences.slice(offset, offset + 7),
+        counts = new Map<string, number>();
+      for (const o of window)
+        for (const e of plan.templates.find((t) => t.id === o.profileId)!
+          .exercises)
+          counts.set(e.assignmentId, (counts.get(e.assignmentId) ?? 0) + 1);
+      for (const o of window)
+        for (const e of plan.templates.find((t) => t.id === o.profileId)!
+          .exercises) {
+          const frequency = cyclePrescription(
+              plan,
+              o.date,
+              o.profileId,
+              e.assignmentId,
+            ).frequency,
+            bounds = doseBounds(frequency);
+          if (bounds && frequency) {
+            const count =
+              frequency.unit === "sessions/day"
+                ? 1
+                : (counts.get(e.assignmentId) ?? 0);
+            if (count > bounds.max)
+              throw new Error(
+                `The schedule exceeds an exercise frequency on ${o.date}. Review base frequency, selected variables or session selection.`,
+              );
+          }
+        }
+    }
   let lastHigh = -Infinity;
   for (const [index, o] of occurrences.entries()) {
     const profile = plan.templates.find((t) => t.id === o.profileId)!;

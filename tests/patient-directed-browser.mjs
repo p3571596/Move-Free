@@ -85,6 +85,7 @@ try{
   await page.getByRole('button',{name:'Finish for now',exact:true}).click();await page.getByRole('button',{name:'Close session',exact:true}).click();
   await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id(1)]);await db.exec('set role authenticated');
   const savedItems=(await db.query('select * from home_program_exercises order by sort_order,id')).rows;
+  for(const item of savedItems){item.prescription={...item.prescription,frequency:{value:10,unit:'sessions/week'}};await db.query('update home_program_exercises set prescription=$1 where id=$2',[item.prescription,item.id]);}
   const dated=cycle.newCyclePlan(savedItems,today);dated.cycle.multipleSessionsPerDay=true;dated.cycle.mode='flexible';dated.cycle.minHighSpacingDays=0;dated.cycle.variables[id(13)]=['reps'];dated.templates[0].exercises[0].prescription.reps={value:null,mode:'range',min:8,max:12,unit:'reps'};
   const cycleVersion=(await db.query('select updated_at from home_programs where id=$1',[id(12)])).rows[0].updated_at;await db.query('select save_progression_plan($1,$2,$3,true)',[id(12),cycleVersion,dated]);
   await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid]);await db.exec('set role authenticated');await page.reload();

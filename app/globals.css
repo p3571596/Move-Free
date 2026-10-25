@@ -1171,3 +1171,8 @@ button, input, select, textarea { font: inherit; }
 .exercise-step-heading { scroll-margin-top: 100px; }
 
 .cycle-steps,.cycle-actions,.cycle-checkboxes{display:flex;flex-wrap:wrap;gap:.6rem;margin:1rem 0}.cycle-steps button{flex:1 1 140px;text-align:left;padding:.65rem;border:1px solid var(--border,#d7dfdc);border-radius:10px;background:transparent;color:inherit}.cycle-steps button[aria-current=step]{background:#e3f1eb;border-color:#24806c;font-weight:700}.cycle-pattern{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem}.cycle-calendar{display:grid;gap:.5rem}.cycle-calendar details{padding:.6rem;border:1px solid var(--border,#d7dfdc);border-radius:10px}.cycle-builder input,.cycle-builder select,.cycle-builder textarea{max-width:100%}.cycle-builder fieldset,.cycle-builder article{min-width:0}.cycle-builder .prescription-value input{width:100px}.cycle-builder label{overflow-wrap:anywhere}
+.cycle-builder .form { grid-template-columns:minmax(0,1fr); min-width:0; }
+.cycle-builder label { display:grid; gap:6px; min-width:0; }
+.cycle-builder label:has(> input[type=checkbox]) { display:flex; align-items:center; gap:8px; }
+.cycle-builder input:not([type=checkbox]),.cycle-builder select,.cycle-builder textarea { width:100%; min-width:0; }
+.cycle-builder legend { max-width:100%; overflow-wrap:anywhere; }

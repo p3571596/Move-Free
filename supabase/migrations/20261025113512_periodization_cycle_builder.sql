@@ -132,6 +132,30 @@ begin
  if new.progression_plan is not null and (not (new.progression_plan?'cycle') or new.progression_plan is distinct from old.progression_plan or new.guided_order is distinct from old.guided_order) then perform private.validate_progression_document(new.progression_plan,new.id);end if;return new;
 end $$;
 
+create or replace function private.validate_cycle_frequencies(p jsonb) returns void language plpgsql stable security invoker set search_path='' as $$
+declare c jsonb:=p->'cycle'; win date; dt date; last_date date; day jsonb; e jsonb; counts jsonb; aid text; frequency jsonb; maximum numeric; planned numeric;
+begin
+ if c->>'mode'<>'fixed' then return;end if;win:=(p->>'startDate')::date;
+ while win<=(c->>'endDate')::date loop
+  counts:='{}';last_date:=least(win+6,(c->>'endDate')::date);dt:=win;
+  while dt<=last_date loop
+   day:=private.cycle_occurrence(p,dt);
+   for e in select value from jsonb_array_elements(day->'exercises') loop aid:=e->>'assignmentId';counts:=jsonb_set(counts,array[aid],to_jsonb(coalesce((counts->>aid)::integer,0)+1));end loop;dt:=dt+1;
+  end loop;
+  dt:=win;while dt<=last_date loop
+   day:=private.cycle_occurrence(p,dt);
+   for e in select value from jsonb_array_elements(day->'exercises') loop
+    aid:=e->>'assignmentId';frequency:=coalesce(day->'overrides'->aid,e->'prescription')->'frequency';
+    maximum:=case when frequency->>'mode'='range' then (frequency->>'max')::numeric else (frequency->>'value')::numeric end;
+    planned:=case when frequency->>'unit'='sessions/day' then 1 else (counts->>aid)::numeric end;
+    if maximum is not null and planned>maximum then raise exception 'Schedule exceeds prescribed exercise frequency; review base frequency or selected parameters';end if;
+   end loop;dt:=dt+1;
+  end loop;win:=win+7;
+ end loop;
+end $$;
+revoke all on function private.validate_cycle_frequencies(jsonb) from public,anon;
+grant execute on function private.validate_cycle_frequencies(jsonb) to authenticated;
+
 create or replace function private.validate_progression_document(p jsonb, program uuid) returns void language plpgsql security invoker set search_path='' as $$
 declare d jsonb; w jsonb; e jsonb; ph jsonb; tid text; aid text; dose jsonb; seen text[]; prior text[]; day_ids text[]:='{}'; phase_ids text[]:='{}'; ix integer;
 begin
@@ -176,6 +200,7 @@ begin
   end loop;
  end loop;
  perform private.validate_cycle_document(p,program);
+ if p?'cycle' then perform private.validate_cycle_frequencies(p);end if;
 end $$;
 revoke all on function private.validate_progression_document(jsonb,uuid) from public,anon;
 grant execute on function private.validate_progression_document(jsonb,uuid) to authenticated;
