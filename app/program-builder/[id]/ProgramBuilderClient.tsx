@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { ProgressionPlanEditor } from "@/components/ProgressionPlanEditor";
 import { ProgramSequenceSettings } from "@/components/ProgramSequenceSettings";
 import { ExerciseVideoSource } from "@/components/ExerciseVideoSource";
+import { programHasUnsavedChanges } from "@/lib/program-draft";
 import { approvedVideoFromForm } from "@/lib/exercise-media";
 import { ExerciseVideo } from "@/components/ExerciseVideo";
 import { PrescriptionFields } from "@/components/PrescriptionFields";
@@ -25,6 +26,9 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
   const [library, setLibrary] = useState<Exercise[]>([]);
   const [draft, setDraft] = useState<HomeProgramExercise[]>([]);
   const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const savingRef = useRef(false);
   const workflowStartedAt = useRef(Date.now());
 
   useEffect(() => {
@@ -120,7 +124,9 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (savingRef.current) return;
     const form = new FormData(event.currentTarget);
+    setSaveError(false);
     setStatus("Saving program...");
 
     if (!isSupabaseConfigured() || !workspace?.patient) {
@@ -128,6 +134,8 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       return;
     }
 
+    savingRef.current = true;
+    setSaving(true);
     try {
       const videoUpdates: Record<string, string | null> = {};
       for (const item of draft) {
@@ -144,15 +152,18 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
         eventName: workspace.program ? "program_updated" : "program_created",
         durationMs: Date.now() - workflowStartedAt.current,
       }, videoUpdates, workspace.program);
-      const loadedLibrary = await loadExerciseLibrary(supabase);
       setWorkspace((current) => current ? { ...current, ...saved } : current);
       setDraft(saved.programExercises.map((item,index)=>({...item,client_key:draft[index]?.client_key??draft[index]?.id??item.id})));
-      setLibrary(loadedLibrary);
-      setStatus("Program saved.");
+      setStatus("Program saved. You can now build your cycle above: choose variable parameters, create profiles, and schedule sessions.");
+      void loadExerciseLibrary(supabase).then(setLibrary).catch(() => { /* The program is already saved; library refresh is optional. */ });
       workflowStartedAt.current = Date.now();
 
     } catch (caught) {
-      setStatus(caught instanceof Error ? caught.message : "Program could not be saved.");
+      setSaveError(true);
+      setStatus(caught && typeof caught === "object" && "message" in caught ? String(caught.message) : "Program could not be saved. Your edits are still here; try again.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   }
 
@@ -190,6 +201,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
     );
   }
 
+  const unsavedChanges = programHasUnsavedChanges(draft, workspace.programExercises);
   const patientName = workspace.patient.display_name ?? workspace.patient.full_name ?? "Patient";
 
   return (
@@ -206,19 +218,20 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
             Back to Patient Program
           </Link>
         </div>
-        {status?<p role="status" className="muted">{status}</p>:null}
-        {workspace.program?<ProgressionPlanEditor key={`progression-${workspace.program.updated_at}`} program={workspace.program} items={workspace.programExercises} logs={workspace.adherenceLogs} disabled={JSON.stringify(draft)!==JSON.stringify(workspace.programExercises)} onSaved={async(message)=>{const w=await loadPatientWorkspace(createSupabaseBrowserClient(),patientId);setWorkspace(w);setDraft(w.programExercises);setStatus(message);}}/>:null}
-        <ProgramSequenceSettings key={workspace.program?.updated_at} workspace={workspace} disabled={JSON.stringify(draft.map(item=>({...item,client_key:undefined})))!==JSON.stringify(workspace.programExercises.map(item=>({...item,client_key:undefined})))} onSaved={async()=>{const w=await loadPatientWorkspace(createSupabaseBrowserClient(),patientId);setWorkspace(w);setDraft(w.programExercises);}}/>
+        {status?<p role={saveError ? "alert" : "status"} className="muted">{status}</p>:null}
+        {workspace.program?<ProgressionPlanEditor key={`progression-${workspace.program.updated_at}`} program={workspace.program} items={workspace.programExercises} logs={workspace.adherenceLogs} disabled={saving || unsavedChanges} onSaved={async(message)=>{const w=await loadPatientWorkspace(createSupabaseBrowserClient(),patientId);setWorkspace(w);setDraft(w.programExercises);setStatus(message);}}/>:null}
+        <ProgramSequenceSettings key={workspace.program?.updated_at} workspace={workspace} disabled={saving || unsavedChanges} onSaved={async()=>{const w=await loadPatientWorkspace(createSupabaseBrowserClient(),patientId);setWorkspace(w);setDraft(w.programExercises);}}/>
         <section className="grid two">
-          <form className="panel form" onSubmit={submit}>
+          <form className="panel form" onSubmit={submit} aria-busy={saving}>
+            <fieldset disabled={saving} style={{border:0,padding:0,margin:0,minWidth:0,display:"contents"}}>
             <div className="section-header">
               <div>
                 <p className="eyebrow">Current Program</p>
                 <h3>{patientName}</h3>
               </div>
-              <button className="button" type="submit" disabled={!draft.length}>
+              <button className="button" type="submit" disabled={saving || !draft.length}>
                 <Save size={18} />
-                Save Program
+                {saving ? "Saving program…" : "Save Program"}
               </button>
             </div>
             <button className="secondary-button add-exercise-inline" type="button" onClick={addBlankExercise}>
@@ -259,6 +272,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                 <p>Start a draft program by adding an exercise.</p>
               </div>
             ) : null}
+            </fieldset>
           </form>
           <section className="panel">
             <div className="section-header">
@@ -276,7 +290,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
                       <p className="muted">{exercise.body_region ?? "Body region"} · {exercise.category ?? "Category"} · {exercise.difficulty ?? "Level"}</p>
                       {(exercise.tags ?? []).length ? <p className="muted">{exercise.tags?.join(" · ")}</p> : null}
                     </span>
-                    <button className="secondary-button" type="button" onClick={() => addExercise(exercise)}>
+                    <button className="secondary-button" type="button" disabled={saving} onClick={() => addExercise(exercise)}>
                       <Plus size={18} />
                       Add
                     </button>
