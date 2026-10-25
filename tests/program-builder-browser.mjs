@@ -46,6 +46,7 @@ try{
   await page.waitForURL('**/dashboard');await page.goto(base+'/program-builder/'+id(10));
   const builder=page.locator('.cycle-builder');
   await page.getByRole('button',{name:'Save Program',exact:true}).waitFor();
+  await builder.locator('summary').first().click();
   const notes=page.getByLabel('Key clinical cues for this patient').first();
   await notes.fill('Saved clinician cues');
   assert(await builder.getByRole('button',{name:'1. Variable parameters',exact:true}).isDisabled());
@@ -54,6 +55,7 @@ try{
   rejectSave=false;failLibrary=true;
   await page.getByRole('button',{name:'Save Program',exact:true}).click();
   await page.getByRole('status').filter({hasText:'Program saved. You can now build your cycle'}).waitFor();
+  await page.getByRole('button',{name:'Build cycle',exact:true}).click();
   assert(await builder.getByRole('button',{name:'1. Variable parameters',exact:true}).isEnabled(),'successful save unlocks cycle despite stable client keys and failed library refresh');
   assert.equal((await db.query('select notes from home_program_exercises where id=$1',[id(13)])).rows[0].notes,'Saved clinician cues');
   await builder.getByRole('button',{name:'Select Common Parameters',exact:true}).first().click();

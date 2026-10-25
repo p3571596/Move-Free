@@ -29,6 +29,8 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const savingRef = useRef(false);
+  const cycleSectionRef = useRef<HTMLDivElement>(null);
+  const [showCycleAction, setShowCycleAction] = useState(false);
   const workflowStartedAt = useRef(Date.now());
 
   useEffect(() => {
@@ -156,6 +158,7 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
       setDraft(saved.programExercises.map((item,index)=>({...item,client_key:draft[index]?.client_key??draft[index]?.id??item.id})));
       setStatus("Program saved. You can now build your cycle above: choose variable parameters, create profiles, and schedule sessions.");
       void loadExerciseLibrary(supabase).then(setLibrary).catch(() => { /* The program is already saved; library refresh is optional. */ });
+      setShowCycleAction(true);
       workflowStartedAt.current = Date.now();
 
     } catch (caught) {
@@ -219,7 +222,10 @@ export function ProgramBuilderClient({ patientId }: { patientId: string }) {
           </Link>
         </div>
         {status?<p role={saveError ? "alert" : "status"} className="muted">{status}</p>:null}
+        {showCycleAction && !unsavedChanges ? <button className="button" type="button" disabled={saving} onClick={() => { const section = cycleSectionRef.current?.querySelector("details"); if (section) { section.open = true; section.scrollIntoView({behavior:"smooth", block:"start"}); section.querySelector("summary")?.focus(); } }}>Build cycle</button> : null}
+        <div ref={cycleSectionRef}>
         {workspace.program?<ProgressionPlanEditor key={`progression-${workspace.program.updated_at}`} program={workspace.program} items={workspace.programExercises} logs={workspace.adherenceLogs} disabled={saving || unsavedChanges} onSaved={async(message)=>{const w=await loadPatientWorkspace(createSupabaseBrowserClient(),patientId);setWorkspace(w);setDraft(w.programExercises);setStatus(message);}}/>:null}
+        </div>
         <ProgramSequenceSettings key={workspace.program?.updated_at} workspace={workspace} disabled={saving || unsavedChanges} onSaved={async()=>{const w=await loadPatientWorkspace(createSupabaseBrowserClient(),patientId);setWorkspace(w);setDraft(w.programExercises);}}/>
         <section className="grid two">
           <form className="panel form" onSubmit={submit} aria-busy={saving}>
