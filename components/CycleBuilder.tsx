@@ -534,10 +534,13 @@ export function CycleBuilder({
                               <PrescriptionFields
                                 id={`profile-${profile.id}-${item.id}`}
                                 keys={keys}
+                                lockedSelection
                                 value={Object.fromEntries(
-                                  keys
-                                    .filter((k) => entry.prescription[k])
-                                    .map((k) => [k, entry.prescription[k]]),
+                                  keys.map((k) => [
+                                    k,
+                                    entry.prescription[k] ??
+                                      prescriptionFor(item)[k],
+                                  ]),
                                 )}
                                 onChange={(prescription) =>
                                   patchProfile({
@@ -860,7 +863,7 @@ export function CycleBuilder({
                     Adjustment profile
                     <select
                       aria-label="Adjustment profile"
-                value={a.profileId}
+                      value={a.profileId}
                       onChange={(e) =>
                         patchCycle({
                           adjustments: cycle.adjustments.map((r) =>
@@ -888,7 +891,7 @@ export function CycleBuilder({
                     Adjustment exercise
                     <select
                       aria-label="Adjustment exercise"
-                value={a.assignmentId}
+                      value={a.assignmentId}
                       onChange={(e) =>
                         patchCycle({
                           adjustments: cycle.adjustments.map((r) =>
