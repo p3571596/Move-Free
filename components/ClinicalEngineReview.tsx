@@ -1,6 +1,6 @@
 "use client";
 
-import {formatExercisePrescription, describePrescriptionChange} from "@/lib/prescription";
+import {formatPrescription, formatExercisePrescription, describePrescriptionChange} from "@/lib/prescription";
 import { engineFields, type EngineInputs, type EngineKey, type EngineResult } from "@/lib/clinical-engine";
 import { mapClinicalInputs, evaluateAutomaticReview, type AutomaticReview } from "@/lib/automatic-clinical-review";
 import type { PatientWorkspace } from "@/lib/types";
@@ -38,6 +38,7 @@ export function ClinicalEngineReview({ workspace, value, onChange, storageReady 
     <p>Reported completion trend (earlier → later half of window): {mapped.context.completionTrend.previousRate ?? 'unknown'} → {mapped.context.completionTrend.recentRate ?? 'unknown'}%. This is not prescribed adherence.</p>
     <ul>{(Object.keys(engineFields) as EngineKey[]).filter(key=>mapped.provenance[key].state==='AUTO').map(key=><li key={key}><strong>{engineFields[key].label}: {String(inputs[key])}</strong> · AUTO — {mapped.provenance[key].source}</li>)}</ul>
     {mapped.context.repeatedDifficulty.map(item=><p key={item.exerciseId}>Repeated difficulty: {workspace.programExercises.find(e=>e.id===item.exerciseId)?.exercise?.name ?? 'Previously assigned exercise'} in {item.count} reports.</p>)}
+    {workspace.program?.progression_plan?.cycle?<details><summary>Cycle exposure and reported dose</summary><p>Compare each report with its approved prescription version. Recovery, fatigue and function remain unknown unless reported or assessed. Current scheduling does not rewrite past doses.</p>{mapped.context.cycleEvidence.length?mapped.context.cycleEvidence.map(e=><div key={e.recordId}><p>{e.profileId} · Suggested {e.scheduledDate} · Reported {e.performedAt?.slice(0,10)}</p><p>{e.interpretation}</p>{e.planned?<p>Prescribed at report: {formatPrescription(e.planned)}</p>:null}<p>Reported values: {e.comparison==='within'?'Within the known prescribed bounds':e.comparison==='outside'?'Outside a known prescribed bound; clarify and review':'Comparison unknown'}</p>{e.actualRepsBySet?<p>Repetitions by set: {e.actualRepsBySet.join(', ')}</p>:null}{e.actualDose?<p>Reported dosage: {formatPrescription(e.actualDose)}</p>:null}<p>Difficulty: {e.difficulty??'Unknown'} · Symptoms: {e.symptomResponse??'Unknown'} · Recovery: {e.recovery??'Unknown'}</p></div>):<p>No cycle activity is recorded in this review window. Performance remains unknown; clarify with the patient before judging exposure.</p>}</details>:null}
     <details><summary>Source records, comments and limitations</summary>
       {mapped.context.checkins.map(c=><p key={c.id}>{c.checkin_date}: pain {c.pain_score ?? 'unknown'}/10 · {c.patient_comment ?? c.notes ?? 'No comment'}</p>)}
       {mapped.context.logs.map(l=><p key={l.id}>{l.performed_at?.slice(0,10)} · {l.completion_status ?? 'Unknown completion'} · {l.difficulty ?? 'Difficulty unknown'} · {l.difficulty_explanation ? `Patient-reported difficulty explanation: ${l.difficulty_explanation} · ` : ''}{l.notes ?? 'No comment'}</p>)}

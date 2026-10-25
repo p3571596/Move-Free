@@ -94,3 +94,12 @@ export function describePrescriptionChange(change: ProgramChange): string {
   const before = change.before_value as HomeProgramExercise | null, after = change.after_value as HomeProgramExercise | null;
   return `${before ? formatExercisePrescription(before) : 'Not assigned'} → ${after ? formatExercisePrescription(after) : 'Removed'}`;
 }
+
+// Only equivalent physical measurements can be converted numerically.
+export function convertDoseUnit(entry:DoseParameter,unit:string):DoseParameter {
+ if(entry.unit===unit)return entry;
+ const groups:Record<string,Record<string,number>>={mass:{kg:1,lb:0.45359237},time:{sec:1,min:60},distance:{m:1,ft:0.3048,km:1000,mi:1609.344}};
+ const group=Object.values(groups).find(g=>entry.unit in g&&unit in g);
+ if(!group){if(doseBounds(entry))throw new Error('These units are not convertible. Clear the value and enter a new prescription.');return {...entry,unit};}
+ const result={...entry,unit};for(const key of ['value','min','max','target'] as const)if(entry[key]!=null)result[key]=Number((entry[key]!*group[entry.unit]/group[unit]).toPrecision(12));return result;
+}

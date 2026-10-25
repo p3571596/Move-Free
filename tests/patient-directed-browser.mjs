@@ -2,6 +2,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {chromium} from 'playwright';
+import Module from 'node:module';import ts from 'typescript';
+const load=(file,deps={})=>{const m=new Module(file);m.require=k=>deps[k];m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);return m.exports;};
+const rx=load('lib/prescription.ts'),cycle=load('lib/cycle.ts',{'./prescription':rx});
 import {patientSessionFixture} from './helpers/patient-session-fixture.mjs';
 const browser=await chromium.launch({channel:process.env.TEST_BROWSER_CHANNEL||undefined,headless:true});
 const base=process.env.TEST_BASE_URL||'http://localhost:3109';
@@ -78,6 +81,17 @@ try{
   await page.getByRole('button',{name:'Next exercise',exact:true}).click();await page.getByRole('button',{name:'Done',exact:true}).click();await page.getByRole('button',{name:'Recorded',exact:true}).waitFor();const newest=(await logs()).filter(l=>l.day_template_id==='a');assert.equal(newest.length,2);assert(newest.some(l=>l.actual_dose===null));
   await page.getByRole('button',{name:'Finish for now',exact:true}).click();await page.getByRole('button',{name:'Close session',exact:true}).click();await page.getByRole('button',{name:'Strength B',exact:true}).click();await page.getByRole('button',{name:'Start session',exact:true}).click();await page.getByText('5 reps',{exact:true}).waitFor();await page.getByRole('button',{name:'Done',exact:true}).click();await page.getByRole('button',{name:'Recorded',exact:true}).waitFor();activity=(await logs()).find(l=>l.day_template_id==='b');assert.equal(activity.prescription_snapshot.prescription.reps.value,5);assert.equal(activity.home_program_exercise_id,id(13));assert.deepEqual(errors,[]);
   console.log('PASS',name,': approved day doses, future-suggested performed today, 10/8/8, unknown Done, same exercise across days');
+  // The dated cycle uses the same real PostgreSQL authorization and confirmation path.
+  await page.getByRole('button',{name:'Finish for now',exact:true}).click();await page.getByRole('button',{name:'Close session',exact:true}).click();
+  await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id(1)]);await db.exec('set role authenticated');
+  const savedItems=(await db.query('select * from home_program_exercises order by sort_order,id')).rows;
+  for(const item of savedItems){item.prescription={...item.prescription,frequency:{value:10,unit:'sessions/week'}};await db.query('update home_program_exercises set prescription=$1 where id=$2',[item.prescription,item.id]);}
+  const dated=cycle.newCyclePlan(savedItems,today);dated.cycle.multipleSessionsPerDay=true;dated.cycle.mode='flexible';dated.cycle.minHighSpacingDays=0;dated.cycle.variables[id(13)]=['reps'];dated.templates[0].exercises[0].prescription.reps={value:null,mode:'range',min:8,max:12,unit:'reps'};
+  const cycleVersion=(await db.query('select updated_at from home_programs where id=$1',[id(12)])).rows[0].updated_at;await db.query('select save_progression_plan($1,$2,$3,true)',[id(12),cycleVersion,dated]);
+  await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid]);await db.exec('set role authenticated');await page.reload();
+  await page.getByRole('heading',{name:'Suggested for Today',exact:true}).waitFor();await page.getByRole('heading',{name:'Weekly overview',exact:true}).waitFor();const cycleBefore=(await logs()).length;
+  await page.getByRole('button',{name:'Start session',exact:true}).click();assert.equal((await logs()).length,cycleBefore);await page.getByText('Adjust what I did (optional)',{exact:true}).click();await page.getByRole('textbox',{name:'Repetitions in each set',exact:true}).fill('10, 8, 8');await page.getByRole('button',{name:'Done',exact:true}).click();await page.getByRole('button',{name:'Recorded',exact:true}).waitFor();
+  const recorded=(await logs()).find(l=>l.day_template_id==='high');assert.deepEqual(recorded.actual_reps_by_set,[10,8,8]);assert.equal(recorded.prescription_snapshot.prescription.reps.min,8);assert.equal(new Date(recorded.scheduled_date).toISOString().slice(0,10),today);assert.equal((await logs()).length,cycleBefore+1);assert.deepEqual(errors,[]);console.log('PASS',name,': v2 browser to PostgreSQL, clinician approval, dated cycle, actual dose, preserved snapshot and individual completion');
   await context.close();await db.close();
  }
 }finally{await browser.close();}

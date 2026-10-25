@@ -5,7 +5,7 @@ import Module from 'node:module';
 import ts from 'typescript';
 function compile(file, dependencies={}) { const m=new Module(file);m.require=name=>dependencies[name];m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);return m.exports; }
 const engine=compile('lib/clinical-engine.ts');
-const {mapClinicalInputs:map,evaluateAutomaticReview:run}=compile('lib/automatic-clinical-review.ts',{'./clinical-engine':engine});
+const {mapClinicalInputs:map,evaluateAutomaticReview:run}=compile('lib/automatic-clinical-review.ts',{'./clinical-engine':engine,'./prescription':compile('lib/prescription.ts')});
 const now='2026-09-30T12:00:00Z', date='2026-09-30T10:00:00Z';
 const workspace=()=>({patient:{id:'p'},episode:{id:'e'},program:{id:'h'},programExercises:[],checkins:[],adherenceLogs:[],goals:[],progressMetrics:[],barriers:[],decision:null,visitNote:null});
 const log=(patch={})=>({id:'l',patient_id:'p',home_program_id:'h',home_program_exercise_id:'x',performed_at:date,completion_status:'completed',...patch});
@@ -63,4 +63,12 @@ test('individual Done is reported activity, never a prescribed adherence percent
  const m=map(w,{},now);assert.equal(m.inputs.adherence,undefined);assert.equal(m.provenance.adherence.state,'UNKNOWN');assert.equal(m.context.completionRate,null);assert.match(m.provenance.adherence.source,/unknown performance/);assert.equal(m.context.logs[0].actual_dose.reps.value,4);
  w.adherenceLogs.push(log({id:'not-done',home_program_exercise_id:'y',completion_status:'skipped',activity_source:'explicit_nonperformance'}));
  const explicit=map(w,{},now);assert.equal(explicit.context.counts.skipped,1);assert.equal(explicit.inputs.adherence,undefined);
+});
+
+test('cycle evidence compares actual 10/8/8 with preserved approved bounds and keeps unknown Done unknown',()=>{
+ const w=workspace();
+ w.program.progression_plan={cycle:{version:2}};
+ const now='2026-10-25T12:00:00Z';
+ w.adherenceLogs=[{id:'cycle1',patient_id:w.patient.id,home_program_id:w.program.id,home_program_exercise_id:'a',performed_at:'2026-10-25T10:00:00Z',activity_source:'individual_confirmation',completion_status:'completed',progression_revision_id:'rev',day_template_id:'high',prescription_snapshot:{prescription:{sets:{value:3,unit:'sets'},reps:{value:null,mode:'range',min:8,max:12,unit:'reps'}}},actual_reps_by_set:[10,8,8]},{id:'cycle2',patient_id:w.patient.id,home_program_id:w.program.id,performed_at:'2026-10-25T11:00:00Z',activity_source:'individual_confirmation',completion_status:'completed',progression_revision_id:'rev',day_template_id:'low',prescription_snapshot:{prescription:{sets:{value:3,unit:'sets'}}}}];
+ const mapped=map(w,{},now);assert.equal(mapped.context.cycleEvidence[0].comparison,'within');assert.equal(mapped.context.cycleEvidence[1].comparison,'unknown');assert.equal(mapped.inputs.adherence,undefined);assert.equal(mapped.context.cycleEvidence[1].actualDose,null);assert(run(mapped).flags.some(f=>f.includes('new clinician approval')));
 });

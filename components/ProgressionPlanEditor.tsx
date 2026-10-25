@@ -1,4 +1,5 @@
 'use client';
+import { CycleBuilder } from './CycleBuilder';
 import { useState } from 'react';
 import type { HomeProgram, HomeProgramExercise, ExerciseAdherenceLog, Json } from '@/lib/types';
 import { newProgressionPlan, validateProgressionPlan, progressionInsights, weekStart, type ProgressionPlan, type DayTemplate } from '@/lib/progression';
@@ -25,7 +26,8 @@ export function ProgressionPlanEditor({program,items,logs=[],disabled=false,onSa
    setReviewed(false);setStatus(message);
   }catch(e){setStatus(e instanceof Error?e.message:typeof e==='object'&&e&&'message' in e?String(e.message):'Could not save plan.');}finally{setSaving(false);}
  }
- return <details className="panel"><summary>Progression Plan (optional){program.progression_plan?' · Active':''}</summary>
+ if(program.progression_plan?.cycle||(!program.progression_plan&&!onPreviewSave))return <CycleBuilder program={program} items={items} disabled={disabled} onSaved={onSaved} onPreviewSave={onPreviewSave}/>;
+ return <><CycleBuilder program={program} items={items} disabled={disabled} onSaved={onSaved} onPreviewSave={onPreviewSave}/><details className="panel"><summary>Progression Plan (optional){program.progression_plan?' · Active':''}</summary>
   <p className="muted">Keep the simple exercise program, or reuse day templates across weeks. Only the week you explicitly approve becomes available. No automatic progression rules.</p>
   <fieldset disabled={disabled||saving} style={{border:0,padding:0,minWidth:0}}>
    {program.guided_order?<p>Full guided order is enabled: every day must include all exercises in the assigned order. Use day prerequisites for clinically required preparation in smaller templates.</p>:null}
@@ -63,5 +65,5 @@ export function ProgressionPlanEditor({program,items,logs=[],disabled=false,onSa
    {!onPreviewSave?<details><summary onClick={()=>{void createSupabaseBrowserClient().from('program_progression_revisions').select('*').eq('home_program_id',program.id).order('created_at',{ascending:false}).limit(30).then(r=>{if(r.error)setStatus(r.error.message);else setHistory(r.data??[]);});}}>Saved plans and approval history</summary>{history.map(r=><p key={r.id}>{r.approved?'Approved':'Draft'} · {new Date(r.created_at).toLocaleString()} {r.document?<button type="button" className="secondary-button" onClick={()=>{edit(structuredClone(r.document!));setWeek(0);setDayIndex(0);}}>Load for review</button>:'Simple program'}</p>)}</details>:null}
   </fieldset><p role="status">{status}</p>
   {progressionInsights(logs).map(i=><p key={i.assignmentId}>{items.find(x=>x.id===i.assignmentId)?.exercise?.name}: {i.message} ({i.count} records)</p>)}
- </details>;
+ </details></>;
 }

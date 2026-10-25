@@ -26,5 +26,6 @@ await db.exec("create unique index if not exists session_exercise_test on public
 await db.exec(fs.readFileSync('supabase/migrations/20261020202607_patient_directed_sessions.sql','utf8'));
 
 await db.exec(fs.readFileSync('supabase/migrations/20261024211010_progression_prescription_ranges.sql','utf8'));
+for(const name of fs.readdirSync('supabase/migrations').filter(n=>n.endsWith('_periodization_cycle_builder.sql')))await db.exec(fs.readFileSync('supabase/migrations/'+name,'utf8'));
 return {db,id};
 }
