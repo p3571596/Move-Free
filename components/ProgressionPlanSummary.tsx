@@ -1,3 +1,4 @@
+import { CycleScheduleSummary } from './CycleScheduleSummary';
 import { formatExercisePrescription, formatPrescription } from '@/lib/prescription';
 import { progressionInsights, templateExercises, weekStart } from '@/lib/progression';
 import type { PatientWorkspace } from '@/lib/types';
@@ -6,6 +7,7 @@ import type { PatientWorkspace } from '@/lib/types';
 export function ProgressionPlanSummary({workspace,compact=false,review=false}:{workspace:PatientWorkspace;compact?:boolean;review?:boolean}){
  const plan=workspace.program?.progression_plan;
  if(!plan)return null;
+ if(plan.cycle)return <><CycleScheduleSummary plan={plan} items={workspace.programExercises}/>{review?<p>Cycle recommendations require clinician review. Missing activity, symptoms, fatigue and outcomes remain unknown. {progressionInsights(workspace.adherenceLogs).map(i=>i.message).join(' ')}</p>:null}</>;
  const week=plan.weeks[plan.activeWeek],phase=plan.phases.find(p=>p.id===week.phaseId);
  const records=workspace.adherenceLogs.filter(l=>l.activity_source==='individual_confirmation'&&l.progression_revision_id===workspace.program?.progression_revision_id);
  return <section className="panel form"><h3>Approved progression plan</h3>

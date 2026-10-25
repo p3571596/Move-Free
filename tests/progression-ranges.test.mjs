@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import Module from 'node:module';import ts from 'typescript';
 const load=(file,deps={})=>{const m=new Module(file);m.require=k=>deps[k];m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,file);return m.exports;};
-const p=load('lib/prescription.ts'),g=load('lib/progression.ts',{'./prescription':p});
+const p=load('lib/prescription.ts'),c=load('lib/cycle.ts',{'./prescription':p}),g=load('lib/progression.ts',{'./prescription':p,'./cycle':c});
 const range=(min,max,unit,target)=>({value:null,mode:'range',min,max,unit,...target===undefined?{}:{target}});
 const rx={sets:{value:3,unit:'sets'},reps:range(8,12,'reps'),frequency:range(2,4,'days/week')};
 test('mixed exact/range doses validate universally and format compactly',()=>{p.validatePrescription(rx);assert.equal(p.formatPrescription(rx),'3 sets × 8–12 reps, 2–4 days/week');for(const key of p.parameterKeys){const spec=p.parameterSpecs[key];p.validatePrescription({[key]:range(1,2,spec.units[0],1)});}});

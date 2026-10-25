@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ExerciseVideo } from "@/components/ExerciseVideo";
 import { AssignedExerciseVideo } from "@/components/AssignedExerciseVideo";
 import { formatExercisePrescription, parameterSpecs, type ParameterKey, type Prescription, validatePrescription } from "@/lib/prescription";
+import { CycleScheduleSummary } from './CycleScheduleSummary';
+import { cycleOccurrences, cycleActivityMessage } from '@/lib/cycle';
 import { templateExercises, weekStart, scheduleMessage, suggestedTemplateDate } from "@/lib/progression";
 import { sessionExercises, prerequisiteMessage, includeRequiredExercises, type ExerciseSession } from "@/lib/exercise-session";
 import { PatientShell } from "@/components/PatientShell";
@@ -66,14 +68,15 @@ export function PatientProgramFlow({previewWorkspace, onPreviewSave}: {previewWo
  const today=new Date().toLocaleDateString('en-CA');
  const activeWeek=plan?.weeks[plan.activeWeek];
  const availableDays=plan?.templates.filter(t=>activeWeek?.templateIds.includes(t.id))??[];
- const currentTemplateId=session?.day_template_id??(templateId||availableDays.find(t=>!t.weekdays.length||t.weekdays.includes(new Date().getDay()))?.id||availableDays[0]?.id);
+ const cycleToday=plan?.cycle?cycleOccurrences(plan).find(o=>o.date===(suggestedDate||today)):undefined;
+ const currentTemplateId=session?.day_template_id??(templateId||cycleToday?.profileId||availableDays.find(t=>!t.weekdays.length||t.weekdays.includes(new Date().getDay()))?.id||availableDays[0]?.id);
  const day=availableDays.find(t=>t.id===currentTemplateId);
- const scheduledDate=session?.scheduled_date??(suggestedDate||(plan?suggestedTemplateDate(plan,day,today):today));
+ const scheduledDate=session?.scheduled_date??(suggestedDate||(plan?.cycle?(today<plan.startDate?plan.startDate:today>plan.cycle.endDate?plan.cycle.endDate:today):plan?suggestedTemplateDate(plan,day,today):today));
  const baseItems=workspace?.programExercises??[];
- const visibleItems=plan&&currentTemplateId?templateExercises(plan,currentTemplateId,baseItems):baseItems;
+ const visibleItems=plan&&currentTemplateId?templateExercises(plan,currentTemplateId,baseItems,plan.activeWeek,scheduledDate):baseItems;
  const items=sessionExercises(visibleItems,visibleItems.map(x=>x.id));
  const lastDayActivity=workspace?.adherenceLogs.filter(l=>l.day_template_id===currentTemplateId&&l.activity_source==='individual_confirmation'&&l.session_id!==session?.id).sort((a,b)=>Date.parse(b.performed_at??'')-Date.parse(a.performed_at??''))[0];
- const restriction=day?scheduleMessage(day,scheduledDate,today,lastDayActivity?.performed_at??undefined):'';
+ const restriction=plan?.cycle&&currentTemplateId?cycleActivityMessage(plan,currentTemplateId,scheduledDate,today,workspace?.adherenceLogs??[],session?.id)||(day?scheduleMessage({...day,scheduledOnly:plan.cycle.mode==='fixed'},scheduledDate,today,lastDayActivity?.performed_at??undefined):''):day?scheduleMessage(day,scheduledDate,today,lastDayActivity?.performed_at??undefined):'';
  const groups=groupExercises(items);
  const chosen=session?sessionExercises(items,session.selected_ids):[];
  const item=chosen.find(x=>x.id===current);
@@ -150,14 +153,15 @@ export function PatientProgramFlow({previewWorkspace, onPreviewSave}: {previewWo
   {message?<p className="success-banner" role="status">{message}</p>:null}
   {workspace&&!workspace.patient?<PatientLinkEmptyState/>:null}
   {workspace?.patient&&!workspace.program?<div className="empty">Your clinician is preparing your program.</div>:null}
-  {workspace?.program&&!items.length?<div className="empty">No exercises assigned yet.</div>:null}
-  {plan&&!session?<section className="panel form"><h2>{activeWeek?.name}{activeWeek?.recovery?' · Recovery week':''}</h2><p>{activeWeek?.notes}</p>
+  {workspace?.program&&!items.length&&!day?.fullRest?<div className="empty">No exercises assigned yet.</div>:null}
+  {plan&&!session?<section className="panel form"><h2>{plan.cycle?'Suggested for Today':activeWeek?.name}{activeWeek?.recovery?' · Recovery week':''}</h2><p>{activeWeek?.notes}</p>
    {plan.phases.find(p=>p.id===activeWeek?.phaseId)?<p>{plan.phases.find(p=>p.id===activeWeek?.phaseId)?.name} · {plan.phases.find(p=>p.id===activeWeek?.phaseId)?.focus}</p>:null}
-   <label>Suggested activity date<input type="date" min={weekStart(plan)} max={new Date(Date.parse(weekStart(plan,plan.activeWeek+1))-86400000).toISOString().slice(0,10)} value={scheduledDate} onChange={e=>{setSuggestedDate(e.target.value);startIntent.current=null;}}/></label>
+   <label>Suggested activity date<input type="date" min={plan.cycle?plan.startDate:weekStart(plan)} max={plan.cycle?plan.cycle.endDate:new Date(Date.parse(weekStart(plan,plan.activeWeek+1))-86400000).toISOString().slice(0,10)} value={scheduledDate} onChange={e=>{setSuggestedDate(e.target.value);setTemplateId('');setSelected([]);setSections([]);startIntent.current=null;}}/></label>
    <p>Activity you record now is dated {today}. Choosing another suggested date does not move your schedule.</p>
-   {['Suggested today','Other clinician-approved exercises available'].map((heading,index)=><div key={heading}><h3>{heading}</h3>{availableDays.filter(t=>(!t.weekdays.length||t.weekdays.includes(new Date().getDay()))===(index===0)).map(t=><button type="button" className="secondary-button" aria-pressed={currentTemplateId===t.id} key={t.id} onClick={()=>{setTemplateId(t.id);setSuggestedDate('');setSelected([]);setSections([]);startIntent.current=null;}}>{t.name}{t.weeklyTarget?` · ${formatExercisePrescription({id:'target',prescription:{frequency:t.weeklyTarget}})}`:''}</button>)}</div>)}
-   <p>{day?.name}: {day?.notes}</p>{restriction?<p role="status">{restriction}</p>:null}
+   {['Suggested today','Other clinician-approved exercises available'].map((heading,index)=><div key={heading}><h3>{heading}</h3>{availableDays.filter(t=>(plan.cycle?t.id===cycleToday?.profileId:(!t.weekdays.length||t.weekdays.includes(new Date().getDay())))===(index===0)).map(t=><button type="button" className="secondary-button" aria-pressed={currentTemplateId===t.id} key={t.id} onClick={()=>{setTemplateId(t.id);setSuggestedDate('');setSelected([]);setSections([]);startIntent.current=null;}}>{t.name}{t.weeklyTarget?` · ${formatExercisePrescription({id:'target',prescription:{frequency:t.weeklyTarget}})}`:''}</button>)}</div>)}
+   <p>{day?.name}: {day?.notes}</p>{day?.fullRest?<p>Full rest. No mandatory exercise today.</p>:null}{restriction?<p role="status">{restriction}</p>:null}
   </section>:null}
+  {plan?.cycle&&!session?<CycleScheduleSummary plan={plan} items={baseItems}/>:null}
   {items.length&&!session?<section className="panel form">
    <h2>Where would you like to start?</h2>
    {resumable.map(s=><button className="secondary-button" type="button" key={s.id} disabled={saving} onClick={()=>void resume(s)}>Resume session{ s.created_at ? ` · ${new Date(s.created_at).toLocaleString()}`:''}</button>)}
