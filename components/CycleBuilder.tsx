@@ -260,6 +260,12 @@ export function CycleBuilder({
         Choose what varies, configure profiles once, then review the dated
         schedule.
       </p>
+      {program.progression_plan && !program.progression_plan.cycle ? (
+        <p>
+          Your current phase/week plan stays active. Approving a new cycle
+          replaces it and retains its approval history.
+        </p>
+      ) : null}
       <fieldset
         disabled={disabled || busy}
         style={{ border: 0, padding: 0, minWidth: 0 }}
@@ -637,6 +643,7 @@ export function CycleBuilder({
             <label>
               Scheduling mode
               <select
+                aria-label="Scheduling mode"
                 value={cycle.mode}
                 onChange={(e) =>
                   patchCycle({ mode: e.target.value as "fixed" | "flexible" })
@@ -760,6 +767,7 @@ export function CycleBuilder({
             <label>
               Change session to
               <select
+                aria-label="Change session to"
                 value={replacement}
                 onChange={(e) => setReplacement(e.target.value)}
               >
@@ -773,6 +781,7 @@ export function CycleBuilder({
             <label>
               Change scope
               <select
+                aria-label="Change scope"
                 value={scope}
                 onChange={(e) => setScope(e.target.value as typeof scope)}
               >
@@ -850,7 +859,8 @@ export function CycleBuilder({
                   <label>
                     Adjustment profile
                     <select
-                      value={a.profileId}
+                      aria-label="Adjustment profile"
+                value={a.profileId}
                       onChange={(e) =>
                         patchCycle({
                           adjustments: cycle.adjustments.map((r) =>
@@ -877,7 +887,8 @@ export function CycleBuilder({
                   <label>
                     Adjustment exercise
                     <select
-                      value={a.assignmentId}
+                      aria-label="Adjustment exercise"
+                value={a.assignmentId}
                       onChange={(e) =>
                         patchCycle({
                           adjustments: cycle.adjustments.map((r) =>
